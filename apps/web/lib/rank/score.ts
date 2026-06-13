@@ -201,5 +201,10 @@ export function rank(models: ModelWithPricing[], presetKey: string, opts: RankOp
       score: item.score,
       reason: rankReason(item.score, item.model, presetKey),
     })),
+    // 向后兼容：旧代码调用 .slice(0,N) / .map() / .length 直接作用于 rank() 返回
+    slice: (start?: number, end?: number) => deduped.slice(start, end).map((item) => ({ model: item.model, score: item.score })),
+    map: (fn: any) => deduped.map((item) => ({ model: item.model, score: item.score })).map(fn),
+    get length() { return deduped.length; },
+    [Symbol.iterator]: () => deduped.map((item) => ({ model: item.model, score: item.score }))[Symbol.iterator](),
   };
 }
