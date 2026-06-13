@@ -42,14 +42,14 @@ export default async function HomePage() {
     listProviders(),
   ]);
 
-  const ranked = rank(models, "overall").slice(0, 8).map((r, i) => ({
-    rank: i + 1,
-    model_name: r.model.model_name,
-    model_slug: r.model.model_slug,
-    provider_name_zh: r.model.provider_name_zh,
-    provider_slug: r.model.provider_slug,
-    input_per_1m_usd: r.model.input_per_1m_usd,
-    output_per_1m_usd: r.model.output_per_1m_usd,
+  const ranked = (rank(models, "frontier-value", { limit: 8, diversityMode: true })).items.map((r) => ({
+    rank: r.rank,
+    model_name: r.model_name,
+    model_slug: r.model_slug,
+    provider_name_zh: r.provider_name,
+    provider_slug: r.provider,
+    input_per_1m_usd: r.input_per_1m_usd,
+    output_per_1m_usd: r.output_per_1m_usd,
     context_length: r.model.context_length,
     score: r.score.total,
   }));
