@@ -45,8 +45,12 @@ export interface NormalizedPricing {
   // 币种与区域
   currency_native?: string;
   price_native?: number;
-  region?: "cn" | "global";
-  channel?: "official" | "aggregator" | "reseller";
+  region?: "global" | "overseas" | "china_mainland" | "hongkong" | "singapore" | "us" | "eu" | "unknown";
+  channel?: "official_api" | "cloud_platform" | "aggregator" | "subscription_plan" | "enterprise" | "promotion" | "reseller";
+  platform?: string; // openrouter | siliconflow | aliyun-bailian | volcengine-ark | etc.
+  is_official?: boolean;
+  is_aggregator?: boolean;
+  is_domestic?: boolean;
   // 时效
   effective_start_at?: string;
   effective_end_at?: string;

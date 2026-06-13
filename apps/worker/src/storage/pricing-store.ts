@@ -31,7 +31,9 @@ export async function upsertPricing(input: UpsertPricingInput): Promise<UpsertPr
       and(
         eq(pricing.model_id, input.model_id),
         eq(pricing.pricing_type, input.pricing.pricing_type ?? "api_token"),
-        eq(pricing.channel, input.pricing.channel ?? "official"),
+        eq(pricing.channel, input.pricing.channel ?? "official_api"),
+        eq(pricing.region, input.pricing.region ?? "global"),
+        eq(pricing.primary_source_id, input.pricing.source_id ?? input.pricing.source_url),
       ),
     )
     .limit(1);
@@ -51,7 +53,11 @@ export async function upsertPricing(input: UpsertPricingInput): Promise<UpsertPr
     currency_native: input.pricing.currency_native ?? "USD",
     price_native: toNumOrNull(input.pricing.price_native),
     region: input.pricing.region ?? "global",
-    channel: input.pricing.channel ?? "official",
+    channel: input.pricing.channel ?? "official_api",
+    platform: input.pricing.platform ?? null,
+    is_official: input.pricing.is_official ?? (input.pricing.channel === "official_api"),
+    is_aggregator: input.pricing.is_aggregator ?? (input.pricing.channel === "aggregator"),
+    is_domestic: input.pricing.is_domestic ?? (input.pricing.region === "china_mainland"),
     effective_start_at: input.pricing.effective_start_at ? new Date(input.pricing.effective_start_at) : null,
     effective_end_at: input.pricing.effective_end_at ? new Date(input.pricing.effective_end_at) : null,
     is_current: true,

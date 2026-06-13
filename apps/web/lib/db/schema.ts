@@ -126,8 +126,14 @@ export const pricing = pgTable(
     // 币种与区域
     currency_native: text("currency_native").notNull().default("USD"),
     price_native: numeric("price_native", { precision: 18, scale: 8 }),
-    region: text("region").notNull().default("global"), // cn | global
-    channel: text("channel").notNull().default("official"), // official | aggregator | reseller
+    region: text("region").notNull().default("global"), // global | overseas | china_mainland
+    channel: text("channel").notNull().default("official"), // official_api | cloud_platform | aggregator | reseller
+    platform: text("platform"), // openrouter | siliconflow | aliyun-bailian | volcengine-ark | etc.
+
+    // 标签
+    is_official: boolean("is_official").notNull().default(true),
+    is_aggregator: boolean("is_aggregator").notNull().default(false),
+    is_domestic: boolean("is_domestic").notNull().default(false),
 
     // 时效
     effective_start_at: timestamp("effective_start_at", { withTimezone: true }),
@@ -146,7 +152,7 @@ export const pricing = pgTable(
     updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => ({
-    modelTypeChan: uniqueIndex("pricing_model_type_chan_uq").on(t.model_id, t.pricing_type, t.channel),
+    modelTypeChan: uniqueIndex("pricing_model_type_chan_uq").on(t.model_id, t.pricing_type, t.channel, t.region, t.primary_source_id),
     confidenceIdx: index("pricing_confidence_idx").on(t.confidence_score),
     reviewIdx: index("pricing_review_idx").on(t.need_manual_review),
     currentIdx: index("pricing_current_idx").on(t.is_current),

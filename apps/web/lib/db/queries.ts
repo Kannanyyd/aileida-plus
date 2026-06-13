@@ -110,6 +110,63 @@ export async function getModelBySlug(slug: string): Promise<ModelWithPricing | n
   };
 }
 
+/** 获取模型所有渠道的价格 */
+export interface PricingRow {
+  id: string;
+  pricing_type: string;
+  input_per_1m_usd: number | null;
+  output_per_1m_usd: number | null;
+  input_cached_read_per_1m_usd: number | null;
+  currency_native: string;
+  region: string;
+  channel: string;
+  platform: string | null;
+  is_official: boolean;
+  is_aggregator: boolean;
+  is_domestic: boolean;
+  confidence_score: number;
+  source_url: string;
+  primary_source_id: string;
+  updated_at: Date;
+}
+
+export async function getModelPricingList(modelId: string): Promise<PricingRow[]> {
+  const rows = await db
+    .select({
+      id: pricing.id,
+      pricing_type: pricing.pricing_type,
+      input_per_1m_usd: pricing.input_per_1m_usd,
+      output_per_1m_usd: pricing.output_per_1m_usd,
+      input_cached_read_per_1m_usd: pricing.input_cached_read_per_1m_usd,
+      currency_native: pricing.currency_native,
+      region: pricing.region,
+      channel: pricing.channel,
+      platform: pricing.platform,
+      is_official: pricing.is_official,
+      is_aggregator: pricing.is_aggregator,
+      is_domestic: pricing.is_domestic,
+      confidence_score: pricing.confidence_score,
+      source_url: pricing.source_url,
+      primary_source_id: pricing.primary_source_id,
+      updated_at: pricing.updated_at,
+    })
+    .from(pricing)
+    .where(
+      and(
+        eq(pricing.model_id, modelId),
+        eq(pricing.is_current, true),
+      ),
+    )
+    .orderBy(pricing.is_official, pricing.input_per_1m_usd);
+  return rows.map((r) => ({
+    ...r,
+    input_per_1m_usd: r.input_per_1m_usd != null ? Number(r.input_per_1m_usd) : null,
+    output_per_1m_usd: r.output_per_1m_usd != null ? Number(r.output_per_1m_usd) : null,
+    input_cached_read_per_1m_usd: r.input_cached_read_per_1m_usd != null ? Number(r.input_cached_read_per_1m_usd) : null,
+    confidence_score: Number(r.confidence_score),
+  }));
+}
+
 export async function listProviders() {
   const rows = await db
     .select({

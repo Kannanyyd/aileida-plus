@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getModelBySlug, listModels } from "@/lib/db/queries";
+import { getModelBySlug, listModels, getModelPricingList } from "@/lib/db/queries";
 import { db } from "@/lib/db/client";
 import { modelStrengths } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
@@ -54,6 +54,11 @@ export default async function ModelDetailPage({
   const conf = m.confidence_score;
   const variant = m.need_manual_review ? "review" : conf >= 0.85 ? "official" : conf >= 0.7 ? "multi-source" : "third-party";
 
+  // 多渠道价格
+  const pricingList = await getModelPricingList(m.model_id);
+  const domesticMin = pricingList.filter((p) => p.is_domestic).sort((a, b) => (a.input_per_1m_usd ?? 999) - (b.input_per_1m_usd ?? 999))[0];
+  const globalMin = pricingList.filter((p) => !p.is_domestic).sort((a, b) => (a.input_per_1m_usd ?? 999) - (b.input_per_1m_usd ?? 999))[0];
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -89,66 +94,76 @@ export default async function ModelDetailPage({
         <ModelStrengthsSection strengths={strengths} modelName={m.model_name} />
       )}
 
-      {/* 价格表 + 能力雷达 */}
-      <div className="grid lg:grid-cols-2 gap-6">
-        <div className="glass p-5">
-          <h2 className="text-sm font-semibold text-white mb-4">价格表</h2>
-          <table className="w-full text-sm">
-            <tbody>
-              <tr className="border-b border-white/5">
-                <td className="py-2 text-slate-400">输入 / 1M tokens</td>
-                <td className="py-2 text-right font-mono text-white">{formatUsd(m.input_per_1m_usd)}</td>
-                <td className="py-2 text-right font-mono text-slate-500">{formatCny(m.input_per_1m_usd)}</td>
-              </tr>
-              <tr className="border-b border-white/5">
-                <td className="py-2 text-slate-400">输出 / 1M tokens</td>
-                <td className="py-2 text-right font-mono text-white">{formatUsd(m.output_per_1m_usd)}</td>
-                <td className="py-2 text-right font-mono text-slate-500">{formatCny(m.output_per_1m_usd)}</td>
-              </tr>
-              {m.input_cached_read_per_1m_usd != null && (
-                <tr className="border-b border-white/5">
-                  <td className="py-2 text-slate-400">缓存读取 / 1M</td>
-                  <td className="py-2 text-right font-mono text-white">{formatUsd(m.input_cached_read_per_1m_usd)}</td>
-                  <td className="py-2 text-right font-mono text-slate-500">{formatCny(m.input_cached_read_per_1m_usd)}</td>
+      {/* 多渠道价格 */}
+      <div className="glass p-5">
+        <h2 className="text-sm font-semibold text-white mb-3">
+          多渠道价格对比
+          <span className="text-[11px] text-slate-500 ml-2 font-normal">{pricingList.length} 条价格</span>
+        </h2>
+        {pricingList.length === 0 ? (
+          <p className="text-sm text-slate-500">暂未收录价格数据</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="text-slate-500 border-b border-white/5">
+                  <th className="text-left py-2 font-normal">渠道/平台</th>
+                  <th className="text-left py-2 font-normal">区域</th>
+                  <th className="text-right py-2 font-normal">输入/1M</th>
+                  <th className="text-right py-2 font-normal">输出/1M</th>
+                  <th className="text-center py-2 font-normal">类型</th>
+                  <th className="text-right py-2 font-normal">币种</th>
                 </tr>
-              )}
-              {m.batch_discount && (
-                <tr className="border-b border-white/5">
-                  <td className="py-2 text-slate-400">批量折扣</td>
-                  <td colSpan={2} className="py-2 text-right font-mono text-success">×{m.batch_discount}</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-          <div className="mt-3 grid grid-cols-3 gap-2 text-[10px]">
-            <div className="bg-white/3 rounded-lg p-2 text-center">
-              <p className="text-slate-500">低频调用（测试）</p>
-              <p className="font-mono text-success">≈¥{(((m.input_per_1m_usd ?? 0) * 0.1 + (m.output_per_1m_usd ?? 0) * 0.05) * 7.18).toFixed(2)}/月</p>
+              </thead>
+              <tbody>
+                {pricingList.map((p) => (
+                  <tr key={p.id} className="border-b border-white/5 hover:bg-white/5">
+                    <td className="py-2 text-white">
+                      <span className="font-medium">{p.platform || p.primary_source_id}</span>
+                    </td>
+                    <td className="py-2">
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded ${p.is_domestic ? 'bg-cyan/10 text-cyan' : 'bg-primary/10 text-primary'}`}>
+                        {p.region === 'china_mainland' ? '国内' : p.region === 'overseas' ? '海外' : '全球'}
+                      </span>
+                    </td>
+                    <td className="py-2 text-right font-mono text-white">
+                      {p.input_per_1m_usd != null ? `$${p.input_per_1m_usd.toFixed(4)}` : '—'}
+                    </td>
+                    <td className="py-2 text-right font-mono text-white">
+                      {p.output_per_1m_usd != null ? `$${p.output_per_1m_usd.toFixed(4)}` : '—'}
+                    </td>
+                    <td className="py-2 text-center">
+                      {p.is_official ? (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-success/10 text-success">官方</span>
+                      ) : p.is_aggregator ? (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-orange-500/10 text-orange-400">聚合</span>
+                      ) : (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-500/10 text-slate-400">第三方</span>
+                      )}
+                    </td>
+                    <td className="py-2 text-right text-slate-400">{p.currency_native}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {domesticMin && globalMin && (
+          <div className="mt-3 grid grid-cols-2 gap-2 text-[10px]">
+            <div className="bg-cyan/5 border border-cyan/20 rounded-lg p-2">
+              <p className="text-slate-500">国内最低价</p>
+              <p className="font-mono text-cyan text-sm">
+                {domesticMin.platform} ${domesticMin.input_per_1m_usd?.toFixed(4)}
+              </p>
             </div>
-            <div className="bg-white/3 rounded-lg p-2 text-center">
-              <p className="text-slate-500">中频调用（日常）</p>
-              <p className="font-mono text-success">≈¥{(((m.input_per_1m_usd ?? 0) * 1 + (m.output_per_1m_usd ?? 0) * 0.5) * 7.18).toFixed(0)}/月</p>
-            </div>
-            <div className="bg-white/3 rounded-lg p-2 text-center">
-              <p className="text-slate-500">高频调用（产品）</p>
-              <p className="font-mono text-success">≈¥{(((m.input_per_1m_usd ?? 0) * 10 + (m.output_per_1m_usd ?? 0) * 5) * 7.18).toFixed(0)}/月</p>
+            <div className="bg-primary/5 border border-primary/20 rounded-lg p-2">
+              <p className="text-slate-500">海外/全球最低价</p>
+              <p className="font-mono text-primary text-sm">
+                {globalMin.platform} ${globalMin.input_per_1m_usd?.toFixed(4)}
+              </p>
             </div>
           </div>
-        </div>
-
-        <div className="glass p-5">
-          <h2 className="text-sm font-semibold text-white mb-4">能力雷达</h2>
-          <CapabilityRadar
-            values={{
-              context: Math.min(100, ((m.context_length ?? 0) / 10000)),
-              speed: 60,
-              chinese: 80,
-              code: caps.includes("function-call") ? 80 : 50,
-              vision: caps.includes("vision") ? 100 : 20,
-              stability: 70,
-            }}
-          />
-        </div>
+        )}
       </div>
 
       {/* 历史价格 */}
