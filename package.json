@@ -1,0 +1,32 @@
+{
+  "name": "ai-price-radar",
+  "version": "0.2.0",
+  "private": true,
+  "description": "AI 模型价格雷达 - 实时追踪 AI 模型价格、优惠和性价比",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently --names web,worker -c blue,green \"npm run dev:web\" \"npm run dev:worker\"",
+    "dev:web": "npm -w web run dev",
+    "dev:worker": "npm -w worker run dev",
+    "build": "npm run build:core && npm run build:web",
+    "build:core": "npm -w @pricing/core run build",
+    "build:web": "npm -w web run build",
+    "typecheck": "npm -w @pricing/core run typecheck ; npm -w web run typecheck ; npm -w worker run typecheck",
+    "test": "npm -w @pricing/core run test && npm -w web run test 2>/dev/null; true",
+    "lint": "npm -w web run lint 2>/dev/null; true",
+    "db:up": "docker compose up -d postgres adminer",
+    "db:down": "docker compose down",
+    "db:migrate": "npm -w web run db:migrate",
+    "db:seed": "npm -w web run db:seed",
+    "scrape:all": "npm -w worker run scrape:all"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

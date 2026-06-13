@@ -1,0 +1,71 @@
+# ============================================================
+# AI 模型价格雷达 — 生产环境 docker-compose
+# ============================================================
+
+version: "3.8"
+
+services:
+  # PostgreSQL 数据库
+  postgres:
+    image: postgres:16-alpine
+    container_name: aileida-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: aileida
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-change-me-in-production}
+      POSTGRES_DB: aileida_radar
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aileida -d aileida_radar"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - aileida-net
+
+  # Web 应用 (Next.js)
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: aileida-web
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgresql://aileida:${DB_PASSWORD:-change-me-in-production}@postgres:5432/aileida_radar
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - APP_BASE_URL=${APP_BASE_URL:-https://aileida.example.com}
+      - NODE_ENV=production
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    networks:
+      - aileida-net
+
+  # Worker 抓取服务
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    container_name: aileida-worker
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgresql://aileida:${DB_PASSWORD:-change-me-in-production}@postgres:5432/aileida_radar
+      - LLM_API_KEY=${LLM_API_KEY:-}
+      - LLM_BASE_URL=${LLM_BASE_URL:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - aileida-net
+
+volumes:
+  pgdata:
+
+networks:
+  aileida-net:
+    driver: bridge

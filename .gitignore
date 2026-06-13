@@ -1,0 +1,75 @@
+# Dependencies
+node_modules
+.pnpm-store
+
+# Build output
+.next
+dist
+build
+.turbo
+out
+
+# Environment (sensitive)
+.env
+.env.local
+.env.production
+.env.*.local
+
+# Private keys & credentials
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.p8
+credentials.json
+service-account.json
+
+# API keys & secrets
+*.secret
+secrets/
+API_KEY*
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Database
+.pgdata
+*.dump
+*.sql.gz
+database/
+
+# Playwright
+playwright-report
+test-results
+
+# Coverage
+coverage
+.nyc_output
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+
+# OS files
+Thumbs.db
+Desktop.ini
+
+# Temporary
+tmp/
+temp/
+*.tmp
+
+# Admin password
+ADMIN_PASSWORD
+admin_password*
+
+# Misc
+.cache
+.vercel

@@ -1,0 +1,35 @@
+# ============================================================
+# AI 模型价格雷达 — Worker Dockerfile (npm workspaces)
+# ============================================================
+FROM node:22-alpine AS builder
+
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+COPY packages/pricing-core/package.json ./packages/pricing-core/
+COPY apps/worker/package.json ./apps/worker/
+
+RUN npm ci --production=false
+
+COPY packages/pricing-core ./packages/pricing-core
+COPY apps/worker ./apps/worker
+
+RUN npm run build:core && npm -w worker run build
+
+# ============================================================
+FROM node:22-alpine AS runner
+
+WORKDIR /app
+
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 nodejs
+
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/packages/pricing-core/package.json ./packages/pricing-core/package.json
+COPY --from=builder /app/packages/pricing-core/dist ./packages/pricing-core/dist
+COPY --from=builder /app/apps/worker/dist ./apps/worker/dist
+COPY --from=builder /app/apps/worker/package.json ./apps/worker/package.json
+
+USER nodejs
+ENV NODE_ENV=production
+CMD ["node", "apps/worker/dist/index.js"]

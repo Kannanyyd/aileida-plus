@@ -1,0 +1,72 @@
+# ============================================================
+# AI 模型价格雷达 — Nginx 反向代理配置示例
+# ============================================================
+# 将以下内容放入 /etc/nginx/sites-available/aileida
+# 然后 ln -s /etc/nginx/sites-available/aileida /etc/nginx/sites-enabled/
+# 最后 nginx -t && systemctl reload nginx
+
+server {
+    listen 80;
+    server_name aileida.example.com;
+
+    # 强制 HTTPS (certbot 获取证书后取消注释)
+    # return 301 https://$host$request_uri;
+
+    # Gzip 压缩
+    gzip on;
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml image/svg+xml;
+    gzip_min_length 1000;
+    gzip_comp_level 6;
+
+    # 安全头
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+
+    # 代理到 Next.js
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # 超时
+        proxy_read_timeout 120s;
+        proxy_connect_timeout 10s;
+        proxy_send_timeout 120s;
+
+        # 缓存静态资源
+        location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+            proxy_pass http://127.0.0.1:3000;
+            expires 30d;
+            add_header Cache-Control "public, immutable";
+        }
+    }
+
+    # 客户端最大上传
+    client_max_body_size 10m;
+}
+
+# ---- HTTPS 配置示例 (certbot 获取证书后使用) ----
+# server {
+#     listen 443 ssl http2;
+#     server_name aileida.example.com;
+#
+#     ssl_certificate     /etc/letsencrypt/live/aileida.example.com/fullchain.pem;
+#     ssl_certificate_key /etc/letsencrypt/live/aileida.example.com/privkey.pem;
+#     ssl_protocols TLSv1.2 TLSv1.3;
+#     ssl_ciphers HIGH:!aNULL:!MD5;
+#
+#     location / {
+#         proxy_pass http://127.0.0.1:3000;
+#         proxy_set_header Host $host;
+#         proxy_set_header X-Real-IP $remote_addr;
+#         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+#         proxy_set_header X-Forwarded-Proto https;
+#     }
+# }
