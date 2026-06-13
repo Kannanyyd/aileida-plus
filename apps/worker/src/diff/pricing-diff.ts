@@ -42,15 +42,24 @@ export function diffPricing(newP: NormalizedPricing, existing: ExistingPricing |
   }
   if (changes.length === 0) return { kind: "same", changes: [] };
 
-  // 冲突判定：新数据置信度 < 0.6 或与已有数据来源不同且差异 > 10%
+  // 冲突判定：
+  // 1) 新数据置信度 < 0.6
   const confScore = newP.confidence_score ?? 0.8;
   if (confScore < 0.6) {
     return { kind: "conflict", changes, reason: "low-confidence" };
   }
-  const maxPct = Math.max(...changes.map((c) => Math.abs(c.pct)));
-  if (maxPct > 10 && newP.source_id !== existing.primary_source_id) {
-    return { kind: "conflict", changes, reason: "multi-source-divergence" };
+
+  // 2) 多源差异：来源不同 → 始终冲突（不记录为 price_change_log）
+  if (newP.source_id && existing.primary_source_id && newP.source_id !== existing.primary_source_id) {
+    const maxPct = Math.max(...changes.map((c) => Math.abs(c.pct)));
+    if (maxPct > 5) {
+      return { kind: "conflict", changes, reason: "multi-source-divergence" };
+    }
+    // 来源不同但差异极小 (<5%)：忽略差异，不更新
+    return { kind: "same", changes: [] };
   }
+
+  // 3) 同源更新：记录为真实价格变化
   return { kind: "changed", changes };
 }
 

@@ -1,5 +1,6 @@
 # ============================================================
 # AI 模型价格雷达 — Worker Dockerfile (npm workspaces)
+# 国内 scraper 使用 HTTP fetch（无需 Playwright/Chromium）
 # ============================================================
 FROM node:22-alpine AS builder
 
