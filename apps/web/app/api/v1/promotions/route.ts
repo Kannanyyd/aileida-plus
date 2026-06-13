@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+export const dynamic = "force-dynamic";
 import { listActivePromotions } from "@/lib/db/queries";
 
 export const revalidate = 300;

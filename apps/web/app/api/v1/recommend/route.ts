@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+export const dynamic = "force-dynamic";
 import { listModels } from "@/lib/db/queries";
 import { db } from "@/lib/db/client";
 import { modelStrengths } from "@/lib/db/schema";

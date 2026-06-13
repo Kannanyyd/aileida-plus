@@ -1,43 +1,28 @@
 # ============================================================
-# AI 模型价格雷达 — Dockerfile (多阶段，npm workspaces)
+# AI 模型价格雷达 — Web Dockerfile
 # ============================================================
-FROM node:22-alpine AS builder
-
-WORKDIR /app
-
-# 复制 monorepo 配置
-COPY package.json package-lock.json ./
-COPY packages/pricing-core/package.json ./packages/pricing-core/
-COPY apps/web/package.json ./apps/web/
-
-# 安装依赖
-RUN npm ci --production=false
-
-# 复制源码
-COPY packages/pricing-core ./packages/pricing-core
-COPY apps/web ./apps/web
-
-# 构建
-RUN npm run build:core && npm run build:web
-
-# ============================================================
-FROM node:22-alpine AS runner
+FROM node:22-alpine
 
 WORKDIR /app
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
-RUN addgroup --system --gid 1001 nodejs && \
-    adduser --system --uid 1001 nextjs
+# Layer 1: install deps
+COPY package.json tsconfig.base.json ./
+COPY packages/pricing-core/package.json ./packages/pricing-core/
+COPY apps/web/package.json ./apps/web/
+COPY apps/worker/package.json ./apps/worker/
 
-# 复制 standalone 构建产物
-COPY --from=builder /app/apps/web/.next/standalone ./
-COPY --from=builder /app/apps/web/.next/static ./apps/web/.next/static
-COPY --from=builder /app/apps/web/public ./apps/web/public
+RUN npm install --include=dev
 
-USER nextjs
+# Layer 2: copy source + build
+COPY . .
+
+RUN npm run build:core && npm run build:web
+
+WORKDIR /app/apps/web
 EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
-CMD ["node", "apps/web/server.js"]
+CMD ["npx", "next", "start", "--port", "3000"]

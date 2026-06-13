@@ -33,19 +33,19 @@ export interface CostEstimate {
 export function applyTiered(
   tokens: number,
   unit: number,
-  rules?: Array<{ up_to: number; input_per_1m: number; output_per_1m: number }>,
+  rules?: Array<{ up_to?: number; input_per_1m?: number; output_per_1m?: number }> | null,
   kind: "input" | "output" = "input",
 ): number {
   if (!rules || rules.length === 0) return (tokens / 1_000_000) * unit;
-  const sorted = [...rules].sort((a, b) => a.up_to - b.up_to);
+  const sorted = [...rules].sort((a, b) => (a.up_to ?? 0) - (b.up_to ?? 0));
   let remaining = tokens;
   let consumed = 0;
   let total = 0;
   for (const rule of sorted) {
     if (remaining <= 0) break;
-    const cap = rule.up_to - consumed;
+    const cap = (rule.up_to ?? 0) - consumed;
     const take = Math.min(remaining, cap);
-    const price = kind === "input" ? rule.input_per_1m : rule.output_per_1m;
+    const price = kind === "input" ? (rule.input_per_1m ?? 0) : (rule.output_per_1m ?? 0);
     total += (take / 1_000_000) * price;
     remaining -= take;
     consumed += take;
@@ -53,7 +53,7 @@ export function applyTiered(
   // 超出最高档时，按最后一档价格
   if (remaining > 0) {
     const last = sorted[sorted.length - 1];
-    const price = kind === "input" ? last.input_per_1m : last.output_per_1m;
+    const price = kind === "input" ? (last.input_per_1m ?? 0) : (last.output_per_1m ?? 0);
     total += (remaining / 1_000_000) * price;
   }
   return total;

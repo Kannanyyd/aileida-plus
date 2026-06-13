@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { listModels } from "@/lib/db/queries";
 import { estimateCost, type Pricing } from "@pricing/core";
 
+export const dynamic = "force-dynamic";
+
 export async function POST(req: NextRequest) {
   const body = await req.json();
   const { input_tokens = 0, output_tokens = 0, cache_hit_ratio = 0, batch = false, limit = 30 } = body ?? {};
