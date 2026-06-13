@@ -21,7 +21,11 @@
     "db:down": "docker compose down",
     "db:migrate": "npm -w web run db:migrate",
     "db:seed": "npm -w web run db:seed",
-    "scrape:all": "npm -w worker run scrape:all"
+    "scrape:all": "npm -w worker run scrape:all",
+    "crawl:once": "npm -w worker run crawl:once",
+    "crawl:prices": "npm -w worker run crawl:prices",
+    "crawl:providers": "npm -w worker run crawl:providers",
+    "crawl:news": "npm -w worker run crawl:news"
   },
   "engines": {
     "node": ">=20"

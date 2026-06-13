@@ -2,6 +2,10 @@ import { fetch as undiciFetch } from "undici";
 import { config } from "../config.js";
 import type { RawPayload } from "../types.js";
 
+function signal() {
+  return AbortSignal.timeout(config.requestTimeoutMs);
+}
+
 /**
  * 通用 HTTP 抓取（轻量、不渲染）
  */
@@ -11,6 +15,7 @@ export async function fetchJson(url: string, sourceId: string): Promise<RawPaylo
       "user-agent": config.userAgent,
       accept: "application/json,*/*",
     },
+    signal: signal(),
   });
   if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText} for ${url}`);
   const body = await res.text();
@@ -30,6 +35,7 @@ export async function fetchText(url: string, sourceId: string): Promise<RawPaylo
       accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
       "accept-language": "zh-CN,zh;q=0.9,en;q=0.8",
     },
+    signal: signal(),
   });
   if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText} for ${url}`);
   const ct = res.headers.get("content-type") ?? "";

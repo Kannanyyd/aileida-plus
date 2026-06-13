@@ -491,7 +491,7 @@ export const sourceFetchLogs = pgTable(
   "source_fetch_logs",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    source_id: uuid("source_id").notNull(),
+    source_id: text("source_id").notNull(),
     source_type: text("source_type").notNull(),
     url: text("url"),
     status: text("status").notNull(),

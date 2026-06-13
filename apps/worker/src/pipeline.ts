@@ -1,9 +1,10 @@
 /**
  * 跑一个 source 抓取 → 标准化 → 入库
+ * 记录 source_fetch_logs 和 source_snapshots
  */
 import { fetchLiteLLM } from "./sources/litellm.js";
 import { fetchOpenRouter } from "./sources/openrouter.js";
-import { fetchLlmPricesCurrent, fetchLlmPricesHistorical } from "./sources/llm-prices.js";
+import { fetchLlmPricesCurrent } from "./sources/llm-prices.js";
 import { fetchGenaiPrices } from "./sources/genai-prices.js";
 import { fetchCnProvider } from "./sources/cn-provider.js";
 import { CN_PROVIDERS } from "./sources/cn-registry.js";
@@ -12,6 +13,7 @@ import { upsertModel, findModelByExternalId } from "./storage/model-store.js";
 import { upsertPricing } from "./storage/pricing-store.js";
 import { db } from "./storage/client.js";
 import { providers, promotions as promotionTable } from "./storage/schema.js";
+import { logFetchStart, logFetchSuccess, logFetchError, saveSnapshot } from "./storage/fetch-log.js";
 import { eq } from "drizzle-orm";
 import type { NormalizedModel, NormalizedPricing, NormalizedPromotion } from "./types.js";
 
@@ -65,7 +67,6 @@ async function ingestModelsAndPricing(
   pricingList: NormalizedPricing[],
   sourceLabel: string,
 ) {
-  // 1) 按 provider 分组
   const byProvider = new Map<string, { models: NormalizedModel[]; pricing: NormalizedPricing[] }>();
   for (const m of modelsList) {
     if (!byProvider.has(m.provider_slug)) byProvider.set(m.provider_slug, { models: [], pricing: [] });
@@ -77,46 +78,48 @@ async function ingestModelsAndPricing(
     byProvider.get(providerSlug)!.pricing.push(p);
   }
 
-  let totalInserted = 0;
+  let totalModels = 0;
   let totalPricingRows = 0;
   let totalReview = 0;
 
   for (const [providerSlug, group] of byProvider.entries()) {
-    const providerId = await ensureProvider(providerSlug);
-    // 2) upsert 模型
-    const slugToModelId = new Map<string, string>();
-    for (const m of group.models) {
-      // 模型 slug 仅取 id 最后一段（避免不同源重复 provider 前缀）
-      const modelSlug = m.external_id.split("/").slice(1).join("/");
-      const row = await upsertModel({
-        provider_id: providerId,
-        slug: modelSlug,
-        name: m.name,
-        family: m.family,
-        modality: m.modality,
-        context_length: m.context_length,
-        max_output_tokens: m.max_output_tokens,
-        capabilities: m.capabilities,
-        release_date: m.release_date,
-        status: m.status,
-      });
-      slugToModelId.set(m.external_id, row.id);
-      totalInserted++;
-    }
-    // 3) 写入价格
-    for (const p of group.pricing) {
-      const modelId =
-        slugToModelId.get(p.model_external_id) ?? (await findModelByExternalId(p.model_external_id))?.id;
-      if (!modelId) continue;
-      const r = await upsertPricing({ model_id: modelId, pricing: p });
-      if (r.status === "review-queue") totalReview++;
-      else totalPricingRows++;
+    try {
+      const providerId = await ensureProvider(providerSlug);
+      const slugToModelId = new Map<string, string>();
+      for (const m of group.models) {
+        const modelSlug = m.external_id.split("/").slice(1).join("/");
+        const row = await upsertModel({
+          provider_id: providerId,
+          slug: modelSlug,
+          name: m.name,
+          family: m.family,
+          modality: m.modality,
+          context_length: m.context_length,
+          max_output_tokens: m.max_output_tokens,
+          capabilities: m.capabilities,
+          release_date: m.release_date,
+          status: m.status,
+        });
+        slugToModelId.set(m.external_id, row.id);
+        totalModels++;
+      }
+      for (const p of group.pricing) {
+        const modelId =
+          slugToModelId.get(p.model_external_id) ?? (await findModelByExternalId(p.model_external_id))?.id;
+        if (!modelId) continue;
+        const r = await upsertPricing({ model_id: modelId, pricing: p });
+        if (r.status === "review-queue") totalReview++;
+        else totalPricingRows++;
+      }
+    } catch (err: any) {
+      console.error(`[${sourceLabel}:${providerSlug}] 入库失败:`, err?.message);
     }
   }
 
   console.log(
-    `[${sourceLabel}] providers=${byProvider.size} models=${totalInserted} pricing=${totalPricingRows} review=${totalReview}`,
+    `[${sourceLabel}] providers=${byProvider.size} models=${totalModels} pricing=${totalPricingRows} review=${totalReview}`,
   );
+  return { providers: byProvider.size, models: totalModels, pricing: totalPricingRows, review: totalReview };
 }
 
 /** 写入优惠数据 */
@@ -151,50 +154,89 @@ async function ingestPromotions(promos: NormalizedPromotion[], sourceId: string)
   if (inserted > 0) console.log(`[${sourceId}] promotions ingested=${inserted}`);
 }
 
+/** 包装：记录抓取日志 + 快照 */
+async function runSource(
+  sourceId: string,
+  sourceType: string,
+  url: string | undefined,
+  fn: () => Promise<{ models: NormalizedModel[]; pricing: NormalizedPricing[]; rawText?: string }>,
+) {
+  const start = Date.now();
+  const logId = await logFetchStart(sourceId, sourceType, url);
+  try {
+    const result = await fn();
+    if (result.rawText) {
+      await saveSnapshot(sourceId, url ?? "unknown", "application/json", result.rawText);
+    }
+    const stats = await ingestModelsAndPricing(result.models, result.pricing, sourceId);
+    const duration = Date.now() - start;
+    await logFetchSuccess(logId, stats.models + stats.pricing, stats.models + stats.pricing, duration);
+    console.log(`[${sourceId}] ✅ 完成 (${duration}ms) models=${stats.models} pricing=${stats.pricing}`);
+  } catch (err: any) {
+    const duration = Date.now() - start;
+    const msg = err?.message ?? String(err);
+    console.error(`[${sourceId}] ❌ 失败 (${duration}ms): ${msg}`);
+    await logFetchError(logId, msg, duration);
+  }
+}
+
 export async function runLiteLLM() {
-  const r = await fetchLiteLLM();
-  await ingestModelsAndPricing(r.models, r.pricing, "litellm");
+  const url = "https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json";
+  await runSource("litellm", "github-json", url, async () => {
+    const r = await fetchLiteLLM();
+    return { models: r.models, pricing: r.pricing, rawText: JSON.stringify(r) };
+  });
 }
 
 export async function runOpenRouter() {
-  const r = await fetchOpenRouter();
-  await ingestModelsAndPricing(r.models, r.pricing, "openrouter");
+  const url = "https://openrouter.ai/api/v1/models";
+  await runSource("openrouter", "api", url, async () => {
+    const r = await fetchOpenRouter();
+    return { models: r.models, pricing: r.pricing, rawText: JSON.stringify(r) };
+  });
 }
 
 export async function runLlmPrices() {
-  const r = await fetchLlmPricesCurrent();
-  await ingestModelsAndPricing(r.models, r.pricing, "llm-prices");
+  const url = "https://raw.githubusercontent.com/simonw/llm-prices/main/prices.json";
+  await runSource("llm-prices", "github-json", url, async () => {
+    const r = await fetchLlmPricesCurrent();
+    return { models: r.models, pricing: r.pricing, rawText: JSON.stringify(r) };
+  });
 }
 
 export async function runGenaiPrices() {
-  const r = await fetchGenaiPrices();
-  await ingestModelsAndPricing(r.models, r.pricing, "genai-prices");
+  const url = "https://raw.githubusercontent.com/pydantic/genai-prices/main/genai_prices/data/prices.json";
+  await runSource("genai-prices", "github-json", url, async () => {
+    const r = await fetchGenaiPrices();
+    return { models: r.models, pricing: r.pricing, rawText: JSON.stringify(r) };
+  });
 }
 
 export async function runAllCn() {
   for (const p of CN_PROVIDERS) {
     try {
-      const r = await fetchCnProvider(p.id);
-      // 写入模型和价格
-      await ingestModelsAndPricing(r.models, r.pricing, p.id);
-      // 写入优惠（由 cn-provider 解析）
-      if (r.promotions && r.promotions.length > 0) {
-        try {
-          await ingestPromotions(r.promotions, p.id);
-        } catch (err) {
-          console.error(`[${p.id}] promotions ingest failed:`, err);
+      await runSource(p.id, "domestic-scraper", p.targets[0]?.url ?? p.homepage, async () => {
+        const r = await fetchCnProvider(p.id);
+        if (r.promotions && r.promotions.length > 0) {
+          await ingestPromotions(r.promotions, p.id).catch((err) =>
+            console.error(`[${p.id}] promotions ingest failed:`, err),
+          );
         }
-      }
-    } catch (err) {
-      console.error(`[${p.id}] failed:`, err);
+        return { models: r.models, pricing: r.pricing };
+      });
+    } catch (err: any) {
+      console.error(`[${p.id}] 整体失败:`, err?.message);
     }
   }
 }
 
 export async function runAll() {
+  console.log("[worker] 开始抓取国际数据源...");
   await runLiteLLM();
   await runOpenRouter();
   await runLlmPrices();
   await runGenaiPrices();
+  console.log("[worker] 开始抓取国内数据源...");
   await runAllCn();
+  console.log("[worker] 全量抓取完成！");
 }

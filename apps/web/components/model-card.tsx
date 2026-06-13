@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import type { ModelWithPricing } from "@/lib/db/queries";
 import { formatCny, formatContext, formatUsd, relativeTime } from "@/lib/utils";

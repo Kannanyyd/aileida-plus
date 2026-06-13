@@ -14,7 +14,11 @@
     "scrape:openrouter": "tsx src/cli/run-source.ts openrouter",
     "scrape:llm-prices": "tsx src/cli/run-source.ts llm-prices",
     "scrape:genai-prices": "tsx src/cli/run-source.ts genai-prices",
-    "scrape:cn": "tsx src/cli/run-source.ts cn"
+    "scrape:cn": "tsx src/cli/run-source.ts cn",
+    "crawl:once": "tsx src/cli/run-all.ts",
+    "crawl:prices": "tsx src/cli/run-all.ts",
+    "crawl:providers": "tsx src/cli/run-all.ts",
+    "crawl:news": "tsx src/cli/run-all.ts"
   },
   "dependencies": {
     "@pricing/core": "*",
