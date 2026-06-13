@@ -7,41 +7,68 @@ export interface ScoreWeights {
   price: number;
   context: number;
   capability: number;
-  stability: number;
+  freshness: number;
   confidence: number;
 }
 
 export const DEFAULT_WEIGHTS: ScoreWeights = {
-  price: 0.4, context: 0.2, capability: 0.2, stability: 0.1, confidence: 0.1,
+  price: 0.3, context: 0.2, capability: 0.25, freshness: 0.15, confidence: 0.1,
 };
+
+/** 模型分层 */
+export type ModelTier = "current_frontier" | "current_mainstream" | "previous_generation" | "legacy" | "deprecated";
+
+export function getModelTier(m: ModelWithPricing): ModelTier {
+  if (m.status === "deprecated") return "deprecated";
+  const caps = m.capabilities ?? [];
+  // 前沿：多能力 + 活跃 + 长上下文
+  if (m.status === "active" && caps.length >= 3 && (m.context_length ?? 0) >= 128000) return "current_frontier";
+  if (m.status === "active" && caps.length >= 2) return "current_mainstream";
+  if (m.status === "active") return "current_mainstream";
+  if (m.status === "preview" || m.status === "beta") return "current_frontier";
+  return "legacy";
+}
+
+/** 新鲜度得分：frontier=100, mainstream=75, prev-gen=45, legacy=20, deprecated=0 */
+function freshnessScore(m: ModelWithPricing): number {
+  const tier = getModelTier(m);
+  switch (tier) {
+    case "current_frontier": return 100;
+    case "current_mainstream": return 75;
+    case "previous_generation": return 45;
+    case "legacy": return 20;
+    case "deprecated": return 0;
+  }
+}
 
 /** 榜单预设 */
 export const RANKING_PRESETS: Record<string, { weights: ScoreWeights; label: string; filter?: (m: ModelWithPricing) => boolean }> = {
-  "frontier-value": { weights: { price: 0.3, context: 0.25, capability: 0.25, stability: 0.1, confidence: 0.1 }, label: "最新主力模型性价比榜",
+  "frontier-value": { weights: { price: 0.25, context: 0.2, capability: 0.25, freshness: 0.2, confidence: 0.1 }, label: "最新主力模型性价比榜",
     filter: (m) => m.status === "active" && (m.capabilities ?? []).length >= 2 },
-  "china-available": { weights: { price: 0.35, context: 0.2, capability: 0.2, stability: 0.15, confidence: 0.1 }, label: "国内可用模型榜",
-    filter: (m) => m.provider_region === "cn" || m.provider_slug === "deepseek" || m.provider_slug === "moonshot" || m.provider_slug === "zhipu" || m.provider_slug === "siliconflow" },
-  "global-official": { weights: { price: 0.3, context: 0.2, capability: 0.3, stability: 0.1, confidence: 0.1 }, label: "海外官方模型榜",
-    filter: (m) => m.provider_region !== "cn" },
-  "coding": { weights: { price: 0.2, context: 0.25, capability: 0.35, stability: 0.1, confidence: 0.1 }, label: "编程模型榜",
-    filter: (m) => (m.capabilities ?? []).includes("function-call") || m.model_name.toLowerCase().includes("code") },
-  "long-context": { weights: { price: 0.15, context: 0.55, capability: 0.15, stability: 0.07, confidence: 0.08 }, label: "长文本模型榜",
-    filter: (m) => (m.context_length ?? 0) >= 100000 },
-  "reasoning": { weights: { price: 0.25, context: 0.2, capability: 0.35, stability: 0.1, confidence: 0.1 }, label: "推理模型榜",
-    filter: (m) => (m.capabilities ?? []).includes("reasoning") || m.model_name.includes("o1") || m.model_name.includes("o3") || m.model_name.includes("deepseek-r") },
-  "multimodal": { weights: { price: 0.2, context: 0.2, capability: 0.4, stability: 0.1, confidence: 0.1 }, label: "多模态模型榜",
-    filter: (m) => (m.capabilities ?? []).includes("vision") || (m.modality ?? []).includes("image") },
-  "chinese-writing": { weights: { price: 0.25, context: 0.2, capability: 0.3, stability: 0.15, confidence: 0.1 }, label: "中文写作模型榜",
-    filter: (m) => m.provider_region === "cn" || (m.capabilities ?? []).length >= 3 },
-  "cheapest": { weights: { price: 0.8, context: 0.05, capability: 0.05, stability: 0.05, confidence: 0.05 }, label: "极致低价榜" },
-  "free-tier": { weights: { price: 0.0, context: 0.3, capability: 0.4, stability: 0.05, confidence: 0.05 }, label: "免费/优惠榜",
-    filter: (m) => (m.input_per_1m_usd ?? 0) === 0 },
-  "old-models": { weights: { price: 0.7, context: 0.1, capability: 0.1, stability: 0.05, confidence: 0.05 }, label: "旧模型低价榜",
-    filter: (m) => m.status === "deprecated" || (/(legacy|old|v0|v1)/i.test(m.model_name) && m.status !== "active") },
+  "china-available": { weights: { price: 0.3, context: 0.15, capability: 0.2, freshness: 0.2, confidence: 0.15 }, label: "国内可用模型榜",
+    filter: (m) => (m.provider_region === "cn" || /deepseek|moonshot|zhipu|siliconflow|minimax|volcengine|baidu|qianfan|alibaba|tencent|stepfun/i.test(m.provider_slug)) && m.status === "active" },
+  "global-official": { weights: { price: 0.25, context: 0.2, capability: 0.25, freshness: 0.2, confidence: 0.1 }, label: "海外官方模型榜",
+    filter: (m) => m.provider_region !== "cn" && m.status === "active" },
+  "coding": { weights: { price: 0.15, context: 0.2, capability: 0.3, freshness: 0.25, confidence: 0.1 }, label: "编程模型榜",
+    filter: (m) => m.status === "active" && ((m.capabilities ?? []).includes("function-call") || m.model_name.toLowerCase().includes("code")) },
+  "long-context": { weights: { price: 0.1, context: 0.5, capability: 0.15, freshness: 0.15, confidence: 0.1 }, label: "长文本模型榜",
+    filter: (m) => m.status === "active" && (m.context_length ?? 0) >= 100000 },
+  "reasoning": { weights: { price: 0.2, context: 0.15, capability: 0.3, freshness: 0.25, confidence: 0.1 }, label: "推理模型榜",
+    filter: (m) => m.status === "active" && ((m.capabilities ?? []).includes("reasoning") || /o1|o3|o4|deepseek-r/i.test(m.model_name)) },
+  "multimodal": { weights: { price: 0.15, context: 0.15, capability: 0.35, freshness: 0.25, confidence: 0.1 }, label: "多模态模型榜",
+    filter: (m) => m.status === "active" && ((m.capabilities ?? []).includes("vision") || (m.modality ?? []).some((x) => x === "image" || x === "audio" || x === "video")) },
+  "chinese-writing": { weights: { price: 0.2, context: 0.15, capability: 0.25, freshness: 0.25, confidence: 0.15 }, label: "中文写作模型榜",
+    filter: (m) => m.status === "active" && (m.provider_region === "cn" || (m.capabilities ?? []).length >= 3) },
+  "cheapest": { weights: { price: 0.75, context: 0.05, capability: 0.05, freshness: 0.1, confidence: 0.05 }, label: "极致低价榜",
+    filter: (m) => m.status === "active" },
+  "free-tier": { weights: { price: 0.0, context: 0.25, capability: 0.3, freshness: 0.3, confidence: 0.05 }, label: "免费/优惠榜",
+    filter: (m) => m.status === "active" && (m.input_per_1m_usd ?? 0) === 0 },
+  "old-models": { weights: { price: 0.65, context: 0.1, capability: 0.1, freshness: 0.05, confidence: 0.1 }, label: "旧模型低价榜",
+    filter: (m) => m.status === "deprecated" || getModelTier(m) === "legacy" || getModelTier(m) === "previous_generation" },
 };
 
 export interface ScoreBreakdown {
-  total: number; price: number; context: number; capability: number; stability: number; confidence: number;
+  total: number; price: number; context: number; capability: number; freshness: number; confidence: number;
 }
 
 export interface RankOptions {
@@ -97,9 +124,9 @@ function clamp(v: number, lo: number, hi: number) { return Math.max(lo, Math.min
 
 export function scoreModel(m: ModelWithPricing, others: ModelWithPricing[], w: ScoreWeights = DEFAULT_WEIGHTS): ScoreBreakdown {
   const price = priceScore(m, others), context = contextScore(m), capability = capabilityScore(m);
-  const stability = 70, confidence = m.confidence_score * 100;
-  const total = w.price * price + w.context * context + w.capability * capability + w.stability * stability + w.confidence * confidence;
-  return { total: Math.round(total * 10) / 10, price: Math.round(price * 10) / 10, context: Math.round(context * 10) / 10, capability: Math.round(capability * 10) / 10, stability: Math.round(stability * 10) / 10, confidence: Math.round(confidence * 10) / 10 };
+  const freshness = freshnessScore(m), confidence = m.confidence_score * 100;
+  const total = w.price * price + w.context * context + w.capability * capability + w.freshness * freshness + w.confidence * confidence;
+  return { total: Math.round(total * 10) / 10, price: Math.round(price * 10) / 10, context: Math.round(context * 10) / 10, capability: Math.round(capability * 10) / 10, freshness: Math.round(freshness * 10) / 10, confidence: Math.round(confidence * 10) / 10 };
 }
 
 /** 排名原因描述 */

@@ -16,8 +16,9 @@ export async function GET(
   const diversityMode = url.searchParams.get("diversity_mode") !== "false";
   const maxPerProvider = parseInt(url.searchParams.get("max_per_provider") ?? (diversityMode ? "5" : "999"));
   const maxPerFamily = parseInt(url.searchParams.get("max_per_family") ?? (diversityMode ? "3" : "999"));
-  const hideLegacy = url.searchParams.get("hide_legacy") === "true";
-  const hideDeprecated = url.searchParams.get("hide_deprecated") === "true";
+  // 默认隐藏旧模型和废弃模型（传 show_legacy=true / show_deprecated=true 可显示）
+  const hideLegacy = url.searchParams.get("show_legacy") !== "true";
+  const hideDeprecated = url.searchParams.get("show_deprecated") !== "true";
   const filterRegion = url.searchParams.get("region");
   const filterProvider = url.searchParams.get("provider");
   const filterFamily = url.searchParams.get("family");
