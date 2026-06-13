@@ -1,147 +1,136 @@
 /**
  * pydantic/genai-prices prices/data.json
  *
- * 字段示例（节选）：
- * {
- *   "providers": {
- *     "openai": { "name": "OpenAI", "api_base": "https://api.openai.com/v1" },
- *     ...
- *   },
- *   "models": [
- *     {
- *       "id": "gpt-4o",
- *       "provider": "openai",
- *       "name": "GPT-4o",
- *       "context_window": 128000,
- *       "capabilities": ["text", "vision"],
- *       "prices": {
- *         "input": 2.5,    // USD / 1M tokens
- *         "output": 10,
- *         "cache_read": 1.25,
- *         "cache_write": 0
+ * data.json 是顶层数组，每个元素是一个 Provider:
+ * [
+ *   {
+ *     "id": "anthropic",
+ *     "name": "Anthropic",
+ *     "pricing_urls": ["https://www.anthropic.com/pricing#api"],
+ *     "models": [
+ *       {
+ *         "id": "claude-3-5-haiku-latest",
+ *         "name": "Claude Haiku 3.5",
+ *         "context_window": 200000,
+ *         "prices": {
+ *           "input_mtok": 0.8,
+ *           "cache_write_mtok": 1,
+ *           "cache_read_mtok": 0.08,
+ *           "output_mtok": 4
+ *         }
  *       }
- *     }
- *   ]
- * }
+ *     ]
+ *   }
+ * ]
  */
 import { fetchJson } from "../fetchers/http.js";
 import { config } from "../config.js";
 import type { NormalizedModel, NormalizedPricing } from "../types.js";
 
-interface GenaiPriceModel {
+interface GenaiPriceEntry {
+  input_mtok?: number;
+  output_mtok?: number;
+  cache_read_mtok?: number;
+  cache_write_mtok?: number;
+  input_per_image?: number;
+  output_per_image?: number;
+}
+
+interface GenaiModel {
   id: string;
-  provider: string;
   name?: string;
+  description?: string;
   context_window?: number;
   max_output_tokens?: number;
-  capabilities?: string[];
-  modality?: string[];
-  status?: string;
-  prices?: {
-    input?: number;
-    output?: number;
-    cache_read?: number;
-    cache_write?: number;
-    audio_input?: number;
-    audio_output?: number;
-    image?: number;
-    request?: number;
-    batch_input?: number;
-    batch_output?: number;
-  };
-  notes?: string;
-  url?: string;
+  prices?: GenaiPriceEntry;
+  deprecated?: boolean;
+}
+
+interface GenaiProvider {
+  id: string;
+  name?: string;
+  pricing_urls?: string[];
+  models?: GenaiModel[];
 }
 
 export async function fetchGenaiPrices() {
-  const raw = await fetchJson(config.sources.genaiPrices, "genai-prices");
-  const parsed = JSON.parse(raw.body) as {
-    providers?: Record<string, { name: string; api_base?: string }>;
-    models?: GenaiPriceModel[];
-  };
+  let raw;
+  let url = config.sources.genaiPrices;
 
+  // 优先抓 data_slim.json (更小更快)，失败则尝试 data.json
+  try {
+    raw = await fetchJson(url, "genai-prices");
+    if (!raw.body || raw.body.trim().length < 10) {
+      throw new Error("empty response");
+    }
+  } catch (err: any) {
+    const fallback = config.sources.genaiPricesSlim;
+    if (fallback && fallback !== url) {
+      console.log(`[genai-prices] 主 URL 失败 (${err?.message?.slice(0, 60)}), 尝试 slim`);
+      url = fallback;
+      raw = await fetchJson(url, "genai-prices");
+    } else if (url !== config.sources.genaiPricesSlim) {
+      console.log(`[genai-prices] 主 URL 失败, 尝试备用`);
+      url = config.sources.genaiPricesSlim ?? url;
+      raw = await fetchJson(url, "genai-prices");
+    } else {
+      throw err;
+    }
+  }
+
+  const providers = JSON.parse(raw.body) as GenaiProvider[];
   const models: NormalizedModel[] = [];
   const pricing: NormalizedPricing[] = [];
 
-  for (const m of parsed.models ?? []) {
-    if (!m.prices) continue;
-    const externalId = `${m.provider}/${m.id}`;
-    models.push({
-      external_id: externalId,
-      provider_slug: m.provider,
-      name: m.name ?? m.id,
-      family: m.id.split("-")[0],
-      modality: (m.modality ?? m.capabilities ?? ["text"]) as string[],
-      context_length: m.context_window,
-      max_output_tokens: m.max_output_tokens,
-      capabilities: m.capabilities ?? [],
-      status: (m.status as NormalizedModel["status"]) ?? "active",
-      source_id: "genai-prices",
-      source_url: config.sources.genaiPrices,
-      confidence_score: 0.9,
-      need_manual_review: false,
-    });
+  for (const prov of providers) {
+    if (!prov.models || prov.models.length === 0) continue;
+    const slug = prov.id.toLowerCase().replace(/[^a-z0-9-]/g, "-");
 
-    const p = m.prices;
-    pricing.push({
-      model_external_id: externalId,
-      pricing_type: "api_token",
-      input_per_1m_usd: p.input,
-      output_per_1m_usd: p.output,
-      input_cached_read_per_1m_usd: p.cache_read,
-      input_cached_write_per_1m_usd: p.cache_write,
-      batch_discount:
-        p.batch_input != null && p.input != null && p.input > 0
-          ? p.batch_input / p.input
-          : undefined,
-      currency_native: "USD",
-      source_id: "genai-prices",
-      source_url: m.url ?? config.sources.genaiPrices,
-      confidence_score: 0.9,
-      need_manual_review: false,
-    });
-    if (p.audio_input != null || p.audio_output != null) {
-      pricing.push({
-        model_external_id: externalId,
-        pricing_type: "audio",
-        unit_amount: p.audio_input ?? p.audio_output,
-        unit_amount_usd: p.audio_input ?? p.audio_output,
-        billing_unit: "per_audio_min",
-        currency_native: "USD",
+    for (const m of prov.models) {
+      if (m.deprecated) continue;
+      if (!m.prices) continue;
+      const p = m.prices;
+      // 检查价格字段是否为有效数字
+      const inPrice = typeof p.input_mtok === "number" ? p.input_mtok : undefined;
+      const outPrice = typeof p.output_mtok === "number" ? p.output_mtok : undefined;
+      if (inPrice == null && outPrice == null) continue;
+
+      const externalId = `${slug}/${m.id}`;
+      const caps = ["text"];
+      if (p.cache_read_mtok != null || p.cache_write_mtok != null) caps.push("cache");
+      if ((m.context_window ?? 0) >= 100_000) caps.push("long-context");
+
+      models.push({
+        external_id: externalId,
+        provider_slug: slug,
+        name: m.name ?? m.id,
+        family: m.id.split(/[-_]/)[0],
+        modality: ["text"],
+        context_length: typeof m.context_window === "number" ? m.context_window : undefined,
+        max_output_tokens: typeof m.max_output_tokens === "number" ? m.max_output_tokens : undefined,
+        capabilities: caps,
+        status: "active",
         source_id: "genai-prices",
-        source_url: m.url ?? config.sources.genaiPrices,
+        source_url: prov.pricing_urls?.[0] ?? url,
         confidence_score: 0.9,
         need_manual_review: false,
       });
-    }
-    if (p.image != null) {
+
       pricing.push({
         model_external_id: externalId,
-        pricing_type: "image",
-        unit_amount: p.image,
-        unit_amount_usd: p.image,
-        billing_unit: "per_image",
+        pricing_type: "api_token",
+        input_per_1m_usd: inPrice,
+        output_per_1m_usd: outPrice,
+        input_cached_read_per_1m_usd: typeof p.cache_read_mtok === "number" ? p.cache_read_mtok : undefined,
+        input_cached_write_per_1m_usd: typeof p.cache_write_mtok === "number" ? p.cache_write_mtok : undefined,
         currency_native: "USD",
         source_id: "genai-prices",
-        source_url: m.url ?? config.sources.genaiPrices,
-        confidence_score: 0.9,
-        need_manual_review: false,
-      });
-    }
-    if (p.request != null) {
-      pricing.push({
-        model_external_id: externalId,
-        unit_amount: p.request,
-        unit_amount_usd: p.request,
-        billing_unit: "per_request",
-        currency_native: "USD",
-        source_id: "genai-prices",
-        source_url: m.url ?? config.sources.genaiPrices,
+        source_url: prov.pricing_urls?.[0] ?? url,
         confidence_score: 0.9,
         need_manual_review: false,
       });
     }
   }
 
-  return { sourceId: "genai-prices", url: config.sources.genaiPrices, models, pricing, raw };
+  return { sourceId: "genai-prices", url, models, pricing, raw };
 }

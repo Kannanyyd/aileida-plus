@@ -8,6 +8,7 @@ import { fetchLlmPricesCurrent } from "./sources/llm-prices.js";
 import { fetchGenaiPrices } from "./sources/genai-prices.js";
 import { fetchCnProvider } from "./sources/cn-provider.js";
 import { CN_PROVIDERS } from "./sources/cn-registry.js";
+import { config } from "./config.js";
 import { upsertProvider } from "./storage/provider-store.js";
 import { upsertModel, findModelByExternalId } from "./storage/model-store.js";
 import { upsertPricing } from "./storage/pricing-store.js";
@@ -165,8 +166,24 @@ async function runSource(
   const logId = await logFetchStart(sourceId, sourceType, url);
   try {
     const result = await fn();
-    if (result.rawText) {
-      await saveSnapshot(sourceId, url ?? "unknown", "application/json", result.rawText);
+    // 保存快照：优先用 rawText，否则用 models/pricing 序列化
+    let snapshotContent = result.rawText;
+    if (!snapshotContent && (result.models.length > 0 || result.pricing.length > 0)) {
+      snapshotContent = JSON.stringify({
+        source_id: sourceId,
+        url,
+        model_count: result.models.length,
+        pricing_count: result.pricing.length,
+        sample: result.models.slice(0, 3).map((m) => m.name),
+      });
+    }
+    if (snapshotContent) {
+      await saveSnapshot(
+        sourceId,
+        url ?? "unknown",
+        snapshotContent.startsWith("{") ? "application/json" : "text/plain",
+        snapshotContent,
+      );
     }
     const stats = await ingestModelsAndPricing(result.models, result.pricing, sourceId);
     const duration = Date.now() - start;
@@ -197,15 +214,15 @@ export async function runOpenRouter() {
 }
 
 export async function runLlmPrices() {
-  const url = "https://raw.githubusercontent.com/simonw/llm-prices/main/prices.json";
-  await runSource("llm-prices", "github-json", url, async () => {
+  const url = config.sources.llmPricesCurrent;
+  await runSource("llm-prices", "api-json", url, async () => {
     const r = await fetchLlmPricesCurrent();
     return { models: r.models, pricing: r.pricing, rawText: JSON.stringify(r) };
   });
 }
 
 export async function runGenaiPrices() {
-  const url = "https://raw.githubusercontent.com/pydantic/genai-prices/main/genai_prices/data/prices.json";
+  const url = config.sources.genaiPrices;
   await runSource("genai-prices", "github-json", url, async () => {
     const r = await fetchGenaiPrices();
     return { models: r.models, pricing: r.pricing, rawText: JSON.stringify(r) };
@@ -222,7 +239,23 @@ export async function runAllCn() {
             console.error(`[${p.id}] promotions ingest failed:`, err),
           );
         }
-        return { models: r.models, pricing: r.pricing };
+        return {
+          models: r.models,
+          pricing: r.pricing,
+          rawText: JSON.stringify({
+            source: p.id,
+            provider: p.displayName,
+            targets: r.raw.map((s) => ({
+              url: s.target.url,
+              kind: s.target.kind,
+              tables: s.tables,
+              bytes: s.bytes,
+              status: s.status,
+            })),
+            models_found: r.models.length,
+            pricing_found: r.pricing.length,
+          }),
+        };
       });
     } catch (err: any) {
       console.error(`[${p.id}] 整体失败:`, err?.message);
