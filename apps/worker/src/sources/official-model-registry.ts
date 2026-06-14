@@ -6,6 +6,13 @@ export interface OfficialModelSource {
   urls: string[];
   confidence: number;
   defaultStatus?: "active" | "preview" | "beta" | "deprecated" | "unknown";
+  baselineCandidates?: Array<{
+    slug: string;
+    name: string;
+    lifecycle_tier?: "current_frontier" | "current_mainstream" | "previous_generation" | "legacy" | "deprecated" | "unknown";
+    model_status?: "active" | "preview" | "beta" | "deprecated" | "retired" | "unknown";
+    source_url?: string;
+  }>;
 }
 
 export const OFFICIAL_MODEL_SOURCES: OfficialModelSource[] = [
@@ -34,6 +41,13 @@ export const OFFICIAL_MODEL_SOURCES: OfficialModelSource[] = [
       "https://docs.anthropic.com/en/api/models-list",
       "https://www.anthropic.com/news",
     ],
+    baselineCandidates: [
+      { slug: "claude-fable-5", name: "Claude Fable 5", lifecycle_tier: "current_mainstream" },
+      { slug: "claude-sonnet-4.5", name: "Claude Sonnet 4.5", lifecycle_tier: "current_mainstream" },
+      { slug: "claude-opus-4.1", name: "Claude Opus 4.1", lifecycle_tier: "current_mainstream" },
+      { slug: "claude-haiku-4.5", name: "Claude Haiku 4.5", lifecycle_tier: "current_mainstream" },
+      { slug: "claude-3-7-sonnet-20250219", name: "claude-3-7-sonnet-20250219", lifecycle_tier: "previous_generation", model_status: "deprecated" },
+    ],
   },
   {
     id: "official-google-gemini",
@@ -48,6 +62,17 @@ export const OFFICIAL_MODEL_SOURCES: OfficialModelSource[] = [
       "https://ai.google.dev/gemini-api/docs/pricing",
       "https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models",
     ],
+    baselineCandidates: [
+      { slug: "gemini-3-pro", name: "Gemini 3 Pro", lifecycle_tier: "current_mainstream" },
+      { slug: "gemini-3-flash", name: "Gemini 3 Flash", lifecycle_tier: "current_mainstream" },
+      { slug: "gemini-3.5-flash", name: "Gemini 3.5 Flash", lifecycle_tier: "current_mainstream" },
+      { slug: "gemini-3.1-pro", name: "Gemini 3.1 Pro", lifecycle_tier: "current_mainstream" },
+      { slug: "gemini-3.1-flash", name: "Gemini 3.1 Flash", lifecycle_tier: "current_mainstream" },
+      { slug: "gemini-2.5-pro", name: "Gemini 2.5 Pro", lifecycle_tier: "previous_generation" },
+      { slug: "gemini-2.5-flash", name: "Gemini 2.5 Flash", lifecycle_tier: "previous_generation" },
+      { slug: "veo-3.1", name: "Veo 3.1", lifecycle_tier: "current_mainstream" },
+      { slug: "veo-3.1-fast", name: "Veo 3.1 Fast", lifecycle_tier: "current_mainstream" },
+    ],
   },
   {
     id: "official-xai",
@@ -56,6 +81,14 @@ export const OFFICIAL_MODEL_SOURCES: OfficialModelSource[] = [
     region: "global",
     confidence: 0.95,
     urls: ["https://docs.x.ai/developers/models", "https://docs.x.ai/developers/pricing", "https://docs.x.ai/developers/rest-api-reference/inference/models"],
+    baselineCandidates: [
+      { slug: "grok-4.3-latest", name: "grok-4.3-latest", lifecycle_tier: "current_frontier" },
+      { slug: "grok-4.3", name: "grok-4.3", lifecycle_tier: "current_mainstream" },
+      { slug: "grok-4-latest", name: "grok-4-latest", lifecycle_tier: "current_frontier" },
+      { slug: "grok-4", name: "grok-4", lifecycle_tier: "current_mainstream" },
+      { slug: "grok-3", name: "Grok 3", lifecycle_tier: "previous_generation" },
+      { slug: "grok-imagine-video-1.5-preview", name: "grok-imagine-video-1.5-preview", lifecycle_tier: "current_mainstream", model_status: "preview" },
+    ],
   },
   {
     id: "official-mistral",
@@ -64,6 +97,17 @@ export const OFFICIAL_MODEL_SOURCES: OfficialModelSource[] = [
     region: "global",
     confidence: 0.9,
     urls: ["https://docs.mistral.ai/models/overview", "https://docs.mistral.ai/models/model-selection-guide", "https://docs.mistral.ai/api/endpoint/models", "https://mistral.ai/pricing"],
+    baselineCandidates: [
+      { slug: "mistral-large-3", name: "Mistral Large 3", lifecycle_tier: "current_frontier" },
+      { slug: "mistral-large-latest", name: "mistral-large-latest", lifecycle_tier: "current_frontier" },
+      { slug: "mistral-medium-3.5", name: "Mistral Medium 3.5", lifecycle_tier: "current_mainstream" },
+      { slug: "mistral-medium-latest", name: "mistral-medium-latest", lifecycle_tier: "current_mainstream" },
+      { slug: "mistral-small-4", name: "Mistral Small 4", lifecycle_tier: "current_mainstream" },
+      { slug: "mistral-small-latest", name: "mistral-small-latest", lifecycle_tier: "current_mainstream" },
+      { slug: "magistral-medium-latest", name: "magistral-medium-latest", lifecycle_tier: "current_mainstream" },
+      { slug: "magistral-small-latest", name: "magistral-small-latest", lifecycle_tier: "current_mainstream" },
+      { slug: "codestral-latest", name: "codestral-latest", lifecycle_tier: "current_mainstream" },
+    ],
   },
   {
     id: "official-cohere",
@@ -85,6 +129,13 @@ export const OFFICIAL_MODEL_SOURCES: OfficialModelSource[] = [
       "https://docs.perplexity.ai/docs/sonar/models/sonar-pro",
       "https://docs.perplexity.ai/docs/sonar/models/sonar-deep-research",
       "https://docs.perplexity.ai/docs/getting-started/pricing",
+    ],
+    baselineCandidates: [
+      { slug: "sonar", name: "Sonar", lifecycle_tier: "current_mainstream" },
+      { slug: "sonar-pro", name: "Sonar Pro", lifecycle_tier: "current_mainstream" },
+      { slug: "sonar-reasoning-pro", name: "Sonar Reasoning Pro", lifecycle_tier: "current_mainstream" },
+      { slug: "sonar-deep-research", name: "Sonar Deep Research", lifecycle_tier: "current_mainstream" },
+      { slug: "pplx-embed-v1-4b", name: "pplx-embed-v1-4b", lifecycle_tier: "current_mainstream" },
     ],
   },
   {
@@ -123,6 +174,11 @@ export const OFFICIAL_MODEL_SOURCES: OfficialModelSource[] = [
       "https://raw.githubusercontent.com/meta-llama/llama-models/main/models/llama4/MODEL_CARD.md",
       "https://raw.githubusercontent.com/meta-llama/llama-models/main/models/llama3_3/MODEL_CARD.md",
       "https://raw.githubusercontent.com/meta-llama/llama-models/main/models/llama3_2/MODEL_CARD.md",
+    ],
+    baselineCandidates: [
+      { slug: "llama-4-scout", name: "Llama 4 Scout", lifecycle_tier: "current_mainstream" },
+      { slug: "llama-4-maverick", name: "Llama 4 Maverick", lifecycle_tier: "current_mainstream" },
+      { slug: "llama-4-behemoth", name: "Llama 4 Behemoth", lifecycle_tier: "current_frontier" },
     ],
   },
   {

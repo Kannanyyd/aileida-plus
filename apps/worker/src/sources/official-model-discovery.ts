@@ -255,6 +255,29 @@ function toModel(c: OfficialModelCandidate): NormalizedModel {
   };
 }
 
+function addBaselineCandidates(source: OfficialModelSource, candidates: Map<string, OfficialModelCandidate>) {
+  for (const baseline of source.baselineCandidates ?? []) {
+    if (candidates.has(baseline.slug)) continue;
+    const sourceUrl = baseline.source_url ?? source.urls[0] ?? "unknown";
+    candidates.set(baseline.slug, {
+      provider_slug: source.providerSlug,
+      model_slug: baseline.slug,
+      model_name: baseline.name,
+      family: inferFamily(baseline.slug),
+      source_id: source.id,
+      source_url: sourceUrl,
+      source_type: "official",
+      model_status: baseline.model_status ?? "unknown",
+      lifecycle_tier: baseline.lifecycle_tier ?? "unknown",
+      confidence_score: Math.min(source.confidence, 0.86),
+      is_recommended_by_official: false,
+      is_default_in_official_docs: false,
+      is_latest_alias: /latest/i.test(baseline.slug),
+      evidence: `Official baseline fallback from ${source.providerName}. Used when live official docs are unreachable; verify against ${sourceUrl}.`,
+    });
+  }
+}
+
 function parseHttpStatus(message: string) {
   const match = message.match(/HTTP\s+(\d{3})/i);
   return match ? Number(match[1]) : undefined;
@@ -335,6 +358,8 @@ export async function fetchOfficialModelSource(source: OfficialModelSource): Pro
       next_action: "Inspect official page structure and add a fallback parser or API list URL.",
     });
   }
+
+  addBaselineCandidates(source, candidates);
 
   const list = Array.from(candidates.values()).sort((a, b) => a.model_slug.localeCompare(b.model_slug));
   const parserStatus = list.length === 0 ? "empty_result" : errors.length > 0 ? "partial" : "success";
