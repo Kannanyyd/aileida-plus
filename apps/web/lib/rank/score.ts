@@ -290,6 +290,13 @@ function diversityDefaults(limit: number) {
   };
 }
 
+function progressiveCaps(rank: number, fallback: { provider: number; family: number }) {
+  if (rank <= 10) return { provider: Math.min(2, fallback.provider), family: Math.min(1, fallback.family) };
+  if (rank <= 20) return { provider: Math.min(3, fallback.provider), family: Math.min(2, fallback.family) };
+  if (rank <= 50) return { provider: Math.min(8, fallback.provider), family: Math.min(3, fallback.family) };
+  return fallback;
+}
+
 export function rank(models: ModelWithPricing[], presetKey: string, opts: RankOptions = {}) {
   const preset = RANKING_PRESETS[presetKey] ?? RANKING_PRESETS["frontier-value"];
   const isOldModelsPreset = presetKey === "old-models" || presetKey === "legacy-low-cost";
@@ -318,7 +325,8 @@ export function rank(models: ModelWithPricing[], presetKey: string, opts: RankOp
     const fam = canonicalFamily(item.model);
     const pc = provCount.get(prov) ?? 0;
     const fc = famCount.get(fam) ?? 0;
-    if (pc >= maxPerProv || fc >= maxPerFam) continue;
+    const caps = progressiveCaps(deduped.length + 1, { provider: maxPerProv, family: maxPerFam });
+    if (pc >= caps.provider || fc >= caps.family) continue;
     provCount.set(prov, pc + 1);
     famCount.set(fam, fc + 1);
     deduped.push(item);
