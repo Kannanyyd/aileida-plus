@@ -14,6 +14,7 @@ export interface CnyPricingResult {
 interface CnyRow {
   providerSlug: string;
   modelSlug: string;
+  sourceModelId?: string;
   modelName: string;
   inputCny: number;
   outputCny: number;
@@ -46,16 +47,17 @@ function cnyPairAfter(text: string, needle: string, windowSize = 700): [number, 
 }
 
 function modelFromRow(row: CnyRow): NormalizedModel {
+  const sourceModelId = row.sourceModelId ?? row.modelSlug;
   return {
     external_id: `${row.providerSlug}/${row.modelSlug}`,
     provider_slug: row.providerSlug,
     name: row.modelName,
-    family: row.modelSlug.split("-").slice(0, 2).join("-"),
+    family: sourceModelId.split("-").slice(0, 2).join("-"),
     modality: ["text"],
     context_length: row.contextLength,
     capabilities: [
       "text",
-      /reason|r1|thinking/i.test(row.modelSlug) ? "reasoning" : "",
+      /reason|r1|thinking/i.test(sourceModelId) ? "reasoning" : "",
       row.contextLength && row.contextLength >= 100_000 ? "long-context" : "",
     ].filter(Boolean),
     status: "active",
@@ -63,13 +65,13 @@ function modelFromRow(row: CnyRow): NormalizedModel {
     source_url: row.sourceUrl,
     confidence_score: row.confidence,
     need_manual_review: false,
-    canonical_model_slug: `${row.modelOwnerProvider}/${row.modelSlug}`,
-    model_family: row.modelSlug.split(/[/-]/).slice(0, 3).join("-"),
-    model_variant: row.modelSlug.includes("Pro/") ? "pro" : "base",
+    canonical_model_slug: `${row.modelOwnerProvider}/${sourceModelId}`,
+    model_family: sourceModelId.split(/[/-]/).slice(0, 3).join("-"),
+    model_variant: sourceModelId.includes("Pro/") ? "pro" : "base",
     model_owner_provider: row.modelOwnerProvider,
     selling_platform_provider: row.sellingPlatformProvider,
     source_provider: row.sellingPlatformProvider,
-    source_model_id: row.modelSlug,
+    source_model_id: sourceModelId,
     data_quality_flags: [],
   };
 }
@@ -180,11 +182,12 @@ export async function fetchSiliconFlowCnyPricing(): Promise<CnyPricingResult> {
   for (const modelId of wanted) {
     const pair = cnyPairAfter(text, modelId);
     if (!pair) continue;
-    const modelSlug = modelId;
+    const modelSlug = `siliconflow/${modelId}`;
     const owner = modelId.includes("Qwen/") ? "alibaba-cloud" : "deepseek";
     rows.push({
       providerSlug: "siliconflow",
       modelSlug,
+      sourceModelId: modelId,
       modelName: modelId,
       inputCny: pair[0],
       outputCny: pair[1],
@@ -214,7 +217,8 @@ function parseAliyunRows(text: string, sourceUrl: string): CnyRow[] {
     if (!pair) continue;
     rows.push({
       providerSlug: "aliyun-bailian",
-      modelSlug: name,
+      modelSlug: `aliyun-bailian/${name}`,
+      sourceModelId: name,
       modelName: name,
       inputCny: Number(pair[1]),
       outputCny: Number(pair[2]),
