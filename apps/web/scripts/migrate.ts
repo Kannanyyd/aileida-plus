@@ -575,6 +575,9 @@ VALUES
   ('volcano', 'bytedance-volcano', 'Volcano Engine', 'cloud_platform', 0.95, 'manual-baseline', false, 'Volcano alias'),
   ('volcengine', 'bytedance-volcano', 'Volcano Engine', 'cloud_platform', 0.98, 'manual-baseline', false, 'canonical platform spelling'),
   ('doubao', 'bytedance-volcano', 'Doubao', 'model_vendor', 0.85, 'manual-baseline', true, 'Doubao model owner under ByteDance; review exact split'),
+  ('moonshot', 'moonshot', 'Moonshot AI', 'model_vendor', 1.00, 'manual-baseline', false, 'canonical'),
+  ('minimax', 'minimax', 'MiniMax', 'model_vendor', 1.00, 'manual-baseline', false, 'canonical'),
+  ('MiniMax', 'minimax', 'MiniMax', 'model_vendor', 1.00, 'manual-baseline', false, 'case variant'),
   ('siliconflow', 'siliconflow', 'SiliconFlow', 'api_aggregator', 1.00, 'manual-baseline', false, 'canonical aggregator'),
   ('硅基流动', 'siliconflow', 'SiliconFlow', 'api_aggregator', 0.98, 'manual-baseline', false, 'Chinese spelling'),
   ('openrouter', 'openrouter', 'OpenRouter', 'api_aggregator', 1.00, 'manual-baseline', false, 'selling platform, not model owner')
@@ -590,9 +593,9 @@ ON CONFLICT (source_slug) DO UPDATE SET
 
 UPDATE providers p
 SET
-  canonical_slug = COALESCE(a.canonical_slug, p.slug),
+  canonical_slug = COALESCE(a.canonical_slug, lower(p.slug)),
   provider_type = COALESCE(a.provider_type, p.provider_category, 'model_vendor'),
-  is_canonical = COALESCE(a.canonical_slug, p.slug) = p.slug,
+  is_canonical = COALESCE(a.canonical_slug, lower(p.slug)) = lower(p.slug),
   alias_confidence = COALESCE(a.alias_confidence, 1.00),
   alias_source = COALESCE(a.alias_source, 'self'),
   needs_alias_review = COALESCE(a.needs_alias_review, false),
@@ -601,7 +604,7 @@ FROM provider_aliases a
 WHERE a.source_slug = p.slug;
 
 UPDATE providers
-SET canonical_slug = slug,
+SET canonical_slug = lower(slug),
     provider_type = COALESCE(provider_type, provider_category, 'model_vendor'),
     is_canonical = true,
     alias_confidence = COALESCE(alias_confidence, 1.00),

@@ -154,7 +154,7 @@ function minPair(
 
 function normalizeModelRow(r: typeof baseSelect extends infer _T ? any : never): ModelWithPricing {
   const alias = providerAliasInfo(r.provider_slug);
-  const canonical_provider_slug = r.provider_canonical_slug ?? canonicalProviderSlug(r.provider_slug);
+  const canonical_provider_slug = canonicalProviderSlug(r.provider_canonical_slug ?? r.provider_slug);
   const canonical_model_slug = r.canonical_model_slug ?? `${inferModelOwnerProvider({ providerSlug: r.provider_slug, modelSlug: r.model_slug, modelName: r.model_name })}/${r.model_slug}`;
   const model_family = r.model_family ?? inferModelFamily(r.model_slug, r.family);
   const model_variant = r.model_variant ?? inferModelVariant(r.model_slug);
@@ -450,7 +450,7 @@ export async function listProviders() {
     .orderBy(desc(sql<number>`count(${models.id})::int`), providers.name_zh);
   return rows.map((r) => ({
     ...r,
-    canonical_slug: r.canonical_slug ?? canonicalProviderSlug(r.slug),
+    canonical_slug: canonicalProviderSlug(r.canonical_slug ?? r.slug),
     provider_type: r.provider_type ?? providerAliasInfo(r.slug)?.providerType ?? r.provider_category,
     is_canonical: r.is_canonical ?? canonicalProviderSlug(r.slug) === r.slug,
     needs_alias_review: r.needs_alias_review ?? providerAliasInfo(r.slug)?.needsReview ?? false,
