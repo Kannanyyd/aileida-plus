@@ -320,3 +320,34 @@ ddd1e00 上线确认：
   2. Deploy with formal web and worker rebuilds.
   3. Run the new audits in production.
   4. Confirm homepage strict Top8 no longer includes old/non-official-current substitutes.
+
+### Production result
+
+- Final code commit for this round: `7a448fb`.
+- Web image formally rebuilt/restarted for official-current homepage filtering.
+- Worker image formally rebuilt/restarted for `audit:official-current` and `audit:homepage-currentness`.
+- Production `audit:homepage-currentness` passed:
+  - strict homepage Top8 has `all_official_current_or_recommended=true`.
+  - `previous_stale_unknown_count=0`.
+  - `missing_official_source_count=0`.
+  - `source_fresh_but_model_not_current_count=0`.
+  - `superseded_count=0`.
+  - `failing=[]`.
+- Strict homepage Top8 after fix:
+  - `minimax-m3`
+  - `gemini-flash-latest`
+  - `kimi-k2.7-code`
+  - `grok-4.20`
+  - `claude-opus-4.8`
+  - `kimi-k2.6`
+  - `gemini-3.5-flash`
+  - `gpt-5.5`
+- Rows removed from strict homepage selection include:
+  - `mimo-v2.5`
+  - `openrouter/xiaomi/mimo-v2.5`
+  - `gpt-5-codex` unless/until it gets official-current catalog evidence.
+- `audit:official-current` passed and reported DB gaps:
+  - Missing: `llama-4-maverick`, `llama-4-scout`, `command-r-plus-08-2024`, `north-mini-code-1-0`, `doubao-seed-1.6`, `glm-4.6`.
+  - In DB but no pricing: `mistral-medium-3.5`.
+- Public pages returned 200; admin pages returned 307 unauthenticated; admin APIs returned 401.
+- Logs had no critical matches.

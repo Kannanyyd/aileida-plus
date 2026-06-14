@@ -826,3 +826,54 @@
   3. Formally rebuild web and worker images.
   4. Run `npm run audit:official-current` and `npm run audit:homepage-currentness` in the production worker container.
   5. Validate public pages/admin redirects/admin API auth/logs.
+
+### Completed production result
+
+- Code commits:
+  - `cc752fa fix: require official current evidence for homepage`
+  - `a0d9259 fix: tighten official current homepage audit`
+  - `7a448fb fix: load official catalog in worker image`
+- GitHub: pushed.
+- Server source: `7a448fb`.
+- Deployment:
+  - Web image formally rebuilt/restarted for the homepage/ranking currentness change.
+  - Worker image formally rebuilt/restarted for both new audit commands.
+  - No `.next` hotfix and no `docker cp`.
+- New audit commands:
+  - `npm run audit:homepage-currentness` passed in production.
+  - `npm run audit:official-current` passed in production.
+- Homepage Top8 before strict official-current filter still included rows without official catalog evidence:
+  - `mimo-v2.5`
+  - `openrouter/xiaomi/mimo-v2.5`
+  - `gpt-5-codex`
+- Homepage strict Top8 after fix:
+  1. `minimax-m3` / minimax / official current source
+  2. `gemini-flash-latest` / google / official recommended source
+  3. `kimi-k2.7-code` / moonshotai / official recommended source / CNY
+  4. `grok-4.20` / xai / matched to official Grok 4 evidence
+  5. `claude-opus-4.8` / anthropic / official recommended source
+  6. `kimi-k2.6` / moonshotai / official current source / CNY
+  7. `gemini-3.5-flash` / google / official recommended source
+  8. `gpt-5.5` / openai / official recommended source
+- `audit:homepage-currentness` result:
+  - `all_official_current_or_recommended=true`
+  - `previous_stale_unknown_count=0`
+  - `missing_official_source_count=0`
+  - `source_fresh_but_model_not_current_count=0`
+  - `superseded_count=0`
+  - `failing=[]`
+- `audit:official-current` key gaps:
+  - Missing official current/recommended models in DB: `llama-4-maverick`, `llama-4-scout`, `command-r-plus-08-2024`, `north-mini-code-1-0`, `doubao-seed-1.6`, `glm-4.6`.
+  - Official current model in DB but without pricing: `mistral-medium-3.5`.
+  - SiliconFlow is tracked as a selling-platform catalog, not a homepage model-owner pick.
+- Page/API validation:
+  - `/`, `/models`, `/models/new`, `/providers`, `/rankings`, `/rankings/domestic`, `/rankings/frontier-value`, `/recommend`, `/compare` returned 200.
+  - `/admin`, `/admin/review-queue`, `/admin/pricing-gaps`, `/admin/data-quality` returned 307 unauthenticated.
+  - `/api/v1/rankings/frontier-value?limit=8&homepage_strict=true&require_official_current=true` returned 200.
+  - `/api/admin/review-queue`, `/api/admin/pricing-gaps` returned 401 unauthenticated.
+- Containers:
+  - `aileida-web`, `aileida-worker`, `aileida-postgres` are up; postgres healthy.
+- Logs:
+  - No matches for `500`, `digest`, `relation does not exist`, `tsx not found`, `EACCES`, `password authentication failed`, `server-side exception`, or `rank(...).slice/map`.
+- Follow-up:
+  - Do not fill homepage slots with old substitutes. Next discovery work should add missing official models to DB/review_queue and mark price pending when pricing is absent.
