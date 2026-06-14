@@ -164,6 +164,7 @@ export async function POST(req: NextRequest) {
       if (!allowOld && ["previous_generation", "legacy", "deprecated", "unknown"].includes(tier)) return false;
       if (body.budget !== "cheapest" && body.budget !== "free-tier" && (m.status === "preview" || m.status === "beta")) return false;
       const requiresReasoning = body.techRequirements?.includes("reasoning") || scenarioSlug(body.scenario) === "data-analysis";
+      if (requiresReasoning && /non[-_ ]reasoning/i.test(m.model_name)) return false;
       if (requiresReasoning && !(m.capabilities ?? []).includes("reasoning") && !/reason|thinking|deepseek-r|magistral|(^|[^a-z])o[1345]([^a-z]|$)/i.test(m.model_name)) return false;
       if (body.techRequirements?.includes("long-context") && (m.context_length ?? 0) < 100000) return false;
       if (body.techRequirements?.includes("function-call") && !(m.capabilities ?? []).includes("function-call")) return false;
