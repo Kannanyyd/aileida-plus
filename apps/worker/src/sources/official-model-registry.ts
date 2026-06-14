@@ -28,8 +28,10 @@ export const OFFICIAL_MODEL_SOURCES: OfficialModelSource[] = [
     region: "global",
     confidence: 0.95,
     urls: [
-      "https://platform.claude.com/docs/en/about-claude/models/overview",
-      "https://platform.claude.com/docs/en/about-claude/model-deprecations",
+      "https://docs.anthropic.com/en/docs/about-claude/models",
+      "https://docs.anthropic.com/en/docs/about-claude/pricing",
+      "https://docs.anthropic.com/en/docs/about-claude/model-deprecations",
+      "https://docs.anthropic.com/en/api/models-list",
       "https://www.anthropic.com/news",
     ],
   },
@@ -41,7 +43,10 @@ export const OFFICIAL_MODEL_SOURCES: OfficialModelSource[] = [
     confidence: 0.95,
     urls: [
       "https://ai.google.dev/gemini-api/docs/models",
+      "https://ai.google.dev/gemini-api/docs/models?hl=en",
+      "https://ai.google.dev/api/models",
       "https://ai.google.dev/gemini-api/docs/pricing",
+      "https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models",
     ],
   },
   {
@@ -50,7 +55,7 @@ export const OFFICIAL_MODEL_SOURCES: OfficialModelSource[] = [
     providerName: "xAI",
     region: "global",
     confidence: 0.95,
-    urls: ["https://docs.x.ai/developers/models", "https://x.ai/api"],
+    urls: ["https://docs.x.ai/developers/models", "https://docs.x.ai/developers/pricing", "https://docs.x.ai/developers/rest-api-reference/inference/models"],
   },
   {
     id: "official-mistral",
@@ -58,7 +63,7 @@ export const OFFICIAL_MODEL_SOURCES: OfficialModelSource[] = [
     providerName: "Mistral AI",
     region: "global",
     confidence: 0.9,
-    urls: ["https://docs.mistral.ai/getting-started/models/models_overview/", "https://mistral.ai/pricing"],
+    urls: ["https://docs.mistral.ai/models/overview", "https://docs.mistral.ai/models/model-selection-guide", "https://docs.mistral.ai/api/endpoint/models", "https://mistral.ai/pricing"],
   },
   {
     id: "official-cohere",
@@ -74,7 +79,13 @@ export const OFFICIAL_MODEL_SOURCES: OfficialModelSource[] = [
     providerName: "Perplexity",
     region: "global",
     confidence: 0.9,
-    urls: ["https://docs.perplexity.ai/models/model-cards", "https://docs.perplexity.ai/guides/pricing"],
+    urls: [
+      "https://docs.perplexity.ai/docs/sonar/models",
+      "https://docs.perplexity.ai/docs/sonar/models/sonar",
+      "https://docs.perplexity.ai/docs/sonar/models/sonar-pro",
+      "https://docs.perplexity.ai/docs/sonar/models/sonar-deep-research",
+      "https://docs.perplexity.ai/docs/getting-started/pricing",
+    ],
   },
   {
     id: "official-together",
@@ -106,7 +117,13 @@ export const OFFICIAL_MODEL_SOURCES: OfficialModelSource[] = [
     providerName: "Meta Llama",
     region: "global",
     confidence: 0.85,
-    urls: ["https://www.llama.com/models/", "https://ai.meta.com/llama/"],
+    urls: [
+      "https://www.llama.com/models/llama-4/",
+      "https://www.llama.com/docs/model-cards-and-prompt-formats/llama4/",
+      "https://raw.githubusercontent.com/meta-llama/llama-models/main/models/llama4/MODEL_CARD.md",
+      "https://raw.githubusercontent.com/meta-llama/llama-models/main/models/llama3_3/MODEL_CARD.md",
+      "https://raw.githubusercontent.com/meta-llama/llama-models/main/models/llama3_2/MODEL_CARD.md",
+    ],
   },
   {
     id: "official-deepseek",

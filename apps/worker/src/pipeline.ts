@@ -286,11 +286,15 @@ export async function runOfficialModels(sourceId?: string) {
       await logDiscoveryRun({
         source_id: source.id,
         provider_slug: source.providerSlug,
-        source_url: source.urls[0] ?? "unknown",
-        status: "success",
+        source_url: result.errors[0]?.source_url ?? source.urls[0] ?? "unknown",
+        status: result.parserStatus === "success" ? "success" : result.parserStatus === "partial" ? "partial" : "failed",
         candidates_found: stats.candidates,
         models_inserted: stats.inserted,
         missing_pricing: stats.missingPricing,
+        http_status: result.errors[0]?.http_status,
+        parser_status: result.errors[0]?.parser_status ?? result.parserStatus,
+        next_action: result.nextAction,
+        error_message: result.errors.map((error) => `${error.source_url}: ${error.error_message}`).join("\n").slice(0, 2000) || undefined,
         duration_ms: Date.now() - start,
       });
       totalCandidates += stats.candidates;
@@ -306,6 +310,8 @@ export async function runOfficialModels(sourceId?: string) {
         candidates_found: 0,
         models_inserted: 0,
         missing_pricing: 0,
+        parser_status: "parser_failed",
+        next_action: "Fix source parser or URL before relying on this source.",
         error_message: err?.message ?? String(err),
         duration_ms: Date.now() - start,
       });

@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, notInArray, sql } from "drizzle-orm";
 import { db } from "./client.js";
 import { latestModelCandidates, modelDiscoveryLogs, models, pricing, providers, reviewQueue } from "./schema.js";
 import { upsertModel } from "./model-store.js";
@@ -107,6 +107,16 @@ async function upsertCandidate(candidate: OfficialModelCandidate, hasPricing: bo
     });
 }
 
+async function pruneMissingSourceCandidates(sourceId: string, currentSlugs: string[]) {
+  if (currentSlugs.length === 0) {
+    await db.delete(latestModelCandidates).where(eq(latestModelCandidates.source_id, sourceId));
+    return;
+  }
+  await db
+    .delete(latestModelCandidates)
+    .where(and(eq(latestModelCandidates.source_id, sourceId), notInArray(latestModelCandidates.model_slug, currentSlugs)));
+}
+
 export async function ingestOfficialDiscovery(result: OfficialDiscoveryResult) {
   const providerId = await ensureProvider(result.source.providerSlug, result.source.providerName, result.source.region);
   let inserted = 0;
@@ -155,6 +165,8 @@ export async function ingestOfficialDiscovery(result: OfficialDiscoveryResult) {
     await upsertCandidate(candidate, priced, status);
   }
 
+  await pruneMissingSourceCandidates(result.source.id, result.candidates.map((candidate) => candidate.model_slug));
+
   return { candidates: result.candidates.length, inserted, missingPricing };
 }
 
@@ -166,6 +178,9 @@ export async function logDiscoveryRun(input: {
   candidates_found: number;
   models_inserted: number;
   missing_pricing: number;
+  http_status?: number;
+  parser_status?: string;
+  next_action?: string;
   error_message?: string;
   duration_ms: number;
 }) {

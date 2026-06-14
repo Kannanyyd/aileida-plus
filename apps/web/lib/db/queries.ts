@@ -503,10 +503,15 @@ export async function dashboardOverview() {
   };
 }
 
-export async function listLatestModelCandidates(limit = 50) {
+export async function listLatestModelCandidates(limit = 50, days = 30) {
+  const since = sql`now() - make_interval(days => ${days})`;
   const rows = await db
     .select()
     .from(latestModelCandidates)
+    .where(and(
+      gte(latestModelCandidates.last_seen_at, since),
+      sql`${latestModelCandidates.discovery_status} <> 'stale'`,
+    ))
     .orderBy(desc(latestModelCandidates.last_seen_at))
     .limit(limit);
   return rows.map((r) => ({
@@ -518,14 +523,19 @@ export async function listLatestModelCandidates(limit = 50) {
 export async function modelDiscoveryOverview() {
   const since7 = sql`now() - interval '7 days'`;
   const since30 = sql`now() - interval '30 days'`;
+  const since90 = sql`now() - interval '90 days'`;
   const [recent7] = await db
     .select({ c: sql<number>`count(*)::int` })
     .from(latestModelCandidates)
-    .where(gte(latestModelCandidates.last_seen_at, since7));
+    .where(and(gte(latestModelCandidates.last_seen_at, since7), sql`${latestModelCandidates.discovery_status} <> 'stale'`));
   const [recent30] = await db
     .select({ c: sql<number>`count(*)::int` })
     .from(latestModelCandidates)
-    .where(gte(latestModelCandidates.last_seen_at, since30));
+    .where(and(gte(latestModelCandidates.last_seen_at, since30), sql`${latestModelCandidates.discovery_status} <> 'stale'`));
+  const [recent90] = await db
+    .select({ c: sql<number>`count(*)::int` })
+    .from(latestModelCandidates)
+    .where(and(gte(latestModelCandidates.last_seen_at, since90), sql`${latestModelCandidates.discovery_status} <> 'stale'`));
   const [needsPricing] = await db
     .select({ c: sql<number>`count(*)::int` })
     .from(latestModelCandidates)
@@ -541,6 +551,7 @@ export async function modelDiscoveryOverview() {
   return {
     recent7: recent7?.c ?? 0,
     recent30: recent30?.c ?? 0,
+    recent90: recent90?.c ?? 0,
     needsPricing: needsPricing?.c ?? 0,
     possibleDeprecated: possibleDeprecated?.c ?? 0,
     inserted: inserted?.c ?? 0,

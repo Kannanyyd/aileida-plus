@@ -138,10 +138,16 @@ CREATE TABLE IF NOT EXISTS model_discovery_logs (
   candidates_found integer NOT NULL DEFAULT 0,
   models_inserted integer NOT NULL DEFAULT 0,
   missing_pricing integer NOT NULL DEFAULT 0,
+  http_status integer,
+  parser_status text NOT NULL DEFAULT 'unknown',
+  next_action text,
   error_message text,
   duration_ms integer,
   fetched_at timestamptz NOT NULL DEFAULT now()
 );
+ALTER TABLE model_discovery_logs ADD COLUMN IF NOT EXISTS http_status integer;
+ALTER TABLE model_discovery_logs ADD COLUMN IF NOT EXISTS parser_status text NOT NULL DEFAULT 'unknown';
+ALTER TABLE model_discovery_logs ADD COLUMN IF NOT EXISTS next_action text;
 CREATE INDEX IF NOT EXISTS mdl_source_idx ON model_discovery_logs (source_id);
 CREATE INDEX IF NOT EXISTS mdl_provider_idx ON model_discovery_logs (provider_slug);
 CREATE INDEX IF NOT EXISTS mdl_status_idx ON model_discovery_logs (status);
