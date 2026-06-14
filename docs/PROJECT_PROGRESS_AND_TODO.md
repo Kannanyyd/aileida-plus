@@ -391,3 +391,113 @@
 5. 后台 bulk 当前只做状态处理，暂不做批量价格入库，避免误操作。
 
 ---
+# 最新状态更新：数据一致性复核与旧 review_queue 重复清理
+
+更新时间：2026-06-14 21:18 UTC+8
+
+## 当前代码与部署
+
+- 最新源码 commit：`ddd1e00`
+- GitHub：已 push 到 `origin/main`
+- 服务器源码：`~/aileida-plus = ddd1e00`
+- 生产运行容器：仍是上一版 web 镜像，`ddd1e00` 的后台 UI/API 代码尚未上线
+- 数据库清理：已在生产执行完成
+- 部署阻塞：服务器 Docker build/buildx 连续卡住，清空 31GB build cache 后仍卡住；已终止挂起进程
+- 未使用 `.next` / docker cp 热修
+
+## CNY pricing 数据一致性复核
+
+- 全库 CNY pricing 总数：`32`
+- Kimi / Moonshot 上一轮 8 条 CNY pricing 仍存在
+- 不一致根因：pricing gaps 旧查询按 raw model provider 分组，拆成：
+  - `moonshotai`：5
+  - `moonshot`：3
+- 不是 pricing 被删除，不是测试清理误删
+- 已修复 `domesticPricingGapAudit()` 统计口径：
+  - 模型数量按 owner/model provider 归属统计
+  - CNY pricing 按 `model_owner_provider / selling_platform_provider / source_provider` 任一命中统计
+  - 避免漏算平台价，例如硅基流动卖 DeepSeek、阿里百炼卖 Qwen、Kimi 的 `moonshotai/moonshot` 分裂
+
+修复后等价 SQL 样例：
+| provider | models | CNY pricing | missing CNY |
+|---|---:|---:|---:|
+| moonshot | 43 | 8 | 35 |
+| alibaba-cloud | 529 | 7 | 522 |
+| deepseek | 33 | 6 | 27 |
+| siliconflow | 34 | 6 | 28 |
+| tencent-hunyuan | 16 | 6 | 10 |
+| baidu-qianfan | 19 | 5 | 14 |
+| bytedance-volcano | 10 | 0 | 10 |
+| minimax | 21 | 0 | 21 |
+| zhipu | 2 | 0 | 2 |
+
+注意：此统计口径代码已提交，但因 Docker build 阻塞，线上页面/API 尚未使用新口径。
+
+## review_queue 旧重复清理
+
+- 新增脚本：`npm -w web run review:dedupe`
+- 生产清理已通过 postgres 容器内 SQL 执行
+- 清理方式：
+  - 保留信息最完整/较早的一条 pending
+  - 其他重复项标记为 `ignored_duplicate`
+  - 不物理删除
+  - 合并 `occurrence_count / latest_payload / latest_error_message / last_seen_at / dedupe_key`
+  - 写入 `review_audit_logs`
+- 清理前 pending 重复组：117
+- 清理前 pending 重复行：158
+- 已标记 `ignored_duplicate`：158
+- 清理后 pending 重复组：0
+- 清理后 pending 重复行：0
+
+## 后台审核流程加固
+
+已提交但未上线：
+- `/admin/review-queue` 默认 high impact 排序
+- 支持排序：
+  - occurrence_count desc
+  - confidence desc / asc
+  - created_at desc
+  - last_seen_at desc
+- 列表新增字段：
+  - occurrence_count
+  - dedupe_key
+  - provider / canonical_provider
+  - model
+  - currency
+  - region
+  - source_url
+  - confidence
+  - last_seen_at
+- 批量操作：
+  - bulk ignore duplicates
+  - bulk mark needs_more_info
+  - bulk reject suspicious
+- approve pricing 安全校验：
+  - `currency_native` 必填
+  - `region` 必填
+  - `source_url` 必填
+  - `input_price / output_price` 至少一个存在
+  - `billing_unit` 必填
+  - CNY 必须保留 native CNY
+  - 同 model + currency + region + channel + selling_platform_provider 若存在不同 source pricing，默认拒绝并要求显式确认
+  - approve 后写 `review_audit_logs`
+
+## 当前生产验收
+
+- `/`、`/models`、`/models/new`、`/providers`、`/rankings`、`/recommend`、`/compare`：200
+- `/admin`、`/admin/review-queue`、`/admin/pricing-gaps`：未登录 307
+- `/api/admin/review-queue`、`/api/admin/pricing-gaps`：未登录 401
+- web / worker / postgres：正常
+- 日志未发现：`500 / digest / relation does not exist / tsx not found / EACCES / password authentication failed / server-side exception`
+
+## 下一步
+
+1. 先修 Docker build/buildx 卡住问题，让 `ddd1e00` 正式 rebuild/up。
+2. 不要用 `.next` 或 docker cp 热修上线本轮代码。
+3. Docker build 恢复后验证：
+   - `/admin/review-queue` 已登录 200
+   - `/admin/pricing-gaps` 已登录 200
+   - `/api/admin/pricing-gaps` 中 `moonshot` CNY pricing = 8
+4. 暂停新价格源扩展，直到后台统计口径正式上线并验证。
+
+---

@@ -119,3 +119,45 @@
 - 不硬卡 Chromium / Playwright。
 - review_queue 旧重复如需处理，先审计方案，不直接删。
 - pricing gaps 下一轮优先补 MiniMax、火山方舟、智谱、阿里百炼。
+# 最新接手状态：数据一致性复核与旧 review_queue 重复清理
+
+更新时间：2026-06-14 21:18 UTC+8
+
+- 最新源码 commit：`ddd1e00`
+- GitHub：`origin/main = ddd1e00`
+- 服务器源码：`~/aileida-plus = ddd1e00`
+- 生产运行容器：仍是上一版 web 镜像，`ddd1e00` 的 UI/API 改动未上线。
+- 阻塞原因：服务器 Docker build/buildx 连续卡住，build cache 清空后仍卡住；已终止挂起进程，未做 `.next`/docker cp 热修。
+- 数据库清理：已在生产执行完成。
+
+本轮结论：
+- CNY pricing 总数仍为 `32`。
+- Kimi / Moonshot 的 8 条 CNY pricing 没丢。
+- pricing gaps 旧报告只显示 3 条，是因为 provider 统计按 raw provider 拆成 `moonshotai=5` 和 `moonshot=3`。
+- `domesticPricingGapAudit()` 已改为按统一 provider key 统计，CNY pricing 按 `model_owner_provider / selling_platform_provider / source_provider` 任一命中计入。
+- 修复后等价 SQL：`moonshot` CNY pricing = 8。
+
+review_queue 清理：
+- 清理前 pending 重复组：117
+- 清理前 pending 重复行：158
+- 已标记 `ignored_duplicate`：158
+- 清理后 pending 重复组：0
+- 清理后 pending 重复行：0
+- 未物理删除，已写 audit log，保留项合并 occurrence/latest/last_seen。
+
+代码增强但未上线：
+- `/admin/review-queue` high impact 默认排序、排序控件、更多列、批量操作。
+- `approvePricingReview()` 增强必填校验与冲突保护。
+- 新增脚本：`npm -w web run review:dedupe`。
+
+当前生产页面：
+- `/`、`/models`、`/models/new`、`/providers`、`/rankings`、`/recommend`、`/compare` 全部 200。
+- `/admin/*` 未登录 307。
+- `/api/admin/*` 未登录 401。
+- web/worker/postgres 正常。
+
+下一步优先级：
+1. 先修 Docker build/buildx 卡住问题，让 `ddd1e00` 正式 rebuild/up。
+2. 不做 DNS / Nginx / HTTPS。
+3. 不硬卡 Chromium / Playwright。
+4. 不继续扩展新价格源，直到后台统计口径正式部署并验证。
