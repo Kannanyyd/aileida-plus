@@ -743,3 +743,45 @@
   3. Formally rebuild web and worker images.
   4. Run `npm run audit:freshness` in the production worker context.
   5. Validate `/`, `/models`, `/models/new`, `/providers`, `/rankings`, `/recommend`, `/compare`, admin 307, admin API 401, and logs.
+
+### Completed production result
+
+- Code commits:
+  - `cecb0c6 fix: enforce homepage freshness ranking`
+  - `7bd0b39 fix: include latest candidates in freshness audit`
+  - `decef06 fix: audit actual homepage freshness ranking`
+- GitHub: pushed.
+- Server source: `decef06`.
+- Deployment:
+  - Web image formally rebuilt and restarted for the homepage/ranking/recommendation changes.
+  - Worker image formally rebuilt and restarted for `audit:freshness`.
+  - No `.next` hotfix and no `docker cp`.
+- Production `audit:freshness`:
+  - Source freshness: 23 sources, `stale_over_12h=0`, `stale_over_24h=0`.
+  - Latest source check: `2026-06-14 16:05:05 UTC`.
+  - Latest pricing check: `2026-06-14 16:04:47 UTC`.
+  - CNY pricing count: 94.
+  - Homepage Top8 from ranking API: all `fresh`, all `current_frontier/current_mainstream`, all `has_newer_family_model=false`.
+- Homepage Top8 after fix:
+  1. `kimi-k2.7-code` / moonshotai / current_frontier / fresh
+  2. `gemini-flash-latest` / google / current_mainstream / fresh
+  3. `gemini-pro-latest` / google / current_mainstream / fresh
+  4. `mimo-v2.5` / xiaomi / current_mainstream / fresh
+  5. `minimax-m3` / minimax / current_mainstream / fresh
+  6. `grok-4.20` / xai / current_mainstream / fresh
+  7. `openrouter/xiaomi/mimo-v2.5` / openrouter / current_mainstream / fresh
+  8. `claude-opus-4.8` / anthropic / current_mainstream / fresh
+- Domestic ranking sample:
+  - Top8 all `currency_native=CNY`, `region=china_mainland`, `freshness=fresh`.
+- Recommend smoke:
+  - Domestic Chinese writing returned `relaxedFilters=[]`.
+  - Balanced Top5 were fresh, CNY-priced, and `hasNewerFamilyModel=false`.
+- Page/API validation:
+  - `/`, `/models`, `/models/new`, `/providers`, `/rankings`, `/rankings/domestic`, `/rankings/frontier-value`, `/recommend`, `/compare` returned 200.
+  - `/admin`, `/admin/review-queue`, `/admin/pricing-gaps`, `/admin/data-quality` returned 307 unauthenticated.
+  - `/api/v1/rankings/domestic?limit=20`, `/api/v1/rankings/frontier-value?limit=20`, `/api/v1/rankings/frontier-value?region=china_mainland&limit=20` returned 200.
+  - `/api/admin/review-queue`, `/api/admin/pricing-gaps` returned 401 unauthenticated.
+- Logs:
+  - No matches for `500`, `digest`, `relation does not exist`, `tsx not found`, `EACCES`, `password authentication failed`, `server-side exception`, or `rank(...).slice/map`.
+- Note:
+  - `audit:freshness` also prints old pricing rows. Many historical/current pricing rows are older than 24h, but homepage/default Top8 is now guarded by recent source checks and stale/superseded filtering. Future work can split source freshness from per-price-row recrawl freshness more precisely.

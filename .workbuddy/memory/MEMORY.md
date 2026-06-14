@@ -282,3 +282,16 @@ ddd1e00 上线确认：
   - Server source was `f9f4317`.
   - web/worker/postgres were up.
   - Need formal web and worker rebuild; no `.next` hotfix / no `docker cp`.
+
+### Production result
+
+- Final code commit deployed for this round: `decef06`.
+- Web was formally rebuilt/restarted for homepage freshness/ranking changes.
+- Worker was formally rebuilt/restarted for `audit:freshness`.
+- `audit:freshness` now calls the real ranking API for homepage Top8 and also prints SQL fallback/oldest source/pricing diagnostics.
+- Production source freshness: 23 sources, `stale_over_12h=0`, `stale_over_24h=0`.
+- Homepage Top8 from ranking API is fresh, not superseded, and only current_frontier/current_mainstream.
+- Domestic ranking Top8 sample is all native CNY and fresh.
+- Recommend domestic writing smoke has `relaxedFilters=[]` and fresh CNY-priced balanced results.
+- Public pages are 200, admin pages unauthenticated are 307, admin APIs unauthenticated are 401.
+- Logs had no critical matches.
