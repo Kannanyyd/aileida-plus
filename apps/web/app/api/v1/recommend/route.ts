@@ -79,13 +79,15 @@ function scoreRecommendation(input: RecommendBody, m: Awaited<ReturnType<typeof 
   const price = scoreModel(m, all, { price: 1, context: 0, capability: 0, freshness: 0, confidence: 0 }).total;
   const priceWeight = input.budget === "cheapest" || input.budget === "free-tier" ? 0.32 : 0.12;
   const abilityWeight = input.quality === "basic" ? 0.2 : 0.25;
-  const score =
+  const totalWeight = 0.25 + abilityWeight + 0.2 + 0.1 + 0.1 + priceWeight;
+  const score = (
     scenario * 0.25 +
     capability * abilityWeight +
     freshness * 0.2 +
     confidence * 0.1 +
     ((regional + channel) / 2) * 0.1 +
-    price * priceWeight;
+    price * priceWeight
+  ) / totalWeight;
   return Math.round(score * 10) / 10;
 }
 
@@ -151,24 +153,48 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "缺少必填字段：scenario" }, { status: 400 });
     }
 
-    let models = await listModels({
-      limit: 2000,
-      region: body.regionPreference === "domestic" ? "china_mainland" : body.regionPreference === "overseas" ? "overseas" : undefined,
-      channel: body.channelPreference && body.channelPreference !== "any" ? body.channelPreference : undefined,
-    });
+    let models = await listModels({ limit: 2000 });
     if (models.length === 0) {
       return NextResponse.json({ error: "暂无模型数据" }, { status: 503 });
     }
 
-    models = models.filter((m) => {
+    const baseEligible = (m: (typeof models)[number]) => {
       const tier = getModelTier(m);
       const allowOld = body.budget === "cheapest" || body.budget === "free-tier";
       if (!allowOld && ["previous_generation", "legacy", "deprecated", "unknown"].includes(tier)) return false;
       if (body.budget !== "cheapest" && body.budget !== "free-tier" && (m.status === "preview" || m.status === "beta")) return false;
-      if (body.currencyPreference && body.currencyPreference !== "any" && m.currency_native !== body.currencyPreference) return false;
-      if (body.requireDomesticPayment && m.provider_region !== "cn" && m.currency_native !== "CNY") return false;
       return !m.need_manual_review && !m.model_needs_pricing_review && Math.max(m.confidence_score, m.model_source_confidence) >= 0.65;
-    });
+    };
+    const preferenceEligible = (m: (typeof models)[number], strict: { region: boolean; channel: boolean; currency: boolean }) => {
+      if (!baseEligible(m)) return false;
+      if (strict.region && body.regionPreference === "domestic" && !(m.provider_region === "cn" || m.is_domestic || m.pricing_region === "china_mainland")) return false;
+      if (strict.region && body.regionPreference === "overseas" && (m.provider_region === "cn" || m.is_domestic || m.pricing_region === "china_mainland")) return false;
+      if (strict.channel && body.channelPreference && body.channelPreference !== "any" && m.channel !== body.channelPreference) return false;
+      if (strict.currency && body.currencyPreference && body.currencyPreference !== "any" && m.currency_native !== body.currencyPreference) return false;
+      if (body.requireDomesticPayment && strict.currency && m.provider_region !== "cn" && m.currency_native !== "CNY") return false;
+      return true;
+    };
+
+    const attempts = [
+      { region: true, channel: true, currency: true },
+      { region: true, channel: true, currency: false },
+      { region: true, channel: false, currency: false },
+      { region: false, channel: false, currency: false },
+    ];
+    let relaxedFilters: string[] = [];
+    let filtered: typeof models = [];
+    for (const attempt of attempts) {
+      filtered = models.filter((m) => preferenceEligible(m, attempt));
+      if (filtered.length > 0) {
+        relaxedFilters = [
+          !attempt.currency && body.currencyPreference && body.currencyPreference !== "any" ? "currency" : "",
+          !attempt.channel && body.channelPreference && body.channelPreference !== "any" ? "channel" : "",
+          !attempt.region && body.regionPreference && body.regionPreference !== "any" ? "region" : "",
+        ].filter(Boolean);
+        break;
+      }
+    }
+    models = filtered;
 
     const scored = models
       .map((m) => ({ model: m, score: scoreRecommendation(body, m, models), monthlyCost: estimateMonthlyCost(body, m) }))
@@ -196,13 +222,13 @@ export async function POST(req: NextRequest) {
           tierLabel: tierLabel(tier),
           isLegacy: ["previous_generation", "legacy", "deprecated"].includes(tier),
           priceSourceCount: row.model.price_source_count,
-          isOfficialPrice: row.model.is_official,
+          isOfficialPrice: row.model.is_official || row.model.channel === "official_api",
           isAggregatorPrice: row.model.is_aggregator,
           isDomestic: row.model.is_domestic || row.model.provider_region === "cn" || row.model.pricing_region === "china_mainland",
-          isOverseasOfficial: row.model.is_official && row.model.provider_region !== "cn" && row.model.pricing_region !== "china_mainland",
+          isOverseasOfficial: (row.model.is_official || row.model.channel === "official_api") && row.model.provider_region !== "cn" && row.model.pricing_region !== "china_mainland",
           currencyNative: row.model.currency_native,
           sourceConfidence: Math.max(row.model.confidence_score, row.model.model_source_confidence),
-          dataConfidenceIssue: row.model.confidence_score < 0.75 || row.model.price_source_count < 2,
+          dataConfidenceIssue: row.model.confidence_score < 0.75 || row.model.price_source_count < 2 || relaxedFilters.length > 0,
         },
         monthlyCost: row.monthlyCost,
         score: row.score,
@@ -232,6 +258,7 @@ export async function POST(req: NextRequest) {
       balanced: diverseTake(scored, 5).map(enrich),
       premium: diverseTake(byQuality, 5).map(enrich),
       latestModelAlerts: latestUnpriced,
+      relaxedFilters,
       input: body,
       generatedAt: new Date().toISOString(),
       weights: {
