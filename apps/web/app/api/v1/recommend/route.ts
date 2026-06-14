@@ -163,6 +163,10 @@ export async function POST(req: NextRequest) {
       const allowOld = body.budget === "cheapest" || body.budget === "free-tier";
       if (!allowOld && ["previous_generation", "legacy", "deprecated", "unknown"].includes(tier)) return false;
       if (body.budget !== "cheapest" && body.budget !== "free-tier" && (m.status === "preview" || m.status === "beta")) return false;
+      const requiresReasoning = body.techRequirements?.includes("reasoning") || scenarioSlug(body.scenario) === "data-analysis";
+      if (requiresReasoning && !(m.capabilities ?? []).includes("reasoning") && !/reason|thinking|deepseek-r|magistral|(^|[^a-z])o[1345]([^a-z]|$)/i.test(m.model_name)) return false;
+      if (body.techRequirements?.includes("long-context") && (m.context_length ?? 0) < 100000) return false;
+      if (body.techRequirements?.includes("function-call") && !(m.capabilities ?? []).includes("function-call")) return false;
       return !m.need_manual_review && !m.model_needs_pricing_review && Math.max(m.confidence_score, m.model_source_confidence) >= 0.65;
     };
     const preferenceEligible = (m: (typeof models)[number], strict: { region: boolean; channel: boolean; currency: boolean }) => {
