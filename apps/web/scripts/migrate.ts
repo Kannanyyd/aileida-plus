@@ -304,6 +304,26 @@ CREATE TABLE IF NOT EXISTS review_queue (
 CREATE INDEX IF NOT EXISTS review_entity_idx ON review_queue (entity_type);
 CREATE INDEX IF NOT EXISTS review_reason_idx ON review_queue (reason);
 CREATE INDEX IF NOT EXISTS review_status_idx ON review_queue (status);
+ALTER TABLE review_queue ADD COLUMN IF NOT EXISTS dedupe_key text;
+ALTER TABLE review_queue ADD COLUMN IF NOT EXISTS last_seen_at timestamptz NOT NULL DEFAULT now();
+ALTER TABLE review_queue ADD COLUMN IF NOT EXISTS occurrence_count integer NOT NULL DEFAULT 1;
+ALTER TABLE review_queue ADD COLUMN IF NOT EXISTS latest_payload jsonb;
+ALTER TABLE review_queue ADD COLUMN IF NOT EXISTS latest_error_message text;
+CREATE INDEX IF NOT EXISTS review_dedupe_idx ON review_queue (dedupe_key);
+CREATE UNIQUE INDEX IF NOT EXISTS review_pending_dedupe_uq ON review_queue (dedupe_key) WHERE status = 'pending' AND dedupe_key IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS review_audit_logs (
+  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  review_id uuid REFERENCES review_queue(id) ON DELETE SET NULL,
+  action text NOT NULL,
+  actor text NOT NULL DEFAULT 'admin',
+  before jsonb,
+  after jsonb,
+  message text,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS ral_review_idx ON review_audit_logs (review_id);
+CREATE INDEX IF NOT EXISTS ral_action_idx ON review_audit_logs (action);
 
 CREATE TABLE IF NOT EXISTS source_snapshots (
   id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),

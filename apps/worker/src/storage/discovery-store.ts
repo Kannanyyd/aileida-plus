@@ -1,8 +1,9 @@
 import { and, eq, notInArray, sql } from "drizzle-orm";
 import { db } from "./client.js";
-import { latestModelCandidates, modelDiscoveryLogs, models, pricing, providers, reviewQueue } from "./schema.js";
+import { latestModelCandidates, modelDiscoveryLogs, models, pricing, providers } from "./schema.js";
 import { upsertModel } from "./model-store.js";
 import { upsertProvider } from "./provider-store.js";
+import { upsertReviewQueue } from "./review-store.js";
 import type { OfficialModelCandidate, OfficialDiscoveryResult } from "../sources/official-model-discovery.js";
 
 function normalizeModelSlug(value: string): string {
@@ -73,14 +74,7 @@ async function hasCurrentPricing(modelId: string) {
 }
 
 async function enqueueReview(candidate: OfficialModelCandidate, modelId: string | null, reason: string) {
-  const dup = await db
-    .select({ id: reviewQueue.id })
-    .from(reviewQueue)
-    .where(and(eq(reviewQueue.entity_type, "model"), eq(reviewQueue.reason, reason), modelId ? eq(reviewQueue.entity_id, modelId) : sql`payload->>'model_slug' = ${candidate.model_slug}`))
-    .limit(1);
-  if (dup[0]) return false;
-
-  await db.insert(reviewQueue).values({
+  const result = await upsertReviewQueue({
     entity_type: "model",
     entity_id: modelId,
     reason,
@@ -95,9 +89,8 @@ async function enqueueReview(candidate: OfficialModelCandidate, modelId: string 
       evidence: candidate.evidence,
     },
     conflicts: null,
-    status: "pending",
   });
-  return true;
+  return result.inserted;
 }
 
 async function upsertCandidate(candidate: OfficialModelCandidate, hasPricing: boolean, status: "known" | "inserted" | "candidate") {

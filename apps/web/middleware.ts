@@ -6,7 +6,6 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "admin123";
 export function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
 
-  // Admin 鉴权
   if (path.startsWith("/admin")) {
     const authCookie = request.cookies.get("admin_auth");
     if (authCookie?.value === ADMIN_PASSWORD) return NextResponse.next();
@@ -23,11 +22,27 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // Rate limit for reviews API
+  if (path.startsWith("/api/admin")) {
+    const authCookie = request.cookies.get("admin_auth");
+    if (authCookie?.value !== ADMIN_PASSWORD) {
+      return NextResponse.json({ error: "Admin authentication required" }, { status: 401 });
+    }
+    if (request.method !== "GET") {
+      const ip = request.headers.get("x-forwarded-for") ?? "unknown";
+      const key = `admin_api_rate_${ip}`;
+      const lastSubmit = request.cookies.get(key);
+      if (lastSubmit && Date.now() - parseInt(lastSubmit.value) < 2000) {
+        return NextResponse.json({ error: "Too many admin operations, retry in a moment" }, { status: 429 });
+      }
+      const res = NextResponse.next();
+      res.cookies.set(key, String(Date.now()), { maxAge: 2, path: "/api/admin" });
+      return res;
+    }
+  }
+
   if (path === "/api/v1/reviews" && request.method === "POST") {
     const ip = request.headers.get("x-forwarded-for") ?? "unknown";
     const key = `review_rate_${ip}`;
-    // Simple in-memory rate limit via cookie (MVP)
     const lastSubmit = request.cookies.get(key);
     if (lastSubmit) {
       const elapsed = Date.now() - parseInt(lastSubmit.value);
@@ -40,7 +55,6 @@ export function middleware(request: NextRequest) {
     return res;
   }
 
-  // Rate limit for recommend API
   if (path === "/api/v1/recommend" && request.method === "POST") {
     const ip = request.headers.get("x-forwarded-for") ?? "unknown";
     const key = `recommend_rate_${ip}`;
@@ -60,5 +74,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/api/v1/reviews", "/api/v1/recommend"],
+  matcher: ["/admin/:path*", "/api/admin/:path*", "/api/v1/reviews", "/api/v1/recommend"],
 };

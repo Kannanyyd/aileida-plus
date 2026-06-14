@@ -1,9 +1,7 @@
-/**
- * 价格写入 + Diff：自动 vs 人工复核分流
- */
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "./client.js";
-import { pricing, priceChangeLog, reviewQueue } from "./schema.js";
+import { pricing, priceChangeLog } from "./schema.js";
+import { upsertReviewQueue } from "./review-store.js";
 import { diffPricing, type ExistingPricing } from "../diff/pricing-diff.js";
 import type { NormalizedPricing } from "../types.js";
 
@@ -57,9 +55,9 @@ export async function upsertPricing(input: UpsertPricingInput): Promise<UpsertPr
     platform: input.pricing.platform ?? null,
     selling_platform_provider: input.pricing.selling_platform_provider ?? input.pricing.platform ?? null,
     source_provider: input.pricing.source_provider ?? input.pricing.source_id ?? null,
-    is_official: input.pricing.is_official ?? (input.pricing.channel === "official_api"),
-    is_aggregator: input.pricing.is_aggregator ?? (input.pricing.channel === "aggregator"),
-    is_domestic: input.pricing.is_domestic ?? (input.pricing.region === "china_mainland"),
+    is_official: input.pricing.is_official ?? input.pricing.channel === "official_api",
+    is_aggregator: input.pricing.is_aggregator ?? input.pricing.channel === "aggregator",
+    is_domestic: input.pricing.is_domestic ?? input.pricing.region === "china_mainland",
     effective_start_at: input.pricing.effective_start_at ? new Date(input.pricing.effective_start_at) : null,
     effective_end_at: input.pricing.effective_end_at ? new Date(input.pricing.effective_end_at) : null,
     is_current: true,
@@ -73,35 +71,13 @@ export async function upsertPricing(input: UpsertPricingInput): Promise<UpsertPr
   };
 
   if (existing.length === 0) {
-    // 低置信度或需人工审核 → 写入 review_queue (去重)
     if ((input.pricing.confidence_score != null && input.pricing.confidence_score < 0.7) || input.pricing.need_manual_review) {
-      // 去重：检查是否已有相同 model + source 的 pending review
-      const dupCheck = await db
-        .select({ id: reviewQueue.id })
-        .from(reviewQueue)
-        .where(
-          and(
-            eq(reviewQueue.entity_type, "pricing"),
-            eq(reviewQueue.reason, "low-confidence-new-pricing"),
-            eq(reviewQueue.status, "pending"),
-            sql`${reviewQueue.payload}->>'model_id' = ${input.model_id}`,
-          ),
-        )
-        .limit(1);
-
-      if (dupCheck.length === 0) {
-        const [rq] = await db
-          .insert(reviewQueue)
-          .values({
-            entity_type: "pricing",
-            reason: "low-confidence-new-pricing",
-            payload: { model_id: input.model_id, ...input.pricing },
-            status: "pending",
-          })
-          .returning();
-        return { status: "review-queue", reason: "low-confidence-new-pricing", changeId: rq.id };
-      }
-      return { status: "review-queue", reason: "duplicate-skipped" };
+      const result = await upsertReviewQueue({
+        entity_type: "pricing",
+        reason: "low-confidence-new-pricing",
+        payload: { model_id: input.model_id, ...input.pricing },
+      });
+      return { status: "review-queue", reason: result.inserted ? "low-confidence-new-pricing" : "duplicate-updated", changeId: result.row.id };
     }
     await db.insert(pricing).values(priceValues);
     return { status: "inserted" };
@@ -121,38 +97,18 @@ export async function upsertPricing(input: UpsertPricingInput): Promise<UpsertPr
   if (diff.kind === "same") return { status: "unchanged" };
 
   if (diff.kind === "conflict") {
-    // 去重：检查同一 entity_id 是否已有 pending review
-    const dupConflict = await db
-      .select({ id: reviewQueue.id })
-      .from(reviewQueue)
-      .where(
-        and(
-          eq(reviewQueue.entity_type, "pricing"),
-          eq(reviewQueue.entity_id, cur.id),
-          eq(reviewQueue.status, "pending"),
-        ),
-      )
-      .limit(1);
-
-    if (dupConflict.length === 0) {
-      const [rq] = await db
-        .insert(reviewQueue)
-        .values({
-          entity_type: "pricing",
-          entity_id: cur.id,
-          reason: diff.reason ?? "multi-source-conflict",
-          payload: { model_id: input.model_id, ...input.pricing },
-          conflicts: {
-            existing: existingSnapshot,
-            incoming: input.pricing,
-            changes: diff.changes,
-          },
-          status: "pending",
-        })
-        .returning();
-      return { status: "review-queue", reason: diff.reason, changeId: rq.id };
-    }
-    return { status: "review-queue", reason: "conflict-duplicate-skipped" };
+    const result = await upsertReviewQueue({
+      entity_type: "pricing",
+      entity_id: cur.id,
+      reason: diff.reason ?? "multi-source-conflict",
+      payload: { model_id: input.model_id, ...input.pricing },
+      conflicts: {
+        existing: existingSnapshot,
+        incoming: input.pricing,
+        changes: diff.changes,
+      },
+    });
+    return { status: "review-queue", reason: result.inserted ? diff.reason : "conflict-duplicate-updated", changeId: result.row.id };
   }
 
   await db

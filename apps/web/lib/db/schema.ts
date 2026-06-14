@@ -349,6 +349,11 @@ export const reviewQueue = pgTable(
     status: text("status").notNull().default("pending"),
     assigned_to: text("assigned_to"),
     resolution: jsonb("resolution"),
+    dedupe_key: text("dedupe_key"),
+    last_seen_at: timestamp("last_seen_at", { withTimezone: true }).defaultNow().notNull(),
+    occurrence_count: integer("occurrence_count").notNull().default(1),
+    latest_payload: jsonb("latest_payload"),
+    latest_error_message: text("latest_error_message"),
     created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     resolved_at: timestamp("resolved_at", { withTimezone: true }),
   },
@@ -356,6 +361,25 @@ export const reviewQueue = pgTable(
     entityIdx: index("review_entity_idx").on(t.entity_type),
     reasonIdx: index("review_reason_idx").on(t.reason),
     statusIdx: index("review_status_idx").on(t.status),
+    dedupeIdx: index("review_dedupe_idx").on(t.dedupe_key),
+  }),
+);
+
+export const reviewAuditLogs = pgTable(
+  "review_audit_logs",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    review_id: uuid("review_id").references(() => reviewQueue.id, { onDelete: "set null" }),
+    action: text("action").notNull(),
+    actor: text("actor").notNull().default("admin"),
+    before: jsonb("before"),
+    after: jsonb("after"),
+    message: text("message"),
+    created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    reviewIdx: index("ral_review_idx").on(t.review_id),
+    actionIdx: index("ral_action_idx").on(t.action),
   }),
 );
 
