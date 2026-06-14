@@ -12,26 +12,29 @@ export async function GET(
   const { type } = await params;
   const url = new URL(req.url);
   const limit = Math.min(parseInt(url.searchParams.get("limit") ?? "50"), 200);
-  const offset = parseInt(url.searchParams.get("offset") ?? "0");
+  const page = Math.max(parseInt(url.searchParams.get("page") ?? "1"), 1);
+  const offset = parseInt(url.searchParams.get("offset") ?? String((page - 1) * limit));
   const diversityMode = url.searchParams.get("diversity_mode") !== "false";
-  const maxPerProvider = parseInt(url.searchParams.get("max_per_provider") ?? (diversityMode ? "5" : "999"));
+  const defaultMaxProvider = limit <= 20 ? "4" : limit <= 50 ? "9" : "14";
+  const maxPerProvider = parseInt(url.searchParams.get("max_per_provider") ?? (diversityMode ? defaultMaxProvider : "999"));
   const maxPerFamily = parseInt(url.searchParams.get("max_per_family") ?? (diversityMode ? "3" : "999"));
-  // 默认隐藏旧模型和废弃模型（传 show_legacy=true / show_deprecated=true 可显示）
-  const hideLegacy = url.searchParams.get("show_legacy") !== "true";
-  const hideDeprecated = url.searchParams.get("show_deprecated") !== "true";
+  // 默认隐藏旧模型、废弃模型和无法判断新旧的模型。
+  const hideLegacy = url.searchParams.get("hide_legacy") !== "false" && url.searchParams.get("show_legacy") !== "true";
+  const hideDeprecated = url.searchParams.get("hide_deprecated") !== "false" && url.searchParams.get("show_deprecated") !== "true";
+  const hideUnknown = url.searchParams.get("hide_unknown") !== "false" && url.searchParams.get("show_unknown") !== "true";
   const filterRegion = url.searchParams.get("region");
+  const filterChannel = url.searchParams.get("channel");
   const filterProvider = url.searchParams.get("provider");
   const filterFamily = url.searchParams.get("family");
 
-  let models = await listModels({ limit: 1000 });
+  let models = await listModels({ limit: 2000, region: filterRegion ?? undefined, channel: filterChannel ?? undefined });
   
   // 额外筛选
-  if (filterRegion) models = models.filter((m) => m.provider_region === filterRegion);
   if (filterProvider) models = models.filter((m) => m.provider_slug === filterProvider);
   if (filterFamily) models = models.filter((m) => (m.family ?? "") === filterFamily);
 
   const result = rank(models, type, {
-    limit, offset, maxPerProvider, maxPerFamily, diversityMode, hideLegacy, hideDeprecated,
+    limit, offset, maxPerProvider, maxPerFamily, diversityMode, hideLegacy, hideDeprecated, hideUnknown,
   });
 
   // 可用的榜单类型列表
@@ -42,6 +45,6 @@ export async function GET(
   return NextResponse.json({
     ...result,
     available_presets: availablePresets,
-    active_filters: { diversityMode, maxPerProvider, maxPerFamily, hideLegacy, hideDeprecated, region: filterRegion, provider: filterProvider, family: filterFamily },
+    active_filters: { diversityMode, maxPerProvider, maxPerFamily, hideLegacy, hideDeprecated, hideUnknown, region: filterRegion, channel: filterChannel, provider: filterProvider, family: filterFamily },
   });
 }

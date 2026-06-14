@@ -12,32 +12,52 @@ export interface ScoreWeights {
 }
 
 export const DEFAULT_WEIGHTS: ScoreWeights = {
-  price: 0.3, context: 0.2, capability: 0.25, freshness: 0.15, confidence: 0.1,
+  price: 0.12, context: 0.2, capability: 0.28, freshness: 0.25, confidence: 0.15,
 };
 
 /** 模型分层 */
-export type ModelTier = "current_frontier" | "current_mainstream" | "previous_generation" | "legacy" | "deprecated";
+export type ModelTier = "current_frontier" | "current_mainstream" | "previous_generation" | "legacy" | "deprecated" | "unknown";
+
+const BASELINE_PATTERNS = {
+  previous: /\b(gpt-4\b|gpt-4-turbo|claude-3(?:-|$)|gemini-1\.5|llama-3(?:-|$)|qwen2(?:\.5)?|deepseek-v2|doubao-1\.5)\b/i,
+  legacy: /\b(gpt-3\.5|text-davinci|davinci|babbage|curie|ada|claude-2|claude-instant|gemini-1\.0|llama-2|qwen1|chatglm2|chatglm3|v0|legacy|old)\b/i,
+};
+
+function modelAgeMonths(m: ModelWithPricing): number | null {
+  const date = m.release_date ?? m.model_updated_at ?? m.updated_at;
+  const time = date ? new Date(date).getTime() : NaN;
+  if (!Number.isFinite(time)) return null;
+  return (Date.now() - time) / (1000 * 60 * 60 * 24 * 30);
+}
 
 export function getModelTier(m: ModelWithPricing): ModelTier {
   if (m.status === "deprecated") return "deprecated";
+  const name = `${m.provider_slug} ${m.model_name} ${m.family ?? ""}`;
+  if (BASELINE_PATTERNS.legacy.test(name)) return "legacy";
+  if (BASELINE_PATTERNS.previous.test(name)) return "previous_generation";
+  if (!m.release_date && !m.updated_at && m.confidence_score < 0.75) return "unknown";
   const caps = m.capabilities ?? [];
-  // 前沿：多能力 + 活跃 + 长上下文
-  if (m.status === "active" && caps.length >= 3 && (m.context_length ?? 0) >= 128000) return "current_frontier";
-  if (m.status === "active" && caps.length >= 2) return "current_mainstream";
-  if (m.status === "active") return "current_mainstream";
+  const age = modelAgeMonths(m);
+  if (age != null && age > 30) return "legacy";
+  if (age != null && age > 16) return "previous_generation";
+  if (m.confidence_score < 0.55) return "unknown";
+  if (m.status === "active" && caps.length >= 3 && (m.context_length ?? 0) >= 128000 && m.confidence_score >= 0.7) return "current_frontier";
+  if (m.status === "active" && caps.length >= 2 && m.confidence_score >= 0.65) return "current_mainstream";
+  if (m.status === "active" && m.confidence_score >= 0.8) return "current_mainstream";
   if (m.status === "preview" || m.status === "beta") return "current_frontier";
-  return "legacy";
+  return "unknown";
 }
 
-/** 新鲜度得分：frontier=100, mainstream=75, prev-gen=45, legacy=20, deprecated=0 */
-function freshnessScore(m: ModelWithPricing): number {
+/** 新鲜度得分：frontier=100, mainstream=78, prev-gen=42, legacy=12, deprecated=0, unknown=25 */
+export function freshnessScore(m: ModelWithPricing): number {
   const tier = getModelTier(m);
   switch (tier) {
     case "current_frontier": return 100;
-    case "current_mainstream": return 75;
-    case "previous_generation": return 45;
-    case "legacy": return 20;
+    case "current_mainstream": return 78;
+    case "previous_generation": return 42;
+    case "legacy": return 12;
     case "deprecated": return 0;
+    case "unknown": return 25;
   }
 }
 
@@ -45,9 +65,9 @@ function freshnessScore(m: ModelWithPricing): number {
 export const RANKING_PRESETS: Record<string, { weights: ScoreWeights; label: string; filter?: (m: ModelWithPricing) => boolean }> = {
   "frontier-value": { weights: { price: 0.25, context: 0.2, capability: 0.25, freshness: 0.2, confidence: 0.1 }, label: "最新主力模型性价比榜",
     filter: (m) => m.status === "active" && (m.capabilities ?? []).length >= 2 },
-  "china-available": { weights: { price: 0.3, context: 0.15, capability: 0.2, freshness: 0.2, confidence: 0.15 }, label: "国内可用模型榜",
+  "china-available": { weights: { price: 0.15, context: 0.15, capability: 0.25, freshness: 0.25, confidence: 0.2 }, label: "国内可用模型榜",
     filter: (m) => (m.provider_region === "cn" || /deepseek|moonshot|zhipu|siliconflow|minimax|volcengine|baidu|qianfan|alibaba|tencent|stepfun/i.test(m.provider_slug)) && m.status === "active" },
-  "global-official": { weights: { price: 0.25, context: 0.2, capability: 0.25, freshness: 0.2, confidence: 0.1 }, label: "海外官方模型榜",
+  "global-official": { weights: { price: 0.12, context: 0.2, capability: 0.28, freshness: 0.25, confidence: 0.15 }, label: "海外官方模型榜",
     filter: (m) => m.provider_region !== "cn" && m.status === "active" },
   "coding": { weights: { price: 0.15, context: 0.2, capability: 0.3, freshness: 0.25, confidence: 0.1 }, label: "编程模型榜",
     filter: (m) => m.status === "active" && ((m.capabilities ?? []).includes("function-call") || m.model_name.toLowerCase().includes("code")) },
@@ -79,13 +99,18 @@ export interface RankOptions {
   diversityMode?: boolean;
   hideLegacy?: boolean;
   hideDeprecated?: boolean;
+  hideUnknown?: boolean;
 }
 
 /** 筛掉旧模型/废弃模型 */
 function filterModels(models: ModelWithPricing[], opts: RankOptions): ModelWithPricing[] {
   let result = models;
-  if (opts.hideDeprecated) result = result.filter((m) => m.status !== "deprecated");
-  if (opts.hideLegacy) result = result.filter((m) => m.status === "active" && !/(legacy|old|v0|v1)/i.test(m.model_name));
+  const hideDeprecated = opts.hideDeprecated ?? true;
+  const hideLegacy = opts.hideLegacy ?? true;
+  const hideUnknown = opts.hideUnknown ?? true;
+  if (hideDeprecated) result = result.filter((m) => getModelTier(m) !== "deprecated");
+  if (hideLegacy) result = result.filter((m) => !["legacy", "previous_generation"].includes(getModelTier(m)));
+  if (hideUnknown) result = result.filter((m) => getModelTier(m) !== "unknown");
   return result;
 }
 
@@ -133,6 +158,8 @@ export function scoreModel(m: ModelWithPricing, others: ModelWithPricing[], w: S
 function rankReason(s: ScoreBreakdown, m: ModelWithPricing, preset: string): string {
   const reasons: string[] = [];
   if (preset === "cheapest" && s.price >= 90) reasons.push("价格极低");
+  if (getModelTier(m) === "current_frontier") reasons.push("当前前沿模型");
+  if (getModelTier(m) === "current_mainstream") reasons.push("当前主流模型");
   if (s.context >= 70) reasons.push("上下文窗口大");
   if (s.capability >= 70) reasons.push("能力全面");
   if (m.provider_region === "cn") reasons.push("国内可用");
@@ -147,15 +174,23 @@ function rankReason(s: ScoreBreakdown, m: ModelWithPricing, preset: string): str
 export function rank(models: ModelWithPricing[], presetKey: string, opts: RankOptions = {}) {
   const preset = RANKING_PRESETS[presetKey] ?? RANKING_PRESETS["frontier-value"];
   const w = preset.weights;
-  let candidates = filterModels(models, opts);
+  const isOldModelsPreset = presetKey === "old-models";
+  let candidates = filterModels(models, {
+    ...opts,
+    hideLegacy: isOldModelsPreset ? false : opts.hideLegacy,
+    hideDeprecated: isOldModelsPreset ? false : opts.hideDeprecated,
+    hideUnknown: isOldModelsPreset ? false : opts.hideUnknown,
+  });
   if (preset.filter) candidates = candidates.filter(preset.filter);
   const all = candidates;
 
   const scored = candidates.map((m) => ({ model: m, score: scoreModel(m, all, w) })).sort((a, b) => b.score.total - a.score.total);
 
   // 多样性去重
-  const maxPerProv = opts.maxPerProvider ?? (opts.diversityMode ? 5 : 999);
-  const maxPerFam = opts.maxPerFamily ?? (opts.diversityMode ? 3 : 999);
+  const limit = opts.limit ?? 50;
+  const providerDefault = limit <= 20 ? 4 : limit <= 50 ? 9 : 14;
+  const maxPerProv = opts.maxPerProvider ?? (opts.diversityMode === false ? 999 : providerDefault);
+  const maxPerFam = opts.maxPerFamily ?? (opts.diversityMode === false ? 999 : 3);
   const provCount = new Map<string, number>();
   const famCount = new Map<string, number>();
   const deduped: typeof scored = [];
@@ -173,7 +208,6 @@ export function rank(models: ModelWithPricing[], presetKey: string, opts: RankOp
   }
 
   const total = deduped.length;
-  const limit = opts.limit ?? 50;
   const offset = opts.offset ?? 0;
   const paged = deduped.slice(offset, offset + limit);
 
@@ -198,6 +232,16 @@ export function rank(models: ModelWithPricing[], presetKey: string, opts: RankOp
       context_length: item.model.context_length,
       capabilities: item.model.capabilities,
       status: item.model.status,
+      tier: getModelTier(item.model),
+      price_source_count: item.model.price_source_count,
+      domestic_min_input_usd: item.model.domestic_min_input_usd,
+      domestic_min_output_usd: item.model.domestic_min_output_usd,
+      overseas_min_input_usd: item.model.overseas_min_input_usd,
+      overseas_min_output_usd: item.model.overseas_min_output_usd,
+      official_min_input_usd: item.model.official_min_input_usd,
+      official_min_output_usd: item.model.official_min_output_usd,
+      aggregator_min_input_usd: item.model.aggregator_min_input_usd,
+      aggregator_min_output_usd: item.model.aggregator_min_output_usd,
       score: item.score,
       reason: rankReason(item.score, item.model, presetKey),
     })),

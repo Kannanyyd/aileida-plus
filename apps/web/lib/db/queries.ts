@@ -10,10 +10,12 @@ export interface ModelWithPricing {
   model_slug: string;
   model_name: string;
   family: string | null;
+  release_date: string | null;
   context_length: number | null;
   capabilities: string[];
   modality: string[];
   status: string;
+  model_updated_at: Date;
   provider_id: string;
   provider_slug: string;
   provider_name_zh: string;
@@ -22,6 +24,22 @@ export interface ModelWithPricing {
   output_per_1m_usd: number | null;
   input_cached_read_per_1m_usd: number | null;
   batch_discount: number | null;
+  currency_native: string;
+  pricing_region: string;
+  channel: string;
+  platform: string | null;
+  is_official: boolean;
+  is_aggregator: boolean;
+  is_domestic: boolean;
+  price_source_count: number;
+  domestic_min_input_usd: number | null;
+  domestic_min_output_usd: number | null;
+  overseas_min_input_usd: number | null;
+  overseas_min_output_usd: number | null;
+  official_min_input_usd: number | null;
+  official_min_output_usd: number | null;
+  aggregator_min_input_usd: number | null;
+  aggregator_min_output_usd: number | null;
   confidence_score: number;
   primary_source_id: string;
   source_url: string;
@@ -34,10 +52,12 @@ const baseSelect = {
   model_slug: models.slug,
   model_name: models.name,
   family: models.family,
+  release_date: models.release_date,
   context_length: models.context_length,
   capabilities: models.capabilities,
   modality: models.modality,
   status: models.status,
+  model_updated_at: models.updated_at,
   provider_id: providers.id,
   provider_slug: providers.slug,
   provider_name_zh: providers.name_zh,
@@ -46,6 +66,13 @@ const baseSelect = {
   output_per_1m_usd: pricing.output_per_1m_usd,
   input_cached_read_per_1m_usd: pricing.input_cached_read_per_1m_usd,
   batch_discount: pricing.batch_discount,
+  currency_native: pricing.currency_native,
+  pricing_region: pricing.region,
+  channel: pricing.channel,
+  platform: pricing.platform,
+  is_official: pricing.is_official,
+  is_aggregator: pricing.is_aggregator,
+  is_domestic: pricing.is_domestic,
   confidence_score: pricing.confidence_score,
   primary_source_id: pricing.primary_source_id,
   source_url: pricing.source_url,
@@ -53,11 +80,93 @@ const baseSelect = {
   updated_at: pricing.updated_at,
 };
 
+function toNumber(v: unknown): number | null {
+  return v != null ? Number(v) : null;
+}
+
+function blendedPrice(m: Pick<ModelWithPricing, "input_per_1m_usd" | "output_per_1m_usd">): number {
+  const input = m.input_per_1m_usd ?? Number.POSITIVE_INFINITY;
+  const output = m.output_per_1m_usd ?? Number.POSITIVE_INFINITY;
+  return input * 0.45 + output * 0.55;
+}
+
+function minPair(
+  rows: ModelWithPricing[],
+  filter: (row: ModelWithPricing) => boolean,
+): { input: number | null; output: number | null } {
+  const match = rows
+    .filter(filter)
+    .filter((r) => r.input_per_1m_usd != null || r.output_per_1m_usd != null)
+    .sort((a, b) => blendedPrice(a) - blendedPrice(b))[0];
+  return { input: match?.input_per_1m_usd ?? null, output: match?.output_per_1m_usd ?? null };
+}
+
+function normalizeModelRow(r: typeof baseSelect extends infer _T ? any : never): ModelWithPricing {
+  return {
+    ...r,
+    release_date: r.release_date ? String(r.release_date) : null,
+    input_per_1m_usd: toNumber(r.input_per_1m_usd),
+    output_per_1m_usd: toNumber(r.output_per_1m_usd),
+    input_cached_read_per_1m_usd: toNumber(r.input_cached_read_per_1m_usd),
+    batch_discount: toNumber(r.batch_discount),
+    confidence_score: Number(r.confidence_score),
+    price_source_count: 1,
+    domestic_min_input_usd: null,
+    domestic_min_output_usd: null,
+    overseas_min_input_usd: null,
+    overseas_min_output_usd: null,
+    official_min_input_usd: null,
+    official_min_output_usd: null,
+    aggregator_min_input_usd: null,
+    aggregator_min_output_usd: null,
+  };
+}
+
+function consolidateModelRows(rows: ReturnType<typeof normalizeModelRow>[]): ModelWithPricing[] {
+  const groups = new Map<string, ModelWithPricing[]>();
+  for (const row of rows) {
+    const list = groups.get(row.model_id) ?? [];
+    list.push(row);
+    groups.set(row.model_id, list);
+  }
+
+  return Array.from(groups.values()).map((group) => {
+    const representative = [...group].sort((a, b) => {
+      const officialDelta = Number(b.is_official) - Number(a.is_official);
+      if (officialDelta !== 0) return officialDelta;
+      const confidenceDelta = b.confidence_score - a.confidence_score;
+      if (confidenceDelta !== 0) return confidenceDelta;
+      return blendedPrice(a) - blendedPrice(b);
+    })[0];
+    const domestic = minPair(group, (r) => r.is_domestic || r.pricing_region === "china_mainland");
+    const overseas = minPair(group, (r) => !r.is_domestic && r.pricing_region !== "china_mainland");
+    const official = minPair(group, (r) => r.is_official);
+    const aggregator = minPair(group, (r) => r.is_aggregator || r.channel === "aggregator");
+
+    return {
+      ...representative,
+      price_source_count: group.length,
+      need_manual_review: group.some((r) => r.need_manual_review),
+      confidence_score: Math.max(...group.map((r) => r.confidence_score)),
+      domestic_min_input_usd: domestic.input,
+      domestic_min_output_usd: domestic.output,
+      overseas_min_input_usd: overseas.input,
+      overseas_min_output_usd: overseas.output,
+      official_min_input_usd: official.input,
+      official_min_output_usd: official.output,
+      aggregator_min_input_usd: aggregator.input,
+      aggregator_min_output_usd: aggregator.output,
+    };
+  });
+}
+
 export async function listModels(filter?: {
   providerSlug?: string;
   capability?: string;
   limit?: number;
   needManualReview?: boolean;
+  region?: string;
+  channel?: string;
 }): Promise<ModelWithPricing[]> {
   const conditions = [
     eq(models.status, "active"),
@@ -66,6 +175,8 @@ export async function listModels(filter?: {
   ];
   if (filter?.providerSlug) conditions.push(eq(providers.slug, filter.providerSlug));
   if (filter?.needManualReview != null) conditions.push(eq(pricing.need_manual_review, filter.needManualReview));
+  if (filter?.region) conditions.push(eq(pricing.region, filter.region));
+  if (filter?.channel) conditions.push(eq(pricing.channel, filter.channel));
 
   const rows = await db
     .select(baseSelect)
@@ -74,16 +185,9 @@ export async function listModels(filter?: {
     .innerJoin(pricing, eq(pricing.model_id, models.id))
     .where(and(...conditions))
     .orderBy(desc(pricing.updated_at))
-    .limit(filter?.limit ?? 200);
+    .limit(filter?.limit ?? 2000);
 
-  return rows.map((r) => ({
-    ...r,
-    input_per_1m_usd: r.input_per_1m_usd != null ? Number(r.input_per_1m_usd) : null,
-    output_per_1m_usd: r.output_per_1m_usd != null ? Number(r.output_per_1m_usd) : null,
-    input_cached_read_per_1m_usd: r.input_cached_read_per_1m_usd != null ? Number(r.input_cached_read_per_1m_usd) : null,
-    batch_discount: r.batch_discount != null ? Number(r.batch_discount) : null,
-    confidence_score: Number(r.confidence_score),
-  }));
+  return consolidateModelRows(rows.map(normalizeModelRow)).slice(0, filter?.limit ?? 200);
 }
 
 export async function getModelBySlug(slug: string): Promise<ModelWithPricing | null> {
@@ -100,14 +204,7 @@ export async function getModelBySlug(slug: string): Promise<ModelWithPricing | n
     .limit(1);
   if (rows.length === 0) return null;
   const r = rows[0];
-  return {
-    ...r,
-    input_per_1m_usd: r.input_per_1m_usd != null ? Number(r.input_per_1m_usd) : null,
-    output_per_1m_usd: r.output_per_1m_usd != null ? Number(r.output_per_1m_usd) : null,
-    input_cached_read_per_1m_usd: r.input_cached_read_per_1m_usd != null ? Number(r.input_cached_read_per_1m_usd) : null,
-    batch_discount: r.batch_discount != null ? Number(r.batch_discount) : null,
-    confidence_score: Number(r.confidence_score),
-  };
+  return normalizeModelRow(r);
 }
 
 /** 获取模型所有渠道的价格 */

@@ -14,6 +14,7 @@ import { formatCny, formatContext, formatUsd, relativeTime } from "@/lib/utils";
 import { ModelCard } from "@/components/model-card";
 import { ExternalLink, Calendar, Database } from "lucide-react";
 import Link from "next/link";
+import { getModelTier, scoreModel } from "@/lib/rank/score";
 
 export const revalidate = 300;
 
@@ -53,11 +54,40 @@ export default async function ModelDetailPage({
   const caps = m.capabilities ?? [];
   const conf = m.confidence_score;
   const variant = m.need_manual_review ? "review" : conf >= 0.85 ? "official" : conf >= 0.7 ? "multi-source" : "third-party";
+  const tier = getModelTier(m);
+  const tierLabels: Record<string, string> = {
+    current_frontier: "current_frontier / 当前前沿",
+    current_mainstream: "current_mainstream / 当前主流",
+    previous_generation: "previous_generation / 上一代",
+    legacy: "legacy / 旧模型",
+    deprecated: "deprecated / 已废弃",
+    unknown: "unknown / 新旧待判断",
+  };
+  const recommendForNewProject = tier === "current_frontier" || tier === "current_mainstream";
 
   // 多渠道价格
   const pricingList = await getModelPricingList(m.model_id);
   const domesticMin = pricingList.filter((p) => p.is_domestic).sort((a, b) => (a.input_per_1m_usd ?? 999) - (b.input_per_1m_usd ?? 999))[0];
   const globalMin = pricingList.filter((p) => !p.is_domestic).sort((a, b) => (a.input_per_1m_usd ?? 999) - (b.input_per_1m_usd ?? 999))[0];
+  const stronger = all
+    .filter((x) => x.model_id !== m.model_id && ["current_frontier", "current_mainstream"].includes(getModelTier(x)))
+    .map((x) => ({ m: x, s: scoreModel(x, all).total }))
+    .filter((x) => x.s > scoreModel(m, all).total)
+    .sort((a, b) => b.s - a.s)
+    .slice(0, 2)
+    .map((x) => x.m);
+  const cheaper = all
+    .filter((x) => x.model_id !== m.model_id && (x.input_per_1m_usd ?? 999) < (m.input_per_1m_usd ?? 999) && !["legacy", "deprecated"].includes(getModelTier(x)))
+    .slice(0, 2);
+  const sameProviderNewer = all
+    .filter((x) => x.model_id !== m.model_id && x.provider_id === m.provider_id && ["current_frontier", "current_mainstream"].includes(getModelTier(x)))
+    .slice(0, 2);
+  const domesticAlt = all
+    .filter((x) => x.model_id !== m.model_id && (x.provider_region === "cn" || x.is_domestic))
+    .slice(0, 2);
+  const overseasOfficialAlt = all
+    .filter((x) => x.model_id !== m.model_id && x.provider_region !== "cn" && x.is_official)
+    .slice(0, 2);
 
   return (
     <div className="space-y-6">
@@ -77,6 +107,8 @@ export default async function ModelDetailPage({
               {m.context_length ? ` · 上下文 ${formatContext(m.context_length)}` : ""}
             </p>
             <div className="mt-3 flex gap-1.5 flex-wrap">
+              <Tag variant={recommendForNewProject ? "primary" : "warning"}>{tierLabels[tier]}</Tag>
+              <Tag variant={recommendForNewProject ? "success" : "danger"}>{recommendForNewProject ? "建议新项目优先评估" : "不建议新项目默认首选"}</Tag>
               {caps.map((c) => <Tag key={c} variant="primary">{c}</Tag>)}
               {m.modality?.map((mo) => <Tag key={mo} variant="cyan">{mo}</Tag>)}
             </div>
@@ -107,10 +139,14 @@ export default async function ModelDetailPage({
             <table className="w-full text-xs">
               <thead>
                 <tr className="text-slate-500 border-b border-white/5">
-                  <th className="text-left py-2 font-normal">渠道/平台</th>
                   <th className="text-left py-2 font-normal">区域</th>
+                  <th className="text-left py-2 font-normal">渠道</th>
+                  <th className="text-left py-2 font-normal">平台</th>
                   <th className="text-right py-2 font-normal">输入/1M</th>
                   <th className="text-right py-2 font-normal">输出/1M</th>
+                  <th className="text-right py-2 font-normal">缓存读/1M</th>
+                  <th className="text-right py-2 font-normal">更新时间</th>
+                  <th className="text-left py-2 font-normal">来源</th>
                   <th className="text-center py-2 font-normal">类型</th>
                   <th className="text-right py-2 font-normal">币种</th>
                 </tr>
@@ -118,19 +154,29 @@ export default async function ModelDetailPage({
               <tbody>
                 {pricingList.map((p) => (
                   <tr key={p.id} className="border-b border-white/5 hover:bg-white/5">
-                    <td className="py-2 text-white">
-                      <span className="font-medium">{p.platform || p.primary_source_id}</span>
-                    </td>
                     <td className="py-2">
                       <span className={`text-[10px] px-1.5 py-0.5 rounded ${p.is_domestic ? 'bg-cyan/10 text-cyan' : 'bg-primary/10 text-primary'}`}>
                         {p.region === 'china_mainland' ? '国内' : p.region === 'overseas' ? '海外' : '全球'}
                       </span>
+                    </td>
+                    <td className="py-2 text-slate-300">{p.channel}</td>
+                    <td className="py-2 text-white">
+                      <span className="font-medium">{p.platform || p.primary_source_id}</span>
                     </td>
                     <td className="py-2 text-right font-mono text-white">
                       {p.input_per_1m_usd != null ? `$${p.input_per_1m_usd.toFixed(4)}` : '—'}
                     </td>
                     <td className="py-2 text-right font-mono text-white">
                       {p.output_per_1m_usd != null ? `$${p.output_per_1m_usd.toFixed(4)}` : '—'}
+                    </td>
+                    <td className="py-2 text-right font-mono text-slate-300">
+                      {p.input_cached_read_per_1m_usd != null ? `$${p.input_cached_read_per_1m_usd.toFixed(4)}` : '—'}
+                    </td>
+                    <td className="py-2 text-right text-slate-400">{relativeTime(p.updated_at)}</td>
+                    <td className="py-2 text-left">
+                      <a href={p.source_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                        {p.primary_source_id}
+                      </a>
                     </td>
                     <td className="py-2 text-center">
                       {p.is_official ? (
@@ -193,6 +239,31 @@ export default async function ModelDetailPage({
           </div>
         </div>
       )}
+
+      <div>
+        <h2 className="text-sm font-semibold text-white mb-3">推荐替代模型</h2>
+        <div className="grid md:grid-cols-2 lg:grid-cols-5 gap-3">
+          {[
+            { title: "更强但更贵", items: stronger },
+            { title: "更便宜但能力较弱", items: cheaper },
+            { title: "同厂商新版", items: sameProviderNewer },
+            { title: "国内可用替代", items: domesticAlt },
+            { title: "海外官方替代", items: overseasOfficialAlt },
+          ].map((group) => (
+            <div key={group.title} className="glass p-3">
+              <p className="text-xs font-semibold text-white mb-2">{group.title}</p>
+              <div className="space-y-1.5">
+                {group.items.length > 0 ? group.items.map((x) => (
+                  <Link key={x.model_id} href={`/models/${encodeURIComponent(x.model_slug)}`} className="block text-[11px] text-slate-300 hover:text-primary truncate">
+                    {x.model_name}
+                    <span className="block text-[10px] text-slate-600">{x.provider_name_zh}</span>
+                  </Link>
+                )) : <p className="text-[11px] text-slate-500">暂无合适候选</p>}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
 
       {/* 替代模型提示 */}
       <div className="glass p-4">

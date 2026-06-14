@@ -64,6 +64,25 @@ const TECH_OPTIONS = [
   { id: "high-concurrency", label: "需要高并发" },
 ];
 
+const REGION_OPTIONS = [
+  { id: "any", label: "不限地区" },
+  { id: "domestic", label: "国内使用" },
+  { id: "overseas", label: "海外使用" },
+];
+
+const CHANNEL_OPTIONS = [
+  { id: "any", label: "不限渠道" },
+  { id: "official_api", label: "官方 API" },
+  { id: "aggregator", label: "聚合平台" },
+  { id: "cloud_platform", label: "云平台" },
+];
+
+const CURRENCY_OPTIONS = [
+  { id: "any", label: "不限币种" },
+  { id: "CNY", label: "人民币计费" },
+  { id: "USD", label: "美元计费" },
+];
+
 const QUALITIES = [
   { id: "basic", label: "普通任务即可" },
   { id: "good-chinese", label: "需要较好中文表达" },
@@ -75,9 +94,18 @@ const QUALITIES = [
 ];
 
 interface RecommendEntry {
-  model: { modelName: string; providerName: string; slug: string; inputUsd: number; outputUsd: number; contextLength: number; strengths: string[]; score: number };
+  model: {
+    modelName: string; providerName: string; slug: string; inputUsd: number; outputUsd: number;
+    contextLength: number; strengths: string[]; score: number; tier: string; tierLabel: string;
+    isLegacy: boolean; priceSourceCount: number;
+  };
   monthlyCost: number;
   score: number;
+  reasons: string[];
+  suitableFor: string[];
+  notSuitableFor: string[];
+  strongerAlternative: { name: string; slug: string; monthlyCost: number } | null;
+  cheaperAlternative: { name: string; slug: string; monthlyCost: number } | null;
 }
 
 interface RecommendResult {
@@ -100,6 +128,10 @@ export default function RecommendPage() {
   const [monthlyOutput, setMonthlyOutput] = useState("500000");
   const [useCache, setUseCache] = useState(false);
   const [useBatch, setUseBatch] = useState(false);
+  const [regionPreference, setRegionPreference] = useState("any");
+  const [channelPreference, setChannelPreference] = useState("any");
+  const [currencyPreference, setCurrencyPreference] = useState("any");
+  const [requireDomesticPayment, setRequireDomesticPayment] = useState(false);
 
   const toggleTech = (id: string) => setTechReqs(prev => prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id]);
 
@@ -120,6 +152,10 @@ export default function RecommendPage() {
           monthlyOutputTokens: parseInt(monthlyOutput) || 500000,
           needCache: useCache,
           needBatch: useBatch,
+          regionPreference,
+          channelPreference,
+          currencyPreference,
+          requireDomesticPayment,
         }),
       });
       if (!res.ok) throw new Error(`服务器错误: ${res.status}`);
@@ -178,14 +214,40 @@ export default function RecommendPage() {
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="font-semibold text-sm text-white">{e.model.modelName}</p>
-                          <p className="text-[10px] text-slate-500">{e.model.providerName}</p>
+                          <p className="text-[10px] text-slate-500">
+                            {e.model.providerName} · {e.model.tierLabel} · {e.model.priceSourceCount} 个价格来源
+                          </p>
                         </div>
                         <span className="text-sm font-mono font-bold text-success">¥{e.monthlyCost.toFixed(0)}/月</span>
                       </div>
                       <div className="flex flex-wrap gap-1">
-                        {e.model.strengths.slice(0, 4).map(s => (
+                        {e.reasons.slice(0, 4).map(s => (
                           <span key={s} className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">{s}</span>
                         ))}
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-[10px]">
+                        <div className="bg-success/5 border border-success/10 rounded-lg p-2">
+                          <p className="text-success mb-1">适合</p>
+                          <p className="text-slate-400">{e.suitableFor.slice(0, 3).join(" / ") || "通用任务"}</p>
+                        </div>
+                        <div className="bg-warning/5 border border-warning/10 rounded-lg p-2">
+                          <p className="text-warning mb-1">不适合</p>
+                          <p className="text-slate-400">{e.notSuitableFor.slice(0, 3).join(" / ") || "暂无明显短板"}</p>
+                        </div>
+                      </div>
+                      <div className="space-y-1 text-[10px] text-slate-500">
+                        <p>
+                          更强但更贵：
+                          {e.strongerAlternative ? (
+                            <Link className="text-primary hover:underline ml-1" href={`/models/${e.strongerAlternative.slug}`}>{e.strongerAlternative.name}</Link>
+                          ) : <span className="ml-1">暂无合适替代</span>}
+                        </p>
+                        <p>
+                          更便宜但能力较弱：
+                          {e.cheaperAlternative ? (
+                            <Link className="text-primary hover:underline ml-1" href={`/models/${e.cheaperAlternative.slug}`}>{e.cheaperAlternative.name}</Link>
+                          ) : <span className="ml-1">暂无合适替代</span>}
+                        </p>
                       </div>
                       <Link href={`/models/${e.model.slug}`} className="text-[10px] text-primary hover:underline inline-flex items-center gap-0.5">
                         查看详情 <ExternalLink className="w-2.5 h-2.5" />
@@ -260,6 +322,7 @@ export default function RecommendPage() {
               <div className="flex gap-4">
                 <label className="flex items-center gap-2 text-xs text-slate-400 cursor-pointer"><input type="checkbox" checked={useCache} onChange={e => setUseCache(e.target.checked)} className="accent-primary" />使用缓存</label>
                 <label className="flex items-center gap-2 text-xs text-slate-400 cursor-pointer"><input type="checkbox" checked={useBatch} onChange={e => setUseBatch(e.target.checked)} className="accent-primary" />批量调用</label>
+                <label className="flex items-center gap-2 text-xs text-slate-400 cursor-pointer"><input type="checkbox" checked={requireDomesticPayment} onChange={e => setRequireDomesticPayment(e.target.checked)} className="accent-primary" />国内付款</label>
               </div>
             </div>
           )}
@@ -280,6 +343,21 @@ export default function RecommendPage() {
           {step === "tech" && (
             <div className="space-y-4">
               <h2 className="text-lg font-bold text-white">技术要求（可多选，也可跳过）</h2>
+              <div className="grid grid-cols-3 gap-2">
+                {REGION_OPTIONS.map(o => (
+                  <button key={o.id} onClick={() => setRegionPreference(o.id)} className={`text-[11px] px-2.5 py-1.5 rounded-lg border transition ${regionPreference === o.id ? "border-primary/50 bg-primary/10 text-primary" : "border-white/10 text-slate-400"}`}>{o.label}</button>
+                ))}
+              </div>
+              <div className="grid grid-cols-4 gap-2">
+                {CHANNEL_OPTIONS.map(o => (
+                  <button key={o.id} onClick={() => setChannelPreference(o.id)} className={`text-[11px] px-2.5 py-1.5 rounded-lg border transition ${channelPreference === o.id ? "border-primary/50 bg-primary/10 text-primary" : "border-white/10 text-slate-400"}`}>{o.label}</button>
+                ))}
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {CURRENCY_OPTIONS.map(o => (
+                  <button key={o.id} onClick={() => setCurrencyPreference(o.id)} className={`text-[11px] px-2.5 py-1.5 rounded-lg border transition ${currencyPreference === o.id ? "border-primary/50 bg-primary/10 text-primary" : "border-white/10 text-slate-400"}`}>{o.label}</button>
+                ))}
+              </div>
               <div className="flex flex-wrap gap-1.5">
                 {TECH_OPTIONS.map(t => (
                   <button key={t.id} onClick={() => toggleTech(t.id)} className={`text-[11px] px-2.5 py-1.5 rounded-lg border transition ${techReqs.includes(t.id) ? "border-primary/50 bg-primary/10 text-primary" : "border-white/10 text-slate-400 hover:border-white/20"}`}>{t.label}</button>

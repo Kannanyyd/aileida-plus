@@ -11,6 +11,9 @@ interface RankItem {
   provider: string; provider_name: string; provider_region: string;
   input_per_1m_usd: number | null; output_per_1m_usd: number | null;
   context_length: number | null; capabilities: string[]; status: string;
+  tier: string; price_source_count: number;
+  domestic_min_input_usd: number | null; overseas_min_input_usd: number | null;
+  official_min_input_usd: number | null; aggregator_min_input_usd: number | null;
   score: { total: number }; reason: string;
 }
 
@@ -32,7 +35,7 @@ export default function RankingTypePage() {
 
   const fetchRanking = (l: number, o: number, div: boolean) => {
     setLoading(true);
-    const params = new URLSearchParams({ limit: String(l), offset: String(o), diversity_mode: String(div), hide_legacy: String(hideLegacy), hide_deprecated: "true" });
+    const params = new URLSearchParams({ limit: String(l), offset: String(o), diversity_mode: String(div), hide_legacy: String(hideLegacy), hide_deprecated: "true", hide_unknown: "true" });
     fetch(`/api/v1/rankings/${type}?${params}`)
       .then((r) => r.json())
       .then((d) => { setItems(d.items ?? []); setTotal(d.total ?? 0); })
@@ -59,6 +62,25 @@ export default function RankingTypePage() {
   const regionBadge = (r: string) => {
     if (r === "cn") return <span className="text-[10px] px-1 py-0.5 rounded bg-cyan/10 text-cyan">国内</span>;
     return <span className="text-[10px] px-1 py-0.5 rounded bg-primary/10 text-primary">海外</span>;
+  };
+  const tierBadge = (tier: string) => {
+    const styles: Record<string, string> = {
+      current_frontier: "bg-success/10 text-success",
+      current_mainstream: "bg-primary/10 text-primary",
+      previous_generation: "bg-warning/10 text-warning",
+      legacy: "bg-orange-500/10 text-orange-400",
+      deprecated: "bg-danger/10 text-danger",
+      unknown: "bg-slate-500/10 text-slate-400",
+    };
+    const labels: Record<string, string> = {
+      current_frontier: "前沿",
+      current_mainstream: "主流",
+      previous_generation: "上一代",
+      legacy: "旧模型",
+      deprecated: "废弃",
+      unknown: "待判断",
+    };
+    return <span className={`text-[10px] px-1 py-0.5 rounded ${styles[tier] ?? styles.unknown}`}>{labels[tier] ?? tier}</span>;
   };
 
   return (
@@ -115,6 +137,7 @@ export default function RankingTypePage() {
                 <th className="text-left py-2 px-3 font-normal">厂商</th>
                 <th className="text-right py-2 px-3 font-normal">输入/1M</th>
                 <th className="text-right py-2 px-3 font-normal">输出/1M</th>
+                <th className="text-right py-2 px-3 font-normal">渠道</th>
                 <th className="text-right py-2 px-3 font-normal">上下文</th>
                 <th className="text-right py-2 px-3 font-normal">评分</th>
                 <th className="text-left py-2 px-3 font-normal">理由</th>
@@ -128,6 +151,7 @@ export default function RankingTypePage() {
                     <Link href={`/models/${encodeURIComponent(item.model_slug)}`} className="text-white hover:text-primary font-medium">
                       {item.model_name}
                     </Link>
+                    <span className="ml-1">{tierBadge(item.tier)}</span>
                     {item.family && <span className="text-[10px] text-slate-600 ml-1">{item.family}</span>}
                   </td>
                   <td className="py-2 px-3">
@@ -136,6 +160,12 @@ export default function RankingTypePage() {
                   </td>
                   <td className="py-2 px-3 text-right font-mono text-white">{formatUsd(item.input_per_1m_usd)}</td>
                   <td className="py-2 px-3 text-right font-mono text-white">{formatUsd(item.output_per_1m_usd)}</td>
+                  <td className="py-2 px-3 text-right text-[10px] text-slate-400">
+                    {item.price_source_count}源
+                    <span className="block">
+                      官 {formatUsd(item.official_min_input_usd)} / 聚 {formatUsd(item.aggregator_min_input_usd)}
+                    </span>
+                  </td>
                   <td className="py-2 px-3 text-right font-mono text-slate-300">{formatCtx(item.context_length)}</td>
                   <td className="py-2 px-3 text-right font-mono">
                     <span className={item.score.total >= 80 ? "text-success" : item.score.total >= 60 ? "text-primary" : "text-slate-400"}>
