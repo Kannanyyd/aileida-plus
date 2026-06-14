@@ -13,14 +13,19 @@ const cards = [
   { key: "providers", label: "已收录厂商", icon: Building2, accent: "text-cyan" },
   { key: "todayChanges", label: "今日价格变化", icon: TrendingDown, accent: "text-success" },
   { key: "promotions", label: "进行中优惠", icon: Tag, accent: "text-warning" },
-] as const;
+] as const satisfies ReadonlyArray<{
+  key: keyof Pick<Overview, "models" | "providers" | "todayChanges" | "promotions">;
+  label: string;
+  icon: typeof Database;
+  accent: string;
+}>;
 
 export function DataOverviewCards({ data }: { data: Overview }) {
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
       {cards.map((c) => {
         const Icon = c.icon;
-        const value = (data as Record<string, number>)[c.key] ?? 0;
+        const value = data[c.key] ?? 0;
         return (
           <div key={c.key} className="glass p-5 flex flex-col gap-3">
             <div className="flex items-center justify-between">
@@ -28,11 +33,7 @@ export function DataOverviewCards({ data }: { data: Overview }) {
               <Icon className={`w-4 h-4 ${c.accent}`} />
             </div>
             <p className="font-mono text-3xl font-semibold text-white">{value}</p>
-            {c.key === "review" && value > 0 ? (
-              <p className="text-[11px] text-orange-300">需要人工审核</p>
-            ) : (
-              <p className="text-[11px] text-slate-500">实时</p>
-            )}
+            <p className="text-[11px] text-slate-500">实时</p>
           </div>
         );
       })}

@@ -14,7 +14,7 @@
     "build": "npm run build:core && npm run build:web",
     "build:core": "npm -w @pricing/core run build",
     "build:web": "npm -w web run build",
-    "typecheck": "npm -w @pricing/core run typecheck ; npm -w web run typecheck ; npm -w worker run typecheck",
+    "typecheck": "npm -w @pricing/core run typecheck && npm -w web run typecheck && npm -w worker run typecheck",
     "test": "npm -w @pricing/core run test && npm -w web run test 2>/dev/null; true",
     "lint": "npm -w web run lint 2>/dev/null; true",
     "db:up": "docker compose up -d postgres adminer",

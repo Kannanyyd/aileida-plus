@@ -50,7 +50,7 @@ export default async function HomePage() {
     provider_slug: r.provider,
     input_per_1m_usd: r.input_per_1m_usd,
     output_per_1m_usd: r.output_per_1m_usd,
-    context_length: r.model.context_length,
+    context_length: r.context_length,
     score: r.score.total,
   }));
 

@@ -16,9 +16,8 @@ const SCENARIOS: Array<{ key: string; label: string; ratio: number; imageCount?:
 
 const toPricing = (m: ModelWithPricing): Pricing => ({
   model_id: m.model_slug,
-  provider_id: m.provider_slug,
-  input_per_1m_usd: m.input_per_1m_usd,
-  output_per_1m_usd: m.output_per_1m_usd,
+  input_per_1m_usd: m.input_per_1m_usd ?? 0,
+  output_per_1m_usd: m.output_per_1m_usd ?? 0,
   input_cached_read_per_1m_usd: m.input_cached_read_per_1m_usd ?? undefined,
   currency_native: "USD",
   source_id: m.primary_source_id,
@@ -46,7 +45,7 @@ export function PriceCalculator({ models }: { models: ModelWithPricing[] }) {
 
   const ranked = useMemo(() => {
     return models
-      .filter((m) => !m.need_manual_review && m.confidence_score >= 0.7)
+      .filter((m) => !m.need_manual_review && m.confidence_score >= 0.7 && (m.input_per_1m_usd != null || m.output_per_1m_usd != null))
       .map((m) => ({
         model: m,
         estimate: estimateCost(toPricing(m), usage, { useBatch: batch }),
