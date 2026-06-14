@@ -313,6 +313,7 @@ function progressiveCaps(rank: number, fallback: { provider: number; family: num
 
 export function rank(models: ModelWithPricing[], presetKey: string, opts: RankOptions = {}) {
   const preset = RANKING_PRESETS[presetKey] ?? RANKING_PRESETS["frontier-value"];
+  const isDomesticPreset = presetKey === "domestic" || presetKey === "china-available";
   const isOldModelsPreset = presetKey === "old-models" || presetKey === "legacy-low-cost";
   const limit = opts.limit ?? 50;
   let candidates = filterModels(models, {
@@ -324,7 +325,15 @@ export function rank(models: ModelWithPricing[], presetKey: string, opts: RankOp
   if (preset.filter) candidates = candidates.filter(preset.filter);
 
   const scored = candidates
-    .map((m) => ({ model: m, score: scoreModel(m, candidates, preset.weights) }))
+    .map((m) => {
+      const score = scoreModel(m, candidates, preset.weights);
+      if (isDomesticPreset) {
+        const nativeCnyBonus = m.currency_native === "CNY" ? 22 : 0;
+        const mainlandBonus = m.pricing_region === "china_mainland" || m.is_domestic ? 6 : 0;
+        return { model: m, score: { ...score, total: Math.round((score.total + nativeCnyBonus + mainlandBonus) * 10) / 10 } };
+      }
+      return { model: m, score };
+    })
     .sort((a, b) => b.score.total - a.score.total);
 
   const defaults = diversityDefaults(limit);
