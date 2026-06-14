@@ -11,6 +11,37 @@ function printSection(title: string, value: unknown) {
   console.log(JSON.stringify(value, null, 2));
 }
 
+async function fetchHomepageRankingTop8() {
+  const baseUrl = process.env.WEB_BASE_URL ?? "http://web:3000";
+  const url = `${baseUrl}/api/v1/rankings/frontier-value?limit=8&diversity_mode=true&max_source_age_hours=12&hide_stale=true&hide_superseded=true&hide_legacy=true`;
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      return { ok: false, url, status: response.status, items: [] };
+    }
+    const payload = await response.json() as { items?: Array<Record<string, unknown>>; total?: number };
+    return {
+      ok: true,
+      url,
+      total: payload.total ?? null,
+      items: (payload.items ?? []).map((item) => ({
+        rank: item.rank,
+        model: item.model_slug,
+        provider: item.provider,
+        family: item.family,
+        lifecycle_tier: item.tier,
+        freshness_status: item.freshness_status,
+        source_age_hours: item.source_age_hours,
+        pricing_age_hours: item.pricing_age_hours,
+        has_newer_family_model: item.has_newer_family_model,
+        why_ranked: item.why_ranked,
+      })),
+    };
+  } catch (error) {
+    return { ok: false, url, error: error instanceof Error ? error.message : String(error), items: [] };
+  }
+}
+
 async function main() {
   const [sourceSummary] = await query(`
     with latest as (
@@ -120,8 +151,11 @@ async function main() {
     limit 20
   `);
 
+  const actualHomepageTop8 = await fetchHomepageRankingTop8();
+
   printSection("source freshness", sourceSummary);
   printSection("pricing freshness", pricingSummary);
+  printSection("homepage top8 from ranking api", actualHomepageTop8);
   printSection("homepage top8 freshness approximation", homepageTop8);
   printSection("stale current frontier/mainstream over 24h", frontierStale);
   printSection("oldest pricing top20", oldestPricing);
