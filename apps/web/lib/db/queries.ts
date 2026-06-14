@@ -45,6 +45,12 @@ export interface ModelWithPricing {
   source_url: string;
   need_manual_review: boolean;
   updated_at: Date;
+  model_lifecycle_tier: string;
+  model_source_confidence: number;
+  model_needs_pricing_review: boolean;
+  model_is_recommended_by_official: boolean;
+  model_is_default_in_official_docs: boolean;
+  model_is_latest_alias: boolean;
 }
 
 const baseSelect = {
@@ -62,6 +68,12 @@ const baseSelect = {
   provider_slug: providers.slug,
   provider_name_zh: providers.name_zh,
   provider_region: providers.region,
+  model_lifecycle_tier: models.lifecycle_tier,
+  model_source_confidence: models.source_confidence,
+  model_needs_pricing_review: models.needs_pricing_review,
+  model_is_recommended_by_official: models.is_recommended_by_official,
+  model_is_default_in_official_docs: models.is_default_in_official_docs,
+  model_is_latest_alias: models.is_latest_alias,
   input_per_1m_usd: pricing.input_per_1m_usd,
   output_per_1m_usd: pricing.output_per_1m_usd,
   input_cached_read_per_1m_usd: pricing.input_cached_read_per_1m_usd,
@@ -110,6 +122,7 @@ function normalizeModelRow(r: typeof baseSelect extends infer _T ? any : never):
     input_cached_read_per_1m_usd: toNumber(r.input_cached_read_per_1m_usd),
     batch_discount: toNumber(r.batch_discount),
     confidence_score: Number(r.confidence_score),
+    model_source_confidence: Number(r.model_source_confidence),
     price_source_count: 1,
     domestic_min_input_usd: null,
     domestic_min_output_usd: null,
@@ -122,6 +135,24 @@ function normalizeModelRow(r: typeof baseSelect extends infer _T ? any : never):
   };
 }
 
+function hotModelScore(m: ModelWithPricing): number {
+  const tierScore: Record<string, number> = {
+    current_frontier: 100,
+    current_mainstream: 80,
+    previous_generation: 35,
+    legacy: 8,
+    deprecated: -50,
+    unknown: 20,
+  };
+  const capability = (m.capabilities ?? []).length * 6;
+  const context = m.context_length != null ? Math.min(18, Math.log10(Math.max(m.context_length, 1)) * 3) : 0;
+  const channel = (m.is_official ? 10 : 0) + (m.is_domestic || m.provider_region === "cn" ? 8 : 0);
+  const confidence = Math.max(m.confidence_score, m.model_source_confidence) * 20;
+  const sources = Math.min(12, m.price_source_count * 2);
+  const reviewPenalty = m.need_manual_review || m.model_needs_pricing_review ? -20 : 0;
+  return (tierScore[m.model_lifecycle_tier] ?? 20) + capability + context + channel + confidence + sources + reviewPenalty;
+}
+
 function consolidateModelRows(rows: ReturnType<typeof normalizeModelRow>[]): ModelWithPricing[] {
   const groups = new Map<string, ModelWithPricing[]>();
   for (const row of rows) {
@@ -132,6 +163,8 @@ function consolidateModelRows(rows: ReturnType<typeof normalizeModelRow>[]): Mod
 
   return Array.from(groups.values()).map((group) => {
     const representative = [...group].sort((a, b) => {
+      const domesticDelta = Number(b.is_domestic || b.provider_region === "cn") - Number(a.is_domestic || a.provider_region === "cn");
+      if (domesticDelta !== 0) return domesticDelta;
       const officialDelta = Number(b.is_official) - Number(a.is_official);
       if (officialDelta !== 0) return officialDelta;
       const confidenceDelta = b.confidence_score - a.confidence_score;
@@ -148,6 +181,7 @@ function consolidateModelRows(rows: ReturnType<typeof normalizeModelRow>[]): Mod
       price_source_count: group.length,
       need_manual_review: group.some((r) => r.need_manual_review),
       confidence_score: Math.max(...group.map((r) => r.confidence_score)),
+      model_source_confidence: Math.max(...group.map((r) => r.model_source_confidence)),
       domestic_min_input_usd: domestic.input,
       domestic_min_output_usd: domestic.output,
       overseas_min_input_usd: overseas.input,
@@ -187,7 +221,36 @@ export async function listModels(filter?: {
     .orderBy(desc(pricing.updated_at))
     .limit(filter?.limit ?? 2000);
 
-  return consolidateModelRows(rows.map(normalizeModelRow)).slice(0, filter?.limit ?? 200);
+  const consolidated = consolidateModelRows(rows.map(normalizeModelRow));
+  const keys = consolidated.map((m) => m.model_slug);
+  if (keys.length > 0) {
+    const candidates = await db
+      .select({
+        provider_slug: latestModelCandidates.provider_slug,
+        model_slug: latestModelCandidates.model_slug,
+        lifecycle_tier: latestModelCandidates.lifecycle_tier,
+        confidence_score: latestModelCandidates.confidence_score,
+        needs_pricing_review: latestModelCandidates.needs_pricing_review,
+        is_recommended_by_official: latestModelCandidates.is_recommended_by_official,
+        is_default_in_official_docs: latestModelCandidates.is_default_in_official_docs,
+        is_latest_alias: latestModelCandidates.is_latest_alias,
+      })
+      .from(latestModelCandidates)
+      .where(inArray(latestModelCandidates.model_slug, keys));
+    const byKey = new Map(candidates.map((c) => [`${c.provider_slug}/${c.model_slug}`, c]));
+    for (const model of consolidated) {
+      const candidate = byKey.get(`${model.provider_slug}/${model.model_slug}`);
+      if (!candidate) continue;
+      model.model_lifecycle_tier = candidate.lifecycle_tier;
+      model.model_source_confidence = Math.max(model.model_source_confidence, Number(candidate.confidence_score));
+      model.model_needs_pricing_review = candidate.needs_pricing_review;
+      model.model_is_recommended_by_official = candidate.is_recommended_by_official;
+      model.model_is_default_in_official_docs = candidate.is_default_in_official_docs;
+      model.model_is_latest_alias = candidate.is_latest_alias;
+    }
+  }
+
+  return consolidated.sort((a, b) => hotModelScore(b) - hotModelScore(a)).slice(0, filter?.limit ?? 200);
 }
 
 export async function getModelBySlug(slug: string): Promise<ModelWithPricing | null> {

@@ -15,9 +15,10 @@ export async function GET(
   const page = Math.max(parseInt(url.searchParams.get("page") ?? "1"), 1);
   const offset = parseInt(url.searchParams.get("offset") ?? String((page - 1) * limit));
   const diversityMode = url.searchParams.get("diversity_mode") !== "false";
-  const defaultMaxProvider = limit <= 20 ? "4" : limit <= 50 ? "9" : "14";
+  const defaultMaxProvider = limit <= 10 ? "2" : limit <= 20 ? "3" : limit <= 50 ? "8" : "14";
+  const defaultMaxFamily = limit <= 10 ? "1" : limit <= 20 ? "2" : limit <= 50 ? "3" : "5";
   const maxPerProvider = parseInt(url.searchParams.get("max_per_provider") ?? (diversityMode ? defaultMaxProvider : "999"));
-  const maxPerFamily = parseInt(url.searchParams.get("max_per_family") ?? (diversityMode ? "3" : "999"));
+  const maxPerFamily = parseInt(url.searchParams.get("max_per_family") ?? (diversityMode ? defaultMaxFamily : "999"));
   // 默认隐藏旧模型、废弃模型和无法判断新旧的模型。
   const hideLegacy = url.searchParams.get("hide_legacy") !== "false" && url.searchParams.get("show_legacy") !== "true";
   const hideDeprecated = url.searchParams.get("hide_deprecated") !== "false" && url.searchParams.get("show_deprecated") !== "true";

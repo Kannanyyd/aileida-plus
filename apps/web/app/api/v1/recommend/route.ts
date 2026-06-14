@@ -63,7 +63,7 @@ function scoreRecommendation(input: RecommendBody, m: Awaited<ReturnType<typeof 
   const scenario = wantedCaps.size === 0 ? 65 : Math.min(100, (capHits / wantedCaps.size) * 100 + 20);
   const capability = scoreModel(m, all).capability;
   const freshness = freshnessScore(m);
-  const confidence = m.confidence_score * 100;
+  const confidence = Math.max(m.confidence_score, m.model_source_confidence) * 100;
   const regional =
     input.regionPreference === "domestic" || input.techRequirements?.includes("cn-accessible")
       ? (m.is_domestic || m.provider_region === "cn" || m.pricing_region === "china_mainland" ? 100 : 20)
@@ -87,6 +87,35 @@ function scoreRecommendation(input: RecommendBody, m: Awaited<ReturnType<typeof 
     ((regional + channel) / 2) * 0.1 +
     price * priceWeight;
   return Math.round(score * 10) / 10;
+}
+
+function canonicalFamily(m: Awaited<ReturnType<typeof listModels>>[number]) {
+  const raw = (m.family ?? m.model_slug ?? m.model_name).toLowerCase();
+  const cleaned = raw
+    .replace(/-(latest|preview|beta|instruct|thinking|reasoning|non-reasoning|fast|turbo|mini|nano|chat|online)$/g, "")
+    .replace(/-\d{4}[-_]\d{2}[-_]\d{2}$/g, "")
+    .replace(/-\d{4,8}$/g, "");
+  if (/^grok-4/.test(cleaned)) return "grok-4";
+  if (/^gpt-5/.test(cleaned)) return "gpt-5";
+  if (/^qwen3/.test(cleaned)) return cleaned.split("-").slice(0, 2).join("-");
+  return cleaned.split(/[/-]/).slice(0, 2).join("-");
+}
+
+function diverseTake<T extends { model: Awaited<ReturnType<typeof listModels>>[number] }>(rows: T[], limit: number) {
+  const providers = new Map<string, number>();
+  const families = new Map<string, number>();
+  const out: T[] = [];
+  for (const row of rows) {
+    const providerCount = providers.get(row.model.provider_slug) ?? 0;
+    const family = canonicalFamily(row.model);
+    const familyCount = families.get(family) ?? 0;
+    if (providerCount >= 2 || familyCount >= 1) continue;
+    providers.set(row.model.provider_slug, providerCount + 1);
+    families.set(family, familyCount + 1);
+    out.push(row);
+    if (out.length >= limit) break;
+  }
+  return out;
 }
 
 function reasons(input: RecommendBody, m: Awaited<ReturnType<typeof listModels>>[number]) {
@@ -133,10 +162,12 @@ export async function POST(req: NextRequest) {
 
     models = models.filter((m) => {
       const tier = getModelTier(m);
-      if (body.budget !== "cheapest" && ["legacy", "deprecated", "unknown"].includes(tier)) return false;
+      const allowOld = body.budget === "cheapest" || body.budget === "free-tier";
+      if (!allowOld && ["previous_generation", "legacy", "deprecated", "unknown"].includes(tier)) return false;
+      if (body.budget !== "cheapest" && body.budget !== "free-tier" && (m.status === "preview" || m.status === "beta")) return false;
       if (body.currencyPreference && body.currencyPreference !== "any" && m.currency_native !== body.currencyPreference) return false;
       if (body.requireDomesticPayment && m.provider_region !== "cn" && m.currency_native !== "CNY") return false;
-      return !m.need_manual_review && m.confidence_score >= 0.6;
+      return !m.need_manual_review && !m.model_needs_pricing_review && Math.max(m.confidence_score, m.model_source_confidence) >= 0.65;
     });
 
     const scored = models
@@ -165,6 +196,13 @@ export async function POST(req: NextRequest) {
           tierLabel: tierLabel(tier),
           isLegacy: ["previous_generation", "legacy", "deprecated"].includes(tier),
           priceSourceCount: row.model.price_source_count,
+          isOfficialPrice: row.model.is_official,
+          isAggregatorPrice: row.model.is_aggregator,
+          isDomestic: row.model.is_domestic || row.model.provider_region === "cn" || row.model.pricing_region === "china_mainland",
+          isOverseasOfficial: row.model.is_official && row.model.provider_region !== "cn" && row.model.pricing_region !== "china_mainland",
+          currencyNative: row.model.currency_native,
+          sourceConfidence: Math.max(row.model.confidence_score, row.model.model_source_confidence),
+          dataConfidenceIssue: row.model.confidence_score < 0.75 || row.model.price_source_count < 2,
         },
         monthlyCost: row.monthlyCost,
         score: row.score,
@@ -190,9 +228,9 @@ export async function POST(req: NextRequest) {
       .limit(6);
 
     return NextResponse.json({
-      budget: byCost.filter((x) => getModelTier(x.model) !== "legacy").slice(0, 2).map(enrich),
-      balanced: scored.slice(0, 2).map(enrich),
-      premium: byQuality.slice(0, 2).map(enrich),
+      budget: diverseTake(byCost.filter((x) => getModelTier(x.model) !== "legacy"), 5).map(enrich),
+      balanced: diverseTake(scored, 5).map(enrich),
+      premium: diverseTake(byQuality, 5).map(enrich),
       latestModelAlerts: latestUnpriced,
       input: body,
       generatedAt: new Date().toISOString(),

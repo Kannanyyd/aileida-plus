@@ -10,6 +10,7 @@ interface RankItem {
   rank: number; model_slug: string; model_name: string; family: string | null;
   provider: string; provider_name: string; provider_region: string;
   input_per_1m_usd: number | null; output_per_1m_usd: number | null;
+  currency_native?: string; pricing_region?: string; channel?: string; is_domestic?: boolean;
   context_length: number | null; capabilities: string[]; status: string;
   tier: string; price_source_count: number;
   domestic_min_input_usd: number | null; overseas_min_input_usd: number | null;
@@ -51,7 +52,12 @@ export default function RankingTypePage() {
 
   const toggleReason = (rank: number) => setExpandedReasons((p) => ({ ...p, [rank]: !p[rank] }));
 
-  const formatUsd = (v: number | null) => v != null ? `$${v.toFixed(4)}` : "—";
+  const formatMoney = (v: number | null, item?: RankItem) => {
+    if (v == null) return "—";
+    const useCny = item?.currency_native === "CNY" || item?.is_domestic || item?.pricing_region === "china_mainland";
+    if (useCny) return `¥${(v * 7.18).toFixed(v < 0.1 ? 4 : 2)}`;
+    return `$${v < 0.01 ? v.toFixed(4) : v < 1 ? v.toFixed(3) : v.toFixed(2)}`;
+  };
   const formatCtx = (v: number | null) => {
     if (!v) return "—";
     if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
@@ -158,12 +164,12 @@ export default function RankingTypePage() {
                     <span className="text-slate-300">{item.provider_name}</span>
                     <span className="ml-1">{regionBadge(item.provider_region)}</span>
                   </td>
-                  <td className="py-2 px-3 text-right font-mono text-white">{formatUsd(item.input_per_1m_usd)}</td>
-                  <td className="py-2 px-3 text-right font-mono text-white">{formatUsd(item.output_per_1m_usd)}</td>
+                  <td className="py-2 px-3 text-right font-mono text-white">{formatMoney(item.input_per_1m_usd, item)}</td>
+                  <td className="py-2 px-3 text-right font-mono text-white">{formatMoney(item.output_per_1m_usd, item)}</td>
                   <td className="py-2 px-3 text-right text-[10px] text-slate-400">
                     {item.price_source_count}源
                     <span className="block">
-                      官 {formatUsd(item.official_min_input_usd)} / 聚 {formatUsd(item.aggregator_min_input_usd)}
+                      官 {formatMoney(item.official_min_input_usd, item)} / 聚 {formatMoney(item.aggregator_min_input_usd, item)}
                     </span>
                   </td>
                   <td className="py-2 px-3 text-right font-mono text-slate-300">{formatCtx(item.context_length)}</td>

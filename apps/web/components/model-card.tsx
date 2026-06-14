@@ -21,6 +21,7 @@ const CAP_LABEL: Record<string, string> = {
 export function ModelCard({ m }: { m: ModelWithPricing }) {
   const inUsd = m.input_per_1m_usd;
   const outUsd = m.output_per_1m_usd;
+  const useCnyPrimary = m.currency_native === "CNY" || m.is_domestic || m.pricing_region === "china_mainland" || m.provider_region === "cn";
   const conf = m.confidence_score;
   const variant = m.need_manual_review ? "review" : conf >= 0.85 ? "official" : conf >= 0.7 ? "multi-source" : "third-party";
 
@@ -42,13 +43,13 @@ export function ModelCard({ m }: { m: ModelWithPricing }) {
       <div className="grid grid-cols-2 gap-3">
         <div>
           <p className="text-[11px] text-slate-500 mb-0.5">输入 / 1M tokens</p>
-          <p className="font-mono text-sm text-white">{formatUsd(inUsd)}</p>
-          <p className="font-mono text-[11px] text-slate-500 mt-0.5">{formatCny(inUsd)}</p>
+          <p className="font-mono text-sm text-white">{useCnyPrimary ? formatCny(inUsd) : formatUsd(inUsd)}</p>
+          <p className="font-mono text-[11px] text-slate-500 mt-0.5">{useCnyPrimary ? formatUsd(inUsd) : formatCny(inUsd)}</p>
         </div>
         <div>
           <p className="text-[11px] text-slate-500 mb-0.5">输出 / 1M tokens</p>
-          <p className="font-mono text-sm text-white">{formatUsd(outUsd)}</p>
-          <p className="font-mono text-[11px] text-slate-500 mt-0.5">{formatCny(outUsd)}</p>
+          <p className="font-mono text-sm text-white">{useCnyPrimary ? formatCny(outUsd) : formatUsd(outUsd)}</p>
+          <p className="font-mono text-[11px] text-slate-500 mt-0.5">{useCnyPrimary ? formatUsd(outUsd) : formatCny(outUsd)}</p>
         </div>
       </div>
 
