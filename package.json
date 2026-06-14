@@ -25,7 +25,10 @@
     "crawl:once": "npm -w worker run crawl:once",
     "crawl:prices": "npm -w worker run crawl:prices",
     "crawl:providers": "npm -w worker run crawl:providers",
-    "crawl:news": "npm -w worker run crawl:news"
+    "crawl:news": "npm -w worker run crawl:news",
+    "crawl:official-models": "npm -w worker run crawl:official-models",
+    "discover:models": "npm -w worker run discover:models",
+    "audit:latest-models": "npm -w worker run audit:latest-models"
   },
   "engines": {
     "node": ">=20"

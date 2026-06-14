@@ -112,6 +112,7 @@ interface RecommendResult {
   budget?: RecommendEntry[];
   balanced?: RecommendEntry[];
   premium?: RecommendEntry[];
+  latestModelAlerts?: Array<{ model_slug: string; model_name: string; provider_slug: string; lifecycle_tier: string; source_url: string }>;
 }
 
 export default function RecommendPage() {
@@ -258,6 +259,21 @@ export default function RecommendPage() {
               </div>
             );
           })}
+
+          {result.latestModelAlerts && result.latestModelAlerts.length > 0 && (
+            <div className="glass p-5">
+              <h2 className="text-sm font-semibold text-white mb-2">还有最新模型价格待确认</h2>
+              <p className="text-xs text-slate-500 mb-3">这些模型来自官方源，但价格还没完成复核，所以暂不进入价格榜。</p>
+              <div className="grid md:grid-cols-3 gap-2">
+                {result.latestModelAlerts.slice(0, 6).map((m) => (
+                  <a key={`${m.provider_slug}-${m.model_slug}`} href={m.source_url} target="_blank" rel="noopener noreferrer" className="bg-white/3 rounded-lg p-3 hover:bg-white/5">
+                    <p className="text-xs text-white truncate">{m.model_name}</p>
+                    <p className="text-[10px] text-slate-500 mt-1">{m.provider_slug} · {m.lifecycle_tier}</p>
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="glass p-4 text-[10px] text-slate-500 leading-relaxed space-y-2">
             <p className="flex items-start gap-1.5"><Info className="w-3 h-3 mt-px shrink-0" />推荐结果基于本站当前收录的公开价格、模型参数、用户点评和场景匹配规则生成，仅供选型参考。建议在正式接入前使用真实业务样本进行测试。</p>

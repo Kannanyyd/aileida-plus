@@ -3,6 +3,9 @@ export const dynamic = "force-dynamic";
 import { listModels } from "@/lib/db/queries";
 import { getModelTier, freshnessScore, scoreModel, type ModelTier } from "@/lib/rank/score";
 import type { RecommendInput } from "@pricing/core";
+import { db } from "@/lib/db/client";
+import { latestModelCandidates } from "@/lib/db/schema";
+import { desc, eq } from "drizzle-orm";
 
 type ChannelFilter = "official_api" | "aggregator" | "cloud_platform";
 
@@ -173,10 +176,24 @@ export async function POST(req: NextRequest) {
       };
     };
 
+    const latestUnpriced = await db
+      .select({
+        model_slug: latestModelCandidates.model_slug,
+        model_name: latestModelCandidates.model_name,
+        provider_slug: latestModelCandidates.provider_slug,
+        lifecycle_tier: latestModelCandidates.lifecycle_tier,
+        source_url: latestModelCandidates.source_url,
+      })
+      .from(latestModelCandidates)
+      .where(eq(latestModelCandidates.needs_pricing_review, true))
+      .orderBy(desc(latestModelCandidates.last_seen_at))
+      .limit(6);
+
     return NextResponse.json({
       budget: byCost.filter((x) => getModelTier(x.model) !== "legacy").slice(0, 2).map(enrich),
       balanced: scored.slice(0, 2).map(enrich),
       premium: byQuality.slice(0, 2).map(enrich),
+      latestModelAlerts: latestUnpriced,
       input: body,
       generatedAt: new Date().toISOString(),
       weights: {

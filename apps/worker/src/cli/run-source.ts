@@ -1,4 +1,4 @@
-import { runLiteLLM, runOpenRouter, runLlmPrices, runGenaiPrices, runAllCn } from "../pipeline.js";
+import { runLiteLLM, runOpenRouter, runLlmPrices, runGenaiPrices, runAllCn, runOfficialModels, auditLatestModels } from "../pipeline.js";
 import { closeBrowser } from "../fetchers/html.js";
 
 const map: Record<string, () => Promise<void>> = {
@@ -7,6 +7,8 @@ const map: Record<string, () => Promise<void>> = {
   "llm-prices": runLlmPrices,
   "genai-prices": runGenaiPrices,
   cn: runAllCn,
+  "official-models": async () => { await runOfficialModels(); },
+  "latest-models": async () => { await auditLatestModels(); },
 };
 
 const target = process.argv[2] ?? "all";

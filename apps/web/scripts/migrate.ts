@@ -84,6 +84,67 @@ CREATE TABLE IF NOT EXISTS models (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS models_slug_uq ON models (slug);
 CREATE INDEX IF NOT EXISTS models_provider_idx ON models (provider_id);
+ALTER TABLE models ADD COLUMN IF NOT EXISTS first_seen_at timestamptz NOT NULL DEFAULT now();
+ALTER TABLE models ADD COLUMN IF NOT EXISTS last_seen_at timestamptz NOT NULL DEFAULT now();
+ALTER TABLE models ADD COLUMN IF NOT EXISTS official_release_date date;
+ALTER TABLE models ADD COLUMN IF NOT EXISTS official_updated_at timestamptz;
+ALTER TABLE models ADD COLUMN IF NOT EXISTS official_source_url text;
+ALTER TABLE models ADD COLUMN IF NOT EXISTS lifecycle_tier text NOT NULL DEFAULT 'unknown';
+ALTER TABLE models ADD COLUMN IF NOT EXISTS discovered_from text NOT NULL DEFAULT 'pricing_source';
+ALTER TABLE models ADD COLUMN IF NOT EXISTS source_confidence numeric(4, 2) NOT NULL DEFAULT 0.70;
+ALTER TABLE models ADD COLUMN IF NOT EXISTS needs_pricing_review boolean NOT NULL DEFAULT false;
+ALTER TABLE models ADD COLUMN IF NOT EXISTS needs_capability_review boolean NOT NULL DEFAULT false;
+ALTER TABLE models ADD COLUMN IF NOT EXISTS is_recommended_by_official boolean NOT NULL DEFAULT false;
+ALTER TABLE models ADD COLUMN IF NOT EXISTS is_default_in_official_docs boolean NOT NULL DEFAULT false;
+ALTER TABLE models ADD COLUMN IF NOT EXISTS is_latest_alias boolean NOT NULL DEFAULT false;
+
+CREATE TABLE IF NOT EXISTS latest_model_candidates (
+  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  provider_slug text NOT NULL,
+  model_slug text NOT NULL,
+  model_name text NOT NULL,
+  family text,
+  source_id text NOT NULL,
+  source_url text NOT NULL,
+  source_type text NOT NULL DEFAULT 'official',
+  discovery_status text NOT NULL DEFAULT 'candidate',
+  model_status text NOT NULL DEFAULT 'unknown',
+  lifecycle_tier text NOT NULL DEFAULT 'unknown',
+  confidence_score numeric(4, 2) NOT NULL DEFAULT 0.80,
+  has_pricing boolean NOT NULL DEFAULT false,
+  needs_pricing_review boolean NOT NULL DEFAULT true,
+  needs_capability_review boolean NOT NULL DEFAULT true,
+  is_recommended_by_official boolean NOT NULL DEFAULT false,
+  is_default_in_official_docs boolean NOT NULL DEFAULT false,
+  is_latest_alias boolean NOT NULL DEFAULT false,
+  raw_evidence jsonb NOT NULL DEFAULT '{}'::jsonb,
+  first_seen_at timestamptz NOT NULL DEFAULT now(),
+  last_seen_at timestamptz NOT NULL DEFAULT now(),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS latest_model_candidates_uq ON latest_model_candidates (provider_slug, model_slug, source_id);
+CREATE INDEX IF NOT EXISTS lmc_provider_idx ON latest_model_candidates (provider_slug);
+CREATE INDEX IF NOT EXISTS lmc_status_idx ON latest_model_candidates (discovery_status);
+CREATE INDEX IF NOT EXISTS lmc_pricing_review_idx ON latest_model_candidates (needs_pricing_review);
+CREATE INDEX IF NOT EXISTS lmc_seen_idx ON latest_model_candidates (last_seen_at);
+
+CREATE TABLE IF NOT EXISTS model_discovery_logs (
+  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  source_id text NOT NULL,
+  provider_slug text NOT NULL,
+  source_url text NOT NULL,
+  status text NOT NULL,
+  candidates_found integer NOT NULL DEFAULT 0,
+  models_inserted integer NOT NULL DEFAULT 0,
+  missing_pricing integer NOT NULL DEFAULT 0,
+  error_message text,
+  duration_ms integer,
+  fetched_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS mdl_source_idx ON model_discovery_logs (source_id);
+CREATE INDEX IF NOT EXISTS mdl_provider_idx ON model_discovery_logs (provider_slug);
+CREATE INDEX IF NOT EXISTS mdl_status_idx ON model_discovery_logs (status);
 
 CREATE TABLE IF NOT EXISTS pricing (
   id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),

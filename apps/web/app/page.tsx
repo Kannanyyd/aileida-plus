@@ -13,6 +13,7 @@ import {
   listActivePromotions,
   dashboardOverview,
   listProviders,
+  listLatestModelCandidates,
 } from "@/lib/db/queries";
 import { rank, RANKING_PRESETS } from "@/lib/rank/score";
 
@@ -34,12 +35,13 @@ const SEO_LINKS = [
 ];
 
 export default async function HomePage() {
-  const [overview, models, changes, promotions, providers] = await Promise.all([
+  const [overview, models, changes, promotions, providers, latestCandidates] = await Promise.all([
     dashboardOverview(),
     listModels({ limit: 100 }),
     getRecentPriceChanges(8),
     listActivePromotions(6),
     listProviders(),
+    listLatestModelCandidates(6),
   ]);
 
   const ranked = (rank(models, "frontier-value", { limit: 8, diversityMode: true })).items.map((r) => ({
@@ -111,6 +113,34 @@ export default async function HomePage() {
 
       {/* 数据概览 */}
       <DataOverviewCards data={overview} />
+
+      <section>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-primary" /> 最新模型发现
+          </h2>
+          <Link href="/models/new" className="text-xs text-primary hover:text-primary-hover flex items-center gap-1">
+            查看发现列表 <ArrowRight className="w-3 h-3" />
+          </Link>
+        </div>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {latestCandidates.length > 0 ? latestCandidates.map((c) => (
+            <Link key={c.id} href={`/models/${encodeURIComponent(c.model_slug)}`} className="glass p-4 hover:border-primary/40 transition">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-semibold text-white truncate">{c.model_name}</p>
+                <span className={c.needs_pricing_review ? "text-[10px] text-warning" : "text-[10px] text-success"}>
+                  {c.needs_pricing_review ? "价格待确认" : "已定价"}
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1">{c.provider_slug} · {c.lifecycle_tier}</p>
+            </Link>
+          )) : (
+            <div className="col-span-full glass p-5 text-sm text-slate-500 text-center">
+              官方模型发现任务尚未运行。执行 discover:models 后会展示最近发现。
+            </div>
+          )}
+        </div>
+      </section>
 
       {/* 今日动态 */}
       <section>

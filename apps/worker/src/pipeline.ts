@@ -8,6 +8,8 @@ import { fetchLlmPricesCurrent } from "./sources/llm-prices.js";
 import { fetchGenaiPrices } from "./sources/genai-prices.js";
 import { fetchCnProvider } from "./sources/cn-provider.js";
 import { CN_PROVIDERS } from "./sources/cn-registry.js";
+import { fetchOfficialModelSource } from "./sources/official-model-discovery.js";
+import { OFFICIAL_MODEL_SOURCES } from "./sources/official-model-registry.js";
 import { config } from "./config.js";
 import { upsertProvider } from "./storage/provider-store.js";
 import { upsertModel, findModelByExternalId } from "./storage/model-store.js";
@@ -15,6 +17,7 @@ import { upsertPricing } from "./storage/pricing-store.js";
 import { db } from "./storage/client.js";
 import { providers, promotions as promotionTable } from "./storage/schema.js";
 import { logFetchStart, logFetchSuccess, logFetchError, saveSnapshot } from "./storage/fetch-log.js";
+import { ingestOfficialDiscovery, logDiscoveryRun } from "./storage/discovery-store.js";
 import { eq } from "drizzle-orm";
 import type { NormalizedModel, NormalizedPricing, NormalizedPromotion } from "./types.js";
 
@@ -263,8 +266,64 @@ export async function runAllCn() {
   }
 }
 
+export async function runOfficialModels(sourceId?: string) {
+  const sources = sourceId
+    ? OFFICIAL_MODEL_SOURCES.filter((s) => s.id === sourceId || s.providerSlug === sourceId)
+    : OFFICIAL_MODEL_SOURCES;
+  if (sourceId && sources.length === 0) throw new Error(`Unknown official model source: ${sourceId}`);
+
+  let totalCandidates = 0;
+  let totalInserted = 0;
+  let totalMissingPricing = 0;
+
+  for (const source of sources) {
+    const start = Date.now();
+    try {
+      console.log(`[${source.id}] official model discovery start`);
+      const result = await fetchOfficialModelSource(source);
+      const stats = await ingestOfficialDiscovery(result);
+      await saveSnapshot(source.id, source.urls[0] ?? "unknown", "text/plain", result.rawText.slice(0, 50000));
+      await logDiscoveryRun({
+        source_id: source.id,
+        provider_slug: source.providerSlug,
+        source_url: source.urls[0] ?? "unknown",
+        status: "success",
+        candidates_found: stats.candidates,
+        models_inserted: stats.inserted,
+        missing_pricing: stats.missingPricing,
+        duration_ms: Date.now() - start,
+      });
+      totalCandidates += stats.candidates;
+      totalInserted += stats.inserted;
+      totalMissingPricing += stats.missingPricing;
+      console.log(`[${source.id}] candidates=${stats.candidates} inserted=${stats.inserted} missing_pricing=${stats.missingPricing}`);
+    } catch (err: any) {
+      await logDiscoveryRun({
+        source_id: source.id,
+        provider_slug: source.providerSlug,
+        source_url: source.urls[0] ?? "unknown",
+        status: "failed",
+        candidates_found: 0,
+        models_inserted: 0,
+        missing_pricing: 0,
+        error_message: err?.message ?? String(err),
+        duration_ms: Date.now() - start,
+      });
+      console.error(`[${source.id}] official model discovery failed: ${err?.message ?? err}`);
+    }
+  }
+
+  console.log(`[official-models] total candidates=${totalCandidates} inserted=${totalInserted} missing_pricing=${totalMissingPricing}`);
+  return { candidates: totalCandidates, inserted: totalInserted, missingPricing: totalMissingPricing };
+}
+
+export async function auditLatestModels() {
+  return runOfficialModels();
+}
+
 export async function runAll() {
   console.log("[worker] 开始抓取国际数据源...");
+  await runOfficialModels();
   await runLiteLLM();
   await runOpenRouter();
   await runLlmPrices();

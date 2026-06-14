@@ -2,7 +2,7 @@
  * 通用查询：models 列表 + 价格 + 厂商聚合
  */
 import { db } from "./client";
-import { models, pricing, providers, priceChangeLog, promotions } from "./schema";
+import { models, pricing, providers, priceChangeLog, promotions, latestModelCandidates, modelDiscoveryLogs } from "./schema";
 import { desc, eq, sql, and, gte, isNotNull, inArray } from "drizzle-orm";
 
 export interface ModelWithPricing {
@@ -501,4 +501,56 @@ export async function dashboardOverview() {
     todayChanges: todayChanges?.c ?? 0,
     promotions: activePromos?.c ?? 0,
   };
+}
+
+export async function listLatestModelCandidates(limit = 50) {
+  const rows = await db
+    .select()
+    .from(latestModelCandidates)
+    .orderBy(desc(latestModelCandidates.last_seen_at))
+    .limit(limit);
+  return rows.map((r) => ({
+    ...r,
+    confidence_score: Number(r.confidence_score),
+  }));
+}
+
+export async function modelDiscoveryOverview() {
+  const since7 = sql`now() - interval '7 days'`;
+  const since30 = sql`now() - interval '30 days'`;
+  const [recent7] = await db
+    .select({ c: sql<number>`count(*)::int` })
+    .from(latestModelCandidates)
+    .where(gte(latestModelCandidates.last_seen_at, since7));
+  const [recent30] = await db
+    .select({ c: sql<number>`count(*)::int` })
+    .from(latestModelCandidates)
+    .where(gte(latestModelCandidates.last_seen_at, since30));
+  const [needsPricing] = await db
+    .select({ c: sql<number>`count(*)::int` })
+    .from(latestModelCandidates)
+    .where(eq(latestModelCandidates.needs_pricing_review, true));
+  const [possibleDeprecated] = await db
+    .select({ c: sql<number>`count(*)::int` })
+    .from(latestModelCandidates)
+    .where(sql`${latestModelCandidates.model_status} in ('deprecated', 'retired')`);
+  const [inserted] = await db
+    .select({ c: sql<number>`count(*)::int` })
+    .from(latestModelCandidates)
+    .where(eq(latestModelCandidates.discovery_status, "inserted"));
+  return {
+    recent7: recent7?.c ?? 0,
+    recent30: recent30?.c ?? 0,
+    needsPricing: needsPricing?.c ?? 0,
+    possibleDeprecated: possibleDeprecated?.c ?? 0,
+    inserted: inserted?.c ?? 0,
+  };
+}
+
+export async function listModelDiscoveryLogs(limit = 30) {
+  return db
+    .select()
+    .from(modelDiscoveryLogs)
+    .orderBy(desc(modelDiscoveryLogs.fetched_at))
+    .limit(limit);
 }
