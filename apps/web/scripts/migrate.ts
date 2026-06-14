@@ -229,7 +229,8 @@ CREATE TABLE IF NOT EXISTS pricing (
   updated_at timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT pricing_has_source_url CHECK (length(source_url) > 0)
 );
-CREATE UNIQUE INDEX IF NOT EXISTS pricing_model_type_chan_uq ON pricing (model_id, pricing_type, channel);
+DROP INDEX IF EXISTS pricing_model_type_chan_uq;
+CREATE UNIQUE INDEX IF NOT EXISTS pricing_model_type_chan_uq ON pricing (model_id, pricing_type, channel, region, primary_source_id);
 CREATE INDEX IF NOT EXISTS pricing_confidence_idx ON pricing (confidence_score);
 CREATE INDEX IF NOT EXISTS pricing_review_idx ON pricing (need_manual_review);
 CREATE INDEX IF NOT EXISTS pricing_current_idx ON pricing (is_current);

@@ -7,6 +7,7 @@ import { fetchOpenRouter } from "./sources/openrouter.js";
 import { fetchLlmPricesCurrent } from "./sources/llm-prices.js";
 import { fetchGenaiPrices } from "./sources/genai-prices.js";
 import { fetchCnProvider } from "./sources/cn-provider.js";
+import { fetchAliyunBailianCnyPricing, fetchDeepSeekCnyPricing, fetchSiliconFlowCnyPricing } from "./sources/cn-cny-pricing.js";
 import { CN_PROVIDERS } from "./sources/cn-registry.js";
 import { fetchOfficialModelSource } from "./sources/official-model-discovery.js";
 import { OFFICIAL_MODEL_SOURCES } from "./sources/official-model-registry.js";
@@ -103,6 +104,15 @@ async function ingestModelsAndPricing(
           capabilities: m.capabilities,
           release_date: m.release_date,
           status: m.status,
+          canonical_model_slug: m.canonical_model_slug,
+          model_family: m.model_family,
+          model_variant: m.model_variant,
+          model_owner_provider: m.model_owner_provider,
+          selling_platform_provider: m.selling_platform_provider,
+          source_provider: m.source_provider,
+          source_model_id: m.source_model_id,
+          data_quality_flags: m.data_quality_flags,
+          needs_alias_review: m.needs_alias_review,
         });
         slugToModelId.set(m.external_id, row.id);
         totalModels++;
@@ -263,6 +273,24 @@ export async function runAllCn() {
     } catch (err: any) {
       console.error(`[${p.id}] 整体失败:`, err?.message);
     }
+  }
+}
+
+export async function runPriorityCnyPricing() {
+  const sources = [
+    { id: "cn-cny-deepseek", url: "https://api-docs.deepseek.com/quick_start/pricing-details-cny", fn: fetchDeepSeekCnyPricing },
+    { id: "cn-cny-siliconflow", url: "https://siliconflow.cn/pricing", fn: fetchSiliconFlowCnyPricing },
+    { id: "cn-cny-aliyun-bailian", url: "https://help.aliyun.com/zh/model-studio/model-pricing", fn: fetchAliyunBailianCnyPricing },
+  ];
+  for (const source of sources) {
+    await runSource(source.id, "official-cny-pricing", source.url, async () => {
+      const result = await source.fn();
+      return {
+        models: result.models,
+        pricing: result.pricing,
+        rawText: result.rawText,
+      };
+    });
   }
 }
 

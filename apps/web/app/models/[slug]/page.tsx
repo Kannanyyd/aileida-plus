@@ -69,6 +69,22 @@ export default async function ModelDetailPage({
   const pricingList = await getModelPricingList(m.model_id);
   const domesticMin = pricingList.filter((p) => p.is_domestic).sort((a, b) => (a.input_per_1m_usd ?? 999) - (b.input_per_1m_usd ?? 999))[0];
   const globalMin = pricingList.filter((p) => !p.is_domestic).sort((a, b) => (a.input_per_1m_usd ?? 999) - (b.input_per_1m_usd ?? 999))[0];
+  const isCnyPricing = (p: (typeof pricingList)[number]) =>
+    p.currency_native === "CNY" || p.region === "china_mainland" || p.is_domestic;
+  const nativeTier = (p: (typeof pricingList)[number]) =>
+    Array.isArray(p.tiered_rules) ? (p.tiered_rules[0] as Record<string, unknown> | undefined) : undefined;
+  const formatPricingAmount = (
+    p: (typeof pricingList)[number],
+    usdValue: number | null | undefined,
+    nativeKey: "input_per_1m" | "output_per_1m",
+  ) => {
+    if (isCnyPricing(p)) {
+      const native = nativeTier(p)?.[nativeKey];
+      if (typeof native === "number") return `¥${native.toFixed(native < 1 ? 3 : 2)}`;
+      return formatCny(usdValue);
+    }
+    return formatUsd(usdValue);
+  };
   const stronger = all
     .filter((x) => x.model_id !== m.model_id && ["current_frontier", "current_mainstream"].includes(getModelTier(x)))
     .map((x) => ({ m: x, s: scoreModel(x, all).total }))
@@ -165,13 +181,13 @@ export default async function ModelDetailPage({
                       <span className="font-medium">{p.platform || p.primary_source_id}</span>
                     </td>
                     <td className="py-2 text-right font-mono text-white">
-                      {p.input_per_1m_usd != null ? `$${p.input_per_1m_usd.toFixed(4)}` : '—'}
+                      {formatPricingAmount(p, p.input_per_1m_usd, "input_per_1m")}
                     </td>
                     <td className="py-2 text-right font-mono text-white">
-                      {p.output_per_1m_usd != null ? `$${p.output_per_1m_usd.toFixed(4)}` : '—'}
+                      {formatPricingAmount(p, p.output_per_1m_usd, "output_per_1m")}
                     </td>
                     <td className="py-2 text-right font-mono text-slate-300">
-                      {p.input_cached_read_per_1m_usd != null ? `$${p.input_cached_read_per_1m_usd.toFixed(4)}` : '—'}
+                      {isCnyPricing(p) ? formatCny(p.input_cached_read_per_1m_usd) : formatUsd(p.input_cached_read_per_1m_usd)}
                     </td>
                     <td className="py-2 text-right text-slate-400">{relativeTime(p.updated_at)}</td>
                     <td className="py-2 text-left">
@@ -200,13 +216,13 @@ export default async function ModelDetailPage({
             <div className="bg-cyan/5 border border-cyan/20 rounded-lg p-2">
               <p className="text-slate-500">国内最低价</p>
               <p className="font-mono text-cyan text-sm">
-                {domesticMin.platform} ${domesticMin.input_per_1m_usd?.toFixed(4)}
+                {domesticMin.platform} {formatPricingAmount(domesticMin, domesticMin.input_per_1m_usd, "input_per_1m")}
               </p>
             </div>
             <div className="bg-primary/5 border border-primary/20 rounded-lg p-2">
               <p className="text-slate-500">海外/全球最低价</p>
               <p className="font-mono text-primary text-sm">
-                {globalMin.platform} ${globalMin.input_per_1m_usd?.toFixed(4)}
+                {globalMin.platform} {formatUsd(globalMin.input_per_1m_usd)}
               </p>
             </div>
           </div>

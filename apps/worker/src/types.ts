@@ -24,6 +24,15 @@ export interface NormalizedModel {
   source_url: string;
   confidence_score: number;
   need_manual_review: boolean;
+  canonical_model_slug?: string;
+  model_family?: string;
+  model_variant?: string;
+  model_owner_provider?: string;
+  selling_platform_provider?: string;
+  source_provider?: string;
+  source_model_id?: string;
+  data_quality_flags?: string[];
+  needs_alias_review?: boolean;
 }
 
 export interface NormalizedPricing {

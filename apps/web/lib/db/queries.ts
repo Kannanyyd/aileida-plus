@@ -375,6 +375,7 @@ export interface PricingRow {
   confidence_score: number;
   source_url: string;
   primary_source_id: string;
+  tiered_rules: unknown;
   data_quality_flags: string[];
   updated_at: Date;
 }
@@ -399,6 +400,7 @@ export async function getModelPricingList(modelId: string): Promise<PricingRow[]
       confidence_score: pricing.confidence_score,
       source_url: pricing.source_url,
       primary_source_id: pricing.primary_source_id,
+      tiered_rules: pricing.tiered_rules,
       data_quality_flags: pricing.data_quality_flags,
       updated_at: pricing.updated_at,
     })

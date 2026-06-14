@@ -18,6 +18,7 @@
     "discover:models": "tsx src/cli/run-source.ts official-models",
     "audit:latest-models": "tsx src/cli/run-source.ts latest-models",
     "scrape:cn": "tsx src/cli/run-source.ts cn",
+    "crawl:cny-pricing": "tsx src/cli/run-source.ts cn-cny-pricing",
     "crawl:once": "tsx src/cli/run-all.ts",
     "crawl:prices": "tsx src/cli/run-all.ts",
     "crawl:providers": "tsx src/cli/run-all.ts",
