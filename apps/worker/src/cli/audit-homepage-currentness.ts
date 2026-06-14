@@ -34,6 +34,7 @@ function summarizeItem(item: Record<string, unknown>) {
     official_release_date: item.official_release_date,
     is_official_current: item.is_official_current,
     is_official_recommended: item.is_official_recommended,
+    official_current_catalog_match: item.official_current_catalog_match,
     official_current_status: item.official_current_status,
     official_current_confidence: item.official_current_confidence,
     has_newer_family_model: item.has_newer_family_model,
@@ -59,7 +60,8 @@ async function main() {
   const failing = strictItems.filter((item) =>
     item.source_freshness_status !== "fresh" ||
     !["current", "recent"].includes(String(item.model_recency_status)) ||
-    !item.is_official_current ||
+    !item.official_current_catalog_match ||
+    !item.official_source_url ||
     item.has_newer_family_model ||
     item.superseded_by_model_id,
   );
@@ -67,7 +69,7 @@ async function main() {
   printSection("homepage top8 before-like ranking", ((beforeLike.items ?? []) as Record<string, unknown>[]).map(summarizeItem));
   printSection("homepage top8 official-current strict", strictItems);
   printSection("homepage currentness checks", {
-    all_official_current_or_recommended: failing.length === 0,
+    all_official_current_or_recommended: strictItems.every((item) => Boolean(item.official_current_catalog_match) && Boolean(item.official_source_url) && (Boolean(item.is_official_current) || Boolean(item.is_official_recommended))),
     previous_stale_unknown_count: strictItems.filter((item) => ["previous", "stale", "unknown"].includes(String(item.model_recency_status))).length,
     missing_official_source_count: strictItems.filter((item) => !item.official_source_url).length,
     source_fresh_but_model_not_current_count: strictItems.filter((item) => item.source_freshness_status === "fresh" && !["current", "recent"].includes(String(item.model_recency_status))).length,

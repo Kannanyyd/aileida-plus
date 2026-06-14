@@ -216,7 +216,7 @@ function filterModels(models: ModelWithPricing[], opts: RankOptions): ModelWithP
       if (m.source_freshness_status !== "fresh") return false;
       if (!["current", "recent"].includes(m.model_recency_status)) return false;
       if (m.has_newer_family_model || m.superseded_by_model_id) return false;
-      if (opts.requireOfficialCurrent && !(m.is_official_current || m.is_official_recommended || m.official_current_catalog_match)) return false;
+      if (opts.requireOfficialCurrent && !(m.official_current_catalog_match && (m.is_official_current || m.is_official_recommended))) return false;
       return Math.max(m.confidence_score, m.model_source_confidence) >= 0.7;
     });
   }
