@@ -247,6 +247,10 @@ function consolidateModelRows(rows: ReturnType<typeof normalizeModelRow>[]): Mod
     const representative = [...group].sort((a, b) => {
       const domesticDelta = Number(b.is_domestic || b.provider_region === "cn") - Number(a.is_domestic || a.provider_region === "cn");
       if (domesticDelta !== 0) return domesticDelta;
+      const nativeCnyDelta = Number(b.currency_native === "CNY") - Number(a.currency_native === "CNY");
+      if (nativeCnyDelta !== 0) return nativeCnyDelta;
+      const mainlandDelta = Number(b.pricing_region === "china_mainland") - Number(a.pricing_region === "china_mainland");
+      if (mainlandDelta !== 0) return mainlandDelta;
       const officialDelta = Number(b.is_official) - Number(a.is_official);
       if (officialDelta !== 0) return officialDelta;
       const confidenceDelta = b.confidence_score - a.confidence_score;
