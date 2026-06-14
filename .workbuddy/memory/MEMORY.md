@@ -230,6 +230,17 @@ ddd1e00 上线确认：
 - Follow-up risk: pending duplicate groups currently query as 1, not 0. This was not cleaned in this round.
 ## Latest handoff: public trust / SEO pre-launch pass
 
+- Deployment status:
+  - `2ae6d85 feat: improve public trust and seo` is pushed and deployed.
+  - Server source is `2ae6d85`.
+  - Web image was formally rebuilt and restarted. No `.next` hotfix, no `docker cp`.
+  - Worker was not rebuilt because this pass was web/UI/docs only.
+  - Public pages and robots/sitemap passed smoke test.
+  - Admin pages still redirect unauthenticated with 307; admin APIs still return 401 unauthenticated.
+  - Recommend domestic writing smoke returns `relaxedFilters=[]`, `pricingGapAlerts=5`, `latestModelAlerts=6`.
+  - review_queue duplicate state is clean: `pending_null_dedupe=0`, `pending_duplicate_groups=0`.
+  - Logs had no critical matches.
+
 - Priority remains: do not work on DNS/Nginx/HTTPS, Chromium/Playwright, or new price source expansion.
 - The previous `pending duplicate groups = 1` was not a real duplicate group. It came from historical pending review rows with null `dedupe_key`.
 - Production DB has been backfilled:

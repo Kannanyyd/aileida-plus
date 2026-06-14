@@ -664,6 +664,19 @@
 - 注意：pending duplicate groups 查询为 1，不是用户提供的 0；本轮按要求不做 review_queue 清理，留给下一轮治理复核。
 ## 2026-06-14 public trust and SEO pre-launch pass
 
+- Final deployment result:
+  - Code commit: `2ae6d85 feat: improve public trust and seo`, pushed and deployed.
+  - Server source: `2ae6d85`.
+  - Web image formally rebuilt with Docker Compose; no `.next` hotfix and no `docker cp`.
+  - Worker was not rebuilt; this round changed web/public UI and docs only.
+  - Smoke pages: `/`, `/models`, `/models/new`, `/models/deepseek-chat`, `/models/kimi-k2.6`, `/models/ernie-5.1`, `/providers`, `/rankings`, `/rankings/domestic`, `/rankings/frontier-value`, `/recommend`, `/compare`, `/robots.txt`, `/sitemap.xml` all returned 200.
+  - Admin pages unauthenticated: `/admin`, `/admin/review-queue`, `/admin/pricing-gaps` returned 307.
+  - Admin APIs unauthenticated: `/api/admin/review-queue`, `/api/admin/pricing-gaps` returned 401.
+  - Public APIs: domestic rankings, frontier-value rankings, frontier-value mainland rankings, and recommend all returned 200.
+  - Recommend domestic writing smoke: `relaxedFilters=[]`, `pricingGapAlerts=5`, `latestModelAlerts=6`.
+  - review_queue: `pending_null_dedupe=0`, `pending_duplicate_groups=0`.
+  - Logs: no matches for `500`, `digest`, `relation does not exist`, `tsx not found`, `EACCES`, `password authentication failed`, `server-side exception`, or `rank(...).slice/map`.
+
 - Scope: no DNS/Nginx/HTTPS, no Chromium/Playwright, no new pricing sources.
 - First fixed the review_queue duplicate signal:
   - The reported `pending duplicate groups = 1` was caused by historical pending rows with `dedupe_key is null` being grouped together by a naive query.
