@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import type { ModelWithPricing } from "@/lib/db/queries";
-import { formatCny, formatContext, formatUsd, relativeTime } from "@/lib/utils";
+import { formatContext, relativeTime } from "@/lib/utils";
 import { ConfidenceBadge } from "./confidence-badge";
 import { Tag } from "./tag";
+import { PriceSourceBadges, PriceValue, SourceLink } from "./price-trust";
 
 const CAP_LABEL: Record<string, string> = {
   text: "文本",
@@ -21,7 +22,8 @@ const CAP_LABEL: Record<string, string> = {
 export function ModelCard({ m }: { m: ModelWithPricing }) {
   const inUsd = m.input_per_1m_usd;
   const outUsd = m.output_per_1m_usd;
-  const useCnyPrimary = m.currency_native === "CNY" || m.is_domestic || m.pricing_region === "china_mainland" || m.provider_region === "cn";
+  const preferCny = m.currency_native === "CNY" || m.is_domestic || m.pricing_region === "china_mainland" || m.provider_region === "cn";
+  const estimatedCurrency = m.currency_native !== "CNY" && preferCny;
   const conf = m.confidence_score;
   const variant = m.need_manual_review ? "review" : conf >= 0.85 ? "official" : conf >= 0.7 ? "multi-source" : "third-party";
 
@@ -35,7 +37,9 @@ export function ModelCard({ m }: { m: ModelWithPricing }) {
           <h3 className="font-semibold text-base text-white truncate group-hover:text-primary transition">
             {m.model_name}
           </h3>
-          <p className="text-xs text-slate-400 mt-0.5 truncate">{m.provider_name_zh}</p>
+          <p className="text-xs text-slate-400 mt-0.5 truncate">
+            {m.provider_name_zh} · {m.model_owner_provider || "owner unknown"}
+          </p>
         </div>
         <ConfidenceBadge variant={variant as never} />
       </div>
@@ -43,18 +47,41 @@ export function ModelCard({ m }: { m: ModelWithPricing }) {
       <div className="grid grid-cols-2 gap-3">
         <div>
           <p className="text-[11px] text-slate-500 mb-0.5">输入 / 1M tokens</p>
-          <p className="font-mono text-sm text-white">{useCnyPrimary ? formatCny(inUsd) : formatUsd(inUsd)}</p>
-          <p className="font-mono text-[11px] text-slate-500 mt-0.5">{useCnyPrimary ? formatUsd(inUsd) : formatCny(inUsd)}</p>
+          <PriceValue
+            usd={inUsd}
+            currencyNative={m.currency_native}
+            nativeCny={m.currency_native === "CNY" && inUsd != null ? inUsd * 7.18 : null}
+            estimatedCurrency={estimatedCurrency}
+            preferCny={preferCny}
+          />
         </div>
         <div>
           <p className="text-[11px] text-slate-500 mb-0.5">输出 / 1M tokens</p>
-          <p className="font-mono text-sm text-white">{useCnyPrimary ? formatCny(outUsd) : formatUsd(outUsd)}</p>
-          <p className="font-mono text-[11px] text-slate-500 mt-0.5">{useCnyPrimary ? formatUsd(outUsd) : formatCny(outUsd)}</p>
+          <PriceValue
+            usd={outUsd}
+            currencyNative={m.currency_native}
+            nativeCny={m.currency_native === "CNY" && outUsd != null ? outUsd * 7.18 : null}
+            estimatedCurrency={estimatedCurrency}
+            preferCny={preferCny}
+          />
         </div>
       </div>
 
+      <PriceSourceBadges
+        channel={m.channel}
+        isOfficial={m.is_official}
+        isAggregator={m.is_aggregator}
+        isDomestic={m.is_domestic || m.provider_region === "cn"}
+        currencyNative={m.currency_native}
+        estimatedCurrency={estimatedCurrency}
+        confidence={m.confidence_score}
+        flags={m.data_quality_flags}
+      />
+
       <div className="flex items-center gap-2 flex-wrap text-[11px]">
-        <span className="text-slate-500">上下文：<span className="font-mono text-slate-300">{formatContext(m.context_length)}</span></span>
+        <span className="text-slate-500">
+          上下文：<span className="font-mono text-slate-300">{formatContext(m.context_length)}</span>
+        </span>
         {m.capabilities?.slice(0, 3).map((c) => (
           <Tag key={c} variant="primary">
             {CAP_LABEL[c] ?? c}
@@ -62,17 +89,9 @@ export function ModelCard({ m }: { m: ModelWithPricing }) {
         ))}
       </div>
 
-      <div className="flex items-center justify-between text-[11px] text-slate-500 pt-2 border-t border-white/5">
+      <div className="flex items-center justify-between gap-3 text-[11px] text-slate-500 pt-2 border-t border-white/5">
         <span>更新 {relativeTime(m.updated_at)}</span>
-        <a
-          href={m.source_url}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={(e) => e.stopPropagation()}
-          className="hover:text-primary truncate max-w-[60%]"
-        >
-          {m.primary_source_id}
-        </a>
+        <SourceLink href={m.source_url} label={m.primary_source_id || "来源"} />
       </div>
     </Link>
   );

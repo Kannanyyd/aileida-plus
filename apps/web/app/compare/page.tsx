@@ -1,7 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { PriceSourceBadges, PriceValue, SourceLink } from "@/components/price-trust";
+import { relativeTime } from "@/lib/utils";
 
 interface ModelOption {
   model_id: string;
@@ -14,13 +16,28 @@ interface PricingRow {
   id: string;
   input_per_1m_usd: number | null;
   output_per_1m_usd: number | null;
+  input_cached_read_per_1m_usd: number | null;
+  currency_native: string;
   region: string;
   channel: string;
   platform: string | null;
   is_official: boolean;
   is_aggregator: boolean;
-  currency_native: string;
+  is_domestic: boolean;
+  confidence_score: number;
+  source_url: string;
   primary_source_id: string;
+  tiered_rules: unknown;
+  data_quality_flags: string[];
+  updated_at: string;
+}
+
+type PricingWithModel = PricingRow & { modelSlug: string };
+
+function nativeFromTieredRules(rules: unknown, key: "input_per_1m" | "output_per_1m" | "cached_input_per_1m") {
+  if (!Array.isArray(rules)) return null;
+  const value = (rules[0] as Record<string, unknown> | undefined)?.[key];
+  return typeof value === "number" ? value : null;
 }
 
 export default function ComparePage() {
@@ -31,137 +48,129 @@ export default function ComparePage() {
 
   useEffect(() => {
     fetch("/api/v1/models?limit=200")
-      .then((r) => r.json())
+      .then((res) => res.json())
       .then((data) => setModels(data.models ?? []));
   }, []);
 
+  const modelNames = Object.fromEntries(models.map((model) => [model.model_slug, `${model.model_name} (${model.provider_name_zh})`]));
+  const allPricing: PricingWithModel[] = Object.entries(pricingMap).flatMap(([modelSlug, rows]) => rows.map((row) => ({ ...row, modelSlug })));
+
   const addModel = (slug: string) => {
-    if (selected.length >= 4 || selected.includes(slug)) return;
-    setSelected([...selected, slug]);
+    if (!slug || selected.includes(slug) || selected.length >= 4) return;
+    setSelected((prev) => [...prev, slug]);
   };
 
   const removeModel = (slug: string) => {
-    setSelected(selected.filter((s) => s !== slug));
-    const next = { ...pricingMap };
-    delete next[slug];
-    setPricingMap(next);
+    setSelected((prev) => prev.filter((item) => item !== slug));
+    setPricingMap((prev) => {
+      const next = { ...prev };
+      delete next[slug];
+      return next;
+    });
   };
 
   const compare = async () => {
     setLoading(true);
-    const map: Record<string, PricingRow[]> = {};
+    const next: Record<string, PricingRow[]> = {};
     for (const slug of selected) {
       try {
         const res = await fetch(`/api/v1/models/${encodeURIComponent(slug)}/pricing`);
         const data = await res.json();
-        map[slug] = data.pricing ?? [];
-      } catch { map[slug] = []; }
+        next[slug] = data.pricing ?? [];
+      } catch {
+        next[slug] = [];
+      }
     }
-    setPricingMap(map);
+    setPricingMap(next);
     setLoading(false);
   };
 
-  const allPricing = Object.values(pricingMap).flat();
-  const modelNames: Record<string, string> = {};
-  for (const m of models) modelNames[m.model_slug] = `${m.model_name} (${m.provider_name_zh})`;
-
   return (
     <div className="space-y-6">
-      <div className="glass p-5">
-        <h1 className="text-xl font-bold text-white">模型价格对比</h1>
-        <p className="text-sm text-slate-400 mt-1">选择 2-4 个模型，对比不同渠道的价格</p>
-      </div>
+      <section className="glass p-5">
+        <h1 className="text-xl font-bold text-white">Model price compare</h1>
+        <p className="text-sm text-slate-400 mt-1">
+          Compare official API, cloud platform, aggregator, native CNY, native USD, and estimated prices.
+        </p>
+      </section>
 
-      <div className="glass p-5">
-        <h2 className="text-sm font-semibold text-white mb-3">选择模型</h2>
+      <section className="glass p-5">
+        <h2 className="text-sm font-semibold text-white mb-3">Select models</h2>
         <div className="flex flex-wrap gap-2 mb-3">
-          {selected.map((s) => (
-            <span key={s} className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-primary/20 text-primary text-xs">
-              {modelNames[s] ?? s}
-              <button onClick={() => removeModel(s)} className="text-slate-400 hover:text-white">×</button>
+          {selected.map((slug) => (
+            <span key={slug} className="inline-flex items-center gap-1 rounded-lg bg-primary/20 px-2 py-1 text-xs text-primary">
+              {modelNames[slug] ?? slug}
+              <button onClick={() => removeModel(slug)} className="text-slate-400 hover:text-white" aria-label={`Remove ${slug}`}>x</button>
             </span>
           ))}
         </div>
         <div className="flex gap-2">
-          <select
-            className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white flex-1"
-            onChange={(e) => addModel(e.target.value)}
-            value=""
-          >
-            <option value="">添加模型...</option>
-            {models.filter((m) => !selected.includes(m.model_slug)).map((m) => (
-              <option key={m.model_id} value={m.model_slug}>
-                {m.model_name} ({m.provider_name_zh})
-              </option>
+          <select className="flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white" onChange={(event) => addModel(event.target.value)} value="">
+            <option value="">Add model...</option>
+            {models.filter((model) => !selected.includes(model.model_slug)).map((model) => (
+              <option key={model.model_id} value={model.model_slug}>{model.model_name} ({model.provider_name_zh})</option>
             ))}
           </select>
-          <button
-            onClick={compare}
-            disabled={selected.length < 2 || loading}
-            className="px-4 py-2 rounded-lg bg-primary text-white text-sm font-semibold disabled:opacity-50"
-          >
-            {loading ? "对比中..." : "开始对比"}
+          <button onClick={compare} disabled={selected.length < 2 || loading} className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
+            {loading ? "Comparing..." : "Compare"}
           </button>
         </div>
-      </div>
+      </section>
 
       {allPricing.length > 0 && (
-        <div className="glass p-5">
-          <h2 className="text-sm font-semibold text-white mb-3">
-            价格对比 ({allPricing.length} 条)
-          </h2>
+        <section className="glass p-5">
+          <h2 className="text-sm font-semibold text-white mb-3">Pricing rows ({allPricing.length})</h2>
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
-                <tr className="text-slate-500 border-b border-white/10">
-                  <th className="text-left py-2 font-normal">模型</th>
-                  <th className="text-left py-2 font-normal">渠道</th>
-                  <th className="text-left py-2 font-normal">区域</th>
-                  <th className="text-right py-2 font-normal">输入/1M</th>
-                  <th className="text-right py-2 font-normal">输出/1M</th>
-                  <th className="text-center py-2 font-normal">官方</th>
-                  <th className="text-right py-2 font-normal">币种</th>
+                <tr className="border-b border-white/10 text-slate-500">
+                  <th className="py-2 text-left font-normal">Model</th>
+                  <th className="py-2 text-left font-normal">Channel</th>
+                  <th className="py-2 text-left font-normal">Region</th>
+                  <th className="py-2 text-right font-normal">Input / 1M</th>
+                  <th className="py-2 text-right font-normal">Output / 1M</th>
+                  <th className="py-2 text-right font-normal">Cache read / 1M</th>
+                  <th className="py-2 text-left font-normal">Source and quality</th>
+                  <th className="py-2 text-right font-normal">Updated</th>
                 </tr>
               </thead>
               <tbody>
-                {allPricing.sort((a, b) => (a.input_per_1m_usd ?? 999) - (b.input_per_1m_usd ?? 999)).map((p) => (
-                  <tr key={p.id} className="border-b border-white/5 hover:bg-white/5">
-                    <td className="py-2 text-white truncate max-w-[150px]">
-                      {modelNames[p.primary_source_id] || p.primary_source_id}
-                    </td>
-                    <td className="py-2 text-slate-300">{p.platform || p.primary_source_id}</td>
-                    <td className="py-2">
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded ${
-                        p.region === "china_mainland" ? "bg-cyan/10 text-cyan" : 
-                        p.region === "overseas" ? "bg-orange-500/10 text-orange-400" : "bg-primary/10 text-primary"
-                      }`}>
-                        {p.region === "china_mainland" ? "国内" : p.region === "overseas" ? "海外" : "全球"}
-                      </span>
-                    </td>
-                    <td className="py-2 text-right font-mono text-white">
-                      {p.input_per_1m_usd != null ? `$${p.input_per_1m_usd.toFixed(4)}` : "—"}
-                    </td>
-                    <td className="py-2 text-right font-mono text-white">
-                      {p.output_per_1m_usd != null ? `$${p.output_per_1m_usd.toFixed(4)}` : "—"}
-                    </td>
-                    <td className="py-2 text-center">
-                      {p.is_official ? "✅" : p.is_aggregator ? "🔗" : "—"}
-                    </td>
-                    <td className="py-2 text-right text-slate-400">{p.currency_native}</td>
-                  </tr>
-                ))}
+                {[...allPricing].sort((a, b) => (a.input_per_1m_usd ?? 999) - (b.input_per_1m_usd ?? 999)).map((price) => {
+                  const preferCny = price.currency_native === "CNY" || price.is_domestic || price.region === "china_mainland";
+                  const estimated = preferCny && price.currency_native !== "CNY";
+                  return (
+                    <tr key={`${price.modelSlug}-${price.id}`} className="border-b border-white/5 align-top hover:bg-white/5">
+                      <td className="py-3 text-white">
+                        <Link href={`/models/${encodeURIComponent(price.modelSlug)}`} className="hover:text-primary">{modelNames[price.modelSlug] ?? price.modelSlug}</Link>
+                      </td>
+                      <td className="py-3 text-slate-300">
+                        <p>{price.platform || price.primary_source_id}</p>
+                        <p className="mt-0.5 text-[10px] text-slate-500">{price.channel}</p>
+                      </td>
+                      <td className="py-3"><span className={`rounded px-1.5 py-0.5 text-[10px] ${preferCny ? "bg-cyan/10 text-cyan" : "bg-primary/10 text-primary"}`}>{price.region}</span></td>
+                      <td className="py-3 text-right"><PriceValue usd={price.input_per_1m_usd} nativeCny={nativeFromTieredRules(price.tiered_rules, "input_per_1m")} currencyNative={price.currency_native} estimatedCurrency={estimated} preferCny={preferCny} compact /></td>
+                      <td className="py-3 text-right"><PriceValue usd={price.output_per_1m_usd} nativeCny={nativeFromTieredRules(price.tiered_rules, "output_per_1m")} currencyNative={price.currency_native} estimatedCurrency={estimated} preferCny={preferCny} compact /></td>
+                      <td className="py-3 text-right"><PriceValue usd={price.input_cached_read_per_1m_usd} nativeCny={nativeFromTieredRules(price.tiered_rules, "cached_input_per_1m")} currencyNative={price.currency_native} estimatedCurrency={estimated} preferCny={preferCny} compact /></td>
+                      <td className="py-3">
+                        <PriceSourceBadges isOfficial={price.is_official} isAggregator={price.is_aggregator} channel={price.channel} isDomestic={preferCny} currencyNative={price.currency_native} estimatedCurrency={estimated} confidence={price.confidence_score} flags={price.data_quality_flags} />
+                        <div className="mt-1"><SourceLink href={price.source_url} label={price.primary_source_id || "source"} /></div>
+                      </td>
+                      <td className="py-3 text-right text-slate-400">{relativeTime(price.updated_at)}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
-        </div>
+        </section>
       )}
 
-      <div className="glass p-5">
-        <p className="text-xs text-slate-400">
-          提示：选择同一模型可查看不同渠道/区域的价格差异。国内平台价格通常以 CNY 计价，海外平台以 USD 计价。
-          <Link href="/models" className="text-primary hover:underline ml-1">浏览全部模型</Link>
+      <section className="glass p-5">
+        <p className="text-xs text-slate-400 leading-relaxed">
+          Native CNY prices are shown with a yuan marker. USD-to-CNY estimates are explicitly marked as estimated and should not be treated as official mainland prices.
+          <Link href="/models" className="text-primary hover:underline ml-1">Browse all models</Link>
         </p>
-      </div>
+      </section>
     </div>
   );
 }

@@ -662,3 +662,26 @@
   - `aileida-postgres` healthy。
 - 日志关键字：web/worker tail 检查未见 `500 / digest / relation does not exist / tsx not found / EACCES / password authentication failed / server-side exception / rank` 匹配输出。
 - 注意：pending duplicate groups 查询为 1，不是用户提供的 0；本轮按要求不做 review_queue 清理，留给下一轮治理复核。
+## 2026-06-14 public trust and SEO pre-launch pass
+
+- Scope: no DNS/Nginx/HTTPS, no Chromium/Playwright, no new pricing sources.
+- First fixed the review_queue duplicate signal:
+  - The reported `pending duplicate groups = 1` was caused by historical pending rows with `dedupe_key is null` being grouped together by a naive query.
+  - Effective duplicate detection using the cleanup script key returned 0 real duplicate groups.
+  - Production backfilled 896 missing pending `dedupe_key` values and wrote 896 `review_audit_logs` rows with action `backfill-dedupe-key`.
+  - No rows were physically deleted.
+  - After cleanup: `pending_null_dedupe = 0`, `pending_duplicate_groups = 0`.
+- Public page trust updates:
+  - Added `apps/web/components/price-trust.tsx`.
+  - Updated model cards, ranking pages, model detail, compare, and recommend pages to show native CNY/USD, estimated currency markers, source links, confidence, channel type, and data quality flags.
+  - Model detail now shows owner provider, selling platform provider, source provider, multi-channel pricing rows, update time, and alternatives.
+  - Recommend results now show reasons, native/estimated price status, official/aggregator/domestic badges, stronger/cheaper alternatives, pricing gap alerts, and newer unpriced model alerts.
+- Homepage and SEO:
+  - Homepage repositioned around latest model discovery, domestic CNY ranking, global value ranking, price changes/new prices, and recommendation entry.
+  - Added or refreshed metadata for homepage, models, rankings, compare, recommend, and model detail.
+  - Added `robots.txt` and `sitemap.xml` route handlers.
+- Local validation:
+  - `npm run typecheck` passed.
+  - `npm -w web run build` passed.
+- Note:
+  - Some high-traffic pages were rewritten with ASCII-safe copy during this pass because prior UTF-8 text in several TSX files was corrupted by Windows shell encoding. The trust/SEO features are in place; final Chinese microcopy can be restored later using a safer encoding workflow.

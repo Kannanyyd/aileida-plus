@@ -228,3 +228,25 @@ ddd1e00 上线确认：
   - domestic writing recommendation has `relaxedFilters=[]`; budget/balanced/premium Top5 are all CNY.
 - Logs: no matching critical errors in web/worker tail.
 - Follow-up risk: pending duplicate groups currently query as 1, not 0. This was not cleaned in this round.
+## Latest handoff: public trust / SEO pre-launch pass
+
+- Priority remains: do not work on DNS/Nginx/HTTPS, Chromium/Playwright, or new price source expansion.
+- The previous `pending duplicate groups = 1` was not a real duplicate group. It came from historical pending review rows with null `dedupe_key`.
+- Production DB has been backfilled:
+  - 896 pending `dedupe_key` values filled.
+  - 896 `review_audit_logs` rows inserted.
+  - No review rows deleted.
+  - `pending duplicate groups = 0`.
+- Public page trust features added:
+  - Shared `price-trust` display component.
+  - Model cards, rankings, model detail, compare, and recommend pages distinguish native CNY, native USD, estimated prices, source links, confidence, channel type, and data quality flags.
+  - Model detail shows owner provider, selling platform provider, source provider, multi-channel pricing, update time, and alternatives.
+  - Recommend page shows reasons, stronger/cheaper alternatives, pricing gap alerts, and latest unpriced model alerts.
+- SEO basics added:
+  - Metadata refreshed for core routes.
+  - `robots.txt` and `sitemap.xml` added.
+- Local checks passed:
+  - `npm run typecheck`.
+  - `npm -w web run build`.
+- Encoding caution:
+  - Some old TSX Chinese copy was already corrupted. Rewritten high-traffic pages currently use ASCII-safe copy to keep build stability. Restore polished Chinese microcopy later with a safe UTF-8 workflow.

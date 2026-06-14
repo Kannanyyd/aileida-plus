@@ -12,12 +12,47 @@ export function formatUsd(per1m: number | null | undefined): string {
   return `$${per1m.toFixed(2)}`;
 }
 
-export function formatCny(usdPer1m: number | null | undefined, rate = 7.18): string {
-  if (usdPer1m == null) return "-";
-  const value = usdPer1m * rate;
+export function formatNativeCny(value: number | null | undefined): string {
+  if (value == null) return "-";
   if (value < 0.01) return `¥${value.toFixed(4)}`;
   if (value < 1) return `¥${value.toFixed(3)}`;
   return `¥${value.toFixed(2)}`;
+}
+
+export function formatCny(usdPer1m: number | null | undefined, rate = 7.18): string {
+  if (usdPer1m == null) return "-";
+  return formatNativeCny(usdPer1m * rate);
+}
+
+export function priceDisplay(input: {
+  usd: number | null | undefined;
+  currencyNative?: string | null;
+  nativeCny?: number | null;
+  estimatedCurrency?: boolean | null;
+  preferCny?: boolean;
+}) {
+  if (input.currencyNative === "CNY" && input.nativeCny != null) {
+    return {
+      primary: formatNativeCny(input.nativeCny),
+      secondary: formatUsd(input.usd),
+      label: "原生人民币价",
+      estimated: false,
+    };
+  }
+  if (input.preferCny || input.estimatedCurrency) {
+    return {
+      primary: formatCny(input.usd),
+      secondary: formatUsd(input.usd),
+      label: "美元估算人民币价",
+      estimated: true,
+    };
+  }
+  return {
+    primary: formatUsd(input.usd),
+    secondary: input.usd == null ? "-" : formatCny(input.usd),
+    label: "美元原生价",
+    estimated: false,
+  };
 }
 
 export function formatContext(tokens: number | null | undefined): string {
@@ -27,7 +62,7 @@ export function formatContext(tokens: number | null | undefined): string {
   return `${tokens}`;
 }
 
-export function relativeTime(d: Date | null | undefined): string {
+export function relativeTime(d: Date | string | null | undefined): string {
   if (!d) return "-";
   const diff = Date.now() - new Date(d).getTime();
   const sec = Math.floor(diff / 1000);
