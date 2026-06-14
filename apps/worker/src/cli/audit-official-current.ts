@@ -27,12 +27,23 @@ function printSection(title: string, value: unknown) {
 }
 
 async function loadOfficialCatalog() {
-  const mod = await import(new URL("../../../../packages/pricing-core/src/official-current/index.ts", import.meta.url).href) as {
-    OFFICIAL_CURRENT_MODELS: OfficialCurrentModel[];
-    OFFICIAL_CURRENT_PROVIDERS: string[];
-    providerOfficialCurrentModels: (provider: string) => OfficialCurrentModel[];
-  };
-  return mod;
+  const candidates = [
+    "../../../../packages/pricing-core/src/official-current/index.ts",
+    "../../../../packages/pricing-core/dist/official-current/index.js",
+  ];
+  let lastError: unknown = null;
+  for (const candidate of candidates) {
+    try {
+      return await import(new URL(candidate, import.meta.url).href) as {
+        OFFICIAL_CURRENT_MODELS: OfficialCurrentModel[];
+        OFFICIAL_CURRENT_PROVIDERS: string[];
+        providerOfficialCurrentModels: (provider: string) => OfficialCurrentModel[];
+      };
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError;
 }
 
 async function modelCoverage(entry: OfficialCurrentModel) {
