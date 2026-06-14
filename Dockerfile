@@ -9,12 +9,12 @@ ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
 # Layer 1: install deps
-COPY package.json tsconfig.base.json ./
+COPY package.json package-lock.json tsconfig.base.json ./
 COPY packages/pricing-core/package.json ./packages/pricing-core/
 COPY apps/web/package.json ./apps/web/
 COPY apps/worker/package.json ./apps/worker/
 
-RUN npm install --include=dev
+RUN npm ci --production=false
 
 # Layer 2: copy source + build
 COPY . .
