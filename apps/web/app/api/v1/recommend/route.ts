@@ -92,7 +92,7 @@ function scoreRecommendation(input: RecommendBody, m: Awaited<ReturnType<typeof 
 }
 
 function canonicalFamily(m: Awaited<ReturnType<typeof listModels>>[number]) {
-  const raw = (m.family ?? m.model_slug ?? m.model_name).toLowerCase();
+  const raw = (m.model_family ?? m.family ?? m.model_slug ?? m.model_name).toLowerCase();
   const cleaned = raw
     .replace(/-(latest|preview|beta|instruct|thinking|reasoning|non-reasoning|fast|turbo|mini|nano|chat|online)$/g, "")
     .replace(/-\d{4}[-_]\d{2}[-_]\d{2}$/g, "")
@@ -108,11 +108,12 @@ function diverseTake<T extends { model: Awaited<ReturnType<typeof listModels>>[n
   const families = new Map<string, number>();
   const out: T[] = [];
   for (const row of rows) {
-    const providerCount = providers.get(row.model.provider_slug) ?? 0;
+    const providerKey = row.model.canonical_provider_slug ?? row.model.provider_slug;
+    const providerCount = providers.get(providerKey) ?? 0;
     const family = canonicalFamily(row.model);
     const familyCount = families.get(family) ?? 0;
     if (providerCount >= 2 || familyCount >= 1) continue;
-    providers.set(row.model.provider_slug, providerCount + 1);
+    providers.set(providerKey, providerCount + 1);
     families.set(family, familyCount + 1);
     out.push(row);
     if (out.length >= limit) break;
@@ -168,6 +169,9 @@ export async function POST(req: NextRequest) {
       if (requiresReasoning && !(m.capabilities ?? []).includes("reasoning") && !/reason|thinking|deepseek-r|magistral|(^|[^a-z])o[1345]([^a-z]|$)/i.test(m.model_name)) return false;
       if (body.techRequirements?.includes("long-context") && (m.context_length ?? 0) < 100000) return false;
       if (body.techRequirements?.includes("function-call") && !(m.capabilities ?? []).includes("function-call")) return false;
+      if ((m.data_quality_flags ?? []).includes("suspicious_name")) return false;
+      if ((m.data_quality_flags ?? []).includes("missing_price_source_url")) return false;
+      if ((m.data_quality_flags ?? []).includes("aggregator_only") && Math.max(m.confidence_score, m.model_source_confidence) < 0.85) return false;
       return !m.need_manual_review && !m.model_needs_pricing_review && Math.max(m.confidence_score, m.model_source_confidence) >= 0.65;
     };
     const preferenceEligible = (m: (typeof models)[number], strict: { region: boolean; channel: boolean; currency: boolean }) => {
@@ -217,6 +221,10 @@ export async function POST(req: NextRequest) {
         model: {
           modelName: row.model.model_name,
           providerName: row.model.provider_name_zh,
+          providerCanonicalSlug: row.model.canonical_provider_slug,
+          modelOwnerProvider: row.model.model_owner_provider,
+          sellingPlatformProvider: row.model.selling_platform_provider,
+          sourceProvider: row.model.source_provider,
           slug: row.model.model_slug,
           inputUsd: row.model.input_per_1m_usd ?? 0,
           outputUsd: row.model.output_per_1m_usd ?? 0,
@@ -232,8 +240,9 @@ export async function POST(req: NextRequest) {
           isDomestic: row.model.is_domestic || row.model.provider_region === "cn" || row.model.pricing_region === "china_mainland",
           isOverseasOfficial: (row.model.is_official || row.model.channel === "official_api") && row.model.provider_region !== "cn" && row.model.pricing_region !== "china_mainland",
           currencyNative: row.model.currency_native,
+          dataQualityFlags: row.model.data_quality_flags,
           sourceConfidence: Math.max(row.model.confidence_score, row.model.model_source_confidence),
-          dataConfidenceIssue: row.model.confidence_score < 0.75 || row.model.price_source_count < 2 || relaxedFilters.length > 0,
+          dataConfidenceIssue: row.model.confidence_score < 0.75 || row.model.price_source_count < 2 || relaxedFilters.length > 0 || (row.model.data_quality_flags ?? []).length > 0,
         },
         monthlyCost: row.monthlyCost,
         score: row.score,

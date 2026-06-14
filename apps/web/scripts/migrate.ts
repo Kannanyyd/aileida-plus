@@ -66,6 +66,30 @@ CREATE UNIQUE INDEX IF NOT EXISTS providers_slug_uq ON providers (slug);
 CREATE INDEX IF NOT EXISTS providers_region_idx ON providers (region);
 CREATE INDEX IF NOT EXISTS providers_cat_idx ON providers (provider_category);
 CREATE INDEX IF NOT EXISTS providers_active_idx ON providers (is_active);
+ALTER TABLE providers ADD COLUMN IF NOT EXISTS canonical_provider_id uuid;
+ALTER TABLE providers ADD COLUMN IF NOT EXISTS canonical_slug text;
+ALTER TABLE providers ADD COLUMN IF NOT EXISTS provider_type text;
+ALTER TABLE providers ADD COLUMN IF NOT EXISTS is_canonical boolean NOT NULL DEFAULT true;
+ALTER TABLE providers ADD COLUMN IF NOT EXISTS alias_confidence numeric(4, 2) NOT NULL DEFAULT 1.00;
+ALTER TABLE providers ADD COLUMN IF NOT EXISTS alias_source text NOT NULL DEFAULT 'self';
+ALTER TABLE providers ADD COLUMN IF NOT EXISTS needs_alias_review boolean NOT NULL DEFAULT false;
+
+CREATE TABLE IF NOT EXISTS provider_aliases (
+  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  source_slug text NOT NULL,
+  canonical_slug text NOT NULL,
+  display_name text,
+  provider_type text NOT NULL DEFAULT 'model_vendor',
+  alias_confidence numeric(4, 2) NOT NULL DEFAULT 0.80,
+  alias_source text NOT NULL DEFAULT 'manual-baseline',
+  needs_alias_review boolean NOT NULL DEFAULT false,
+  notes text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS provider_aliases_source_slug_uq ON provider_aliases (source_slug);
+CREATE INDEX IF NOT EXISTS provider_aliases_canonical_idx ON provider_aliases (canonical_slug);
+CREATE INDEX IF NOT EXISTS provider_aliases_review_idx ON provider_aliases (needs_alias_review);
 
 CREATE TABLE IF NOT EXISTS models (
   id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -97,6 +121,18 @@ ALTER TABLE models ADD COLUMN IF NOT EXISTS needs_capability_review boolean NOT 
 ALTER TABLE models ADD COLUMN IF NOT EXISTS is_recommended_by_official boolean NOT NULL DEFAULT false;
 ALTER TABLE models ADD COLUMN IF NOT EXISTS is_default_in_official_docs boolean NOT NULL DEFAULT false;
 ALTER TABLE models ADD COLUMN IF NOT EXISTS is_latest_alias boolean NOT NULL DEFAULT false;
+ALTER TABLE models ADD COLUMN IF NOT EXISTS canonical_model_slug text;
+ALTER TABLE models ADD COLUMN IF NOT EXISTS model_family text;
+ALTER TABLE models ADD COLUMN IF NOT EXISTS model_variant text;
+ALTER TABLE models ADD COLUMN IF NOT EXISTS model_owner_provider text;
+ALTER TABLE models ADD COLUMN IF NOT EXISTS selling_platform_provider text;
+ALTER TABLE models ADD COLUMN IF NOT EXISTS source_provider text;
+ALTER TABLE models ADD COLUMN IF NOT EXISTS source_model_id text;
+ALTER TABLE models ADD COLUMN IF NOT EXISTS data_quality_flags jsonb NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE models ADD COLUMN IF NOT EXISTS needs_alias_review boolean NOT NULL DEFAULT false;
+CREATE INDEX IF NOT EXISTS models_canonical_slug_idx ON models (canonical_model_slug);
+CREATE INDEX IF NOT EXISTS models_model_family_idx ON models (model_family);
+CREATE INDEX IF NOT EXISTS models_owner_provider_idx ON models (model_owner_provider);
 
 CREATE TABLE IF NOT EXISTS latest_model_candidates (
   id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -128,6 +164,17 @@ CREATE INDEX IF NOT EXISTS lmc_provider_idx ON latest_model_candidates (provider
 CREATE INDEX IF NOT EXISTS lmc_status_idx ON latest_model_candidates (discovery_status);
 CREATE INDEX IF NOT EXISTS lmc_pricing_review_idx ON latest_model_candidates (needs_pricing_review);
 CREATE INDEX IF NOT EXISTS lmc_seen_idx ON latest_model_candidates (last_seen_at);
+ALTER TABLE latest_model_candidates ADD COLUMN IF NOT EXISTS canonical_model_slug text;
+ALTER TABLE latest_model_candidates ADD COLUMN IF NOT EXISTS model_family text;
+ALTER TABLE latest_model_candidates ADD COLUMN IF NOT EXISTS model_variant text;
+ALTER TABLE latest_model_candidates ADD COLUMN IF NOT EXISTS model_owner_provider text;
+ALTER TABLE latest_model_candidates ADD COLUMN IF NOT EXISTS selling_platform_provider text;
+ALTER TABLE latest_model_candidates ADD COLUMN IF NOT EXISTS source_provider text;
+ALTER TABLE latest_model_candidates ADD COLUMN IF NOT EXISTS source_model_id text;
+ALTER TABLE latest_model_candidates ADD COLUMN IF NOT EXISTS data_quality_flags jsonb NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE latest_model_candidates ADD COLUMN IF NOT EXISTS needs_alias_review boolean NOT NULL DEFAULT false;
+CREATE INDEX IF NOT EXISTS lmc_canonical_model_idx ON latest_model_candidates (canonical_model_slug);
+CREATE INDEX IF NOT EXISTS lmc_model_family_idx ON latest_model_candidates (model_family);
 
 CREATE TABLE IF NOT EXISTS model_discovery_logs (
   id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -186,6 +233,16 @@ CREATE UNIQUE INDEX IF NOT EXISTS pricing_model_type_chan_uq ON pricing (model_i
 CREATE INDEX IF NOT EXISTS pricing_confidence_idx ON pricing (confidence_score);
 CREATE INDEX IF NOT EXISTS pricing_review_idx ON pricing (need_manual_review);
 CREATE INDEX IF NOT EXISTS pricing_current_idx ON pricing (is_current);
+ALTER TABLE pricing ADD COLUMN IF NOT EXISTS platform text;
+ALTER TABLE pricing ADD COLUMN IF NOT EXISTS is_official boolean NOT NULL DEFAULT true;
+ALTER TABLE pricing ADD COLUMN IF NOT EXISTS is_aggregator boolean NOT NULL DEFAULT false;
+ALTER TABLE pricing ADD COLUMN IF NOT EXISTS is_domestic boolean NOT NULL DEFAULT false;
+ALTER TABLE pricing ADD COLUMN IF NOT EXISTS selling_platform_provider text;
+ALTER TABLE pricing ADD COLUMN IF NOT EXISTS source_provider text;
+ALTER TABLE pricing ADD COLUMN IF NOT EXISTS data_quality_flags jsonb NOT NULL DEFAULT '[]'::jsonb;
+CREATE INDEX IF NOT EXISTS pricing_platform_idx ON pricing (platform);
+CREATE INDEX IF NOT EXISTS pricing_selling_platform_idx ON pricing (selling_platform_provider);
+CREATE INDEX IF NOT EXISTS pricing_source_provider_idx ON pricing (source_provider);
 
 CREATE TABLE IF NOT EXISTS price_change_log (
   id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -493,6 +550,63 @@ CREATE TABLE IF NOT EXISTS source_fetch_logs (
 );
 CREATE INDEX IF NOT EXISTS sfl_source_idx ON source_fetch_logs (source_id);
 CREATE INDEX IF NOT EXISTS sfl_status_idx ON source_fetch_logs (status);
+
+INSERT INTO provider_aliases
+  (source_slug, canonical_slug, display_name, provider_type, alias_confidence, alias_source, needs_alias_review, notes)
+VALUES
+  ('xai', 'xai', 'xAI', 'model_vendor', 1.00, 'manual-baseline', false, 'canonical'),
+  ('x-ai', 'xai', 'xAI', 'model_vendor', 0.98, 'manual-baseline', false, 'spelling variant'),
+  ('x.ai', 'xai', 'xAI', 'model_vendor', 0.98, 'manual-baseline', false, 'domain spelling variant'),
+  ('google', 'google', 'Google', 'model_vendor', 1.00, 'manual-baseline', false, 'canonical'),
+  ('google-ai', 'google', 'Google', 'model_vendor', 0.95, 'manual-baseline', false, 'Google AI Studio'),
+  ('gemini', 'google', 'Google Gemini', 'model_vendor', 0.95, 'manual-baseline', false, 'Gemini model owner'),
+  ('vertex-ai-language-models', 'google', 'Google Vertex AI', 'cloud_platform', 0.90, 'manual-baseline', false, 'selling platform remains Vertex AI'),
+  ('openai', 'openai', 'OpenAI', 'model_vendor', 1.00, 'manual-baseline', false, 'canonical'),
+  ('~openai', 'openai', 'OpenAI', 'model_vendor', 0.92, 'manual-baseline', false, 'source spelling variant'),
+  ('azure-openai', 'openai', 'Azure OpenAI', 'cloud_platform', 0.70, 'manual-baseline', true, 'owner is OpenAI, selling platform is Azure'),
+  ('anthropic', 'anthropic', 'Anthropic', 'model_vendor', 1.00, 'manual-baseline', false, 'canonical'),
+  ('claude', 'anthropic', 'Anthropic Claude', 'model_vendor', 0.95, 'manual-baseline', false, 'model family alias'),
+  ('alibaba', 'alibaba-cloud', 'Alibaba Cloud', 'cloud_platform', 0.88, 'manual-baseline', false, 'cloud/model studio owner mapping'),
+  ('aliyun', 'alibaba-cloud', 'Alibaba Cloud', 'cloud_platform', 0.90, 'manual-baseline', false, 'Aliyun alias'),
+  ('aliyun-bailian', 'alibaba-cloud', 'Alibaba Cloud Bailian', 'cloud_platform', 0.96, 'manual-baseline', false, 'Bailian platform'),
+  ('bailian', 'alibaba-cloud', 'Alibaba Cloud Bailian', 'cloud_platform', 0.95, 'manual-baseline', false, 'Bailian alias'),
+  ('qwen', 'alibaba-cloud', 'Qwen', 'model_vendor', 0.82, 'manual-baseline', true, 'Qwen can be model owner; review platform split'),
+  ('bytedance', 'bytedance-volcano', 'ByteDance Volcano Engine', 'cloud_platform', 0.88, 'manual-baseline', false, 'ByteDance/Volcano family'),
+  ('volcano', 'bytedance-volcano', 'Volcano Engine', 'cloud_platform', 0.95, 'manual-baseline', false, 'Volcano alias'),
+  ('volcengine', 'bytedance-volcano', 'Volcano Engine', 'cloud_platform', 0.98, 'manual-baseline', false, 'canonical platform spelling'),
+  ('doubao', 'bytedance-volcano', 'Doubao', 'model_vendor', 0.85, 'manual-baseline', true, 'Doubao model owner under ByteDance; review exact split'),
+  ('siliconflow', 'siliconflow', 'SiliconFlow', 'api_aggregator', 1.00, 'manual-baseline', false, 'canonical aggregator'),
+  ('硅基流动', 'siliconflow', 'SiliconFlow', 'api_aggregator', 0.98, 'manual-baseline', false, 'Chinese spelling'),
+  ('openrouter', 'openrouter', 'OpenRouter', 'api_aggregator', 1.00, 'manual-baseline', false, 'selling platform, not model owner')
+ON CONFLICT (source_slug) DO UPDATE SET
+  canonical_slug = EXCLUDED.canonical_slug,
+  display_name = EXCLUDED.display_name,
+  provider_type = EXCLUDED.provider_type,
+  alias_confidence = EXCLUDED.alias_confidence,
+  alias_source = EXCLUDED.alias_source,
+  needs_alias_review = EXCLUDED.needs_alias_review,
+  notes = EXCLUDED.notes,
+  updated_at = now();
+
+UPDATE providers p
+SET
+  canonical_slug = COALESCE(a.canonical_slug, p.slug),
+  provider_type = COALESCE(a.provider_type, p.provider_category, 'model_vendor'),
+  is_canonical = COALESCE(a.canonical_slug, p.slug) = p.slug,
+  alias_confidence = COALESCE(a.alias_confidence, 1.00),
+  alias_source = COALESCE(a.alias_source, 'self'),
+  needs_alias_review = COALESCE(a.needs_alias_review, false),
+  updated_at = now()
+FROM provider_aliases a
+WHERE a.source_slug = p.slug;
+
+UPDATE providers
+SET canonical_slug = slug,
+    provider_type = COALESCE(provider_type, provider_category, 'model_vendor'),
+    is_canonical = true,
+    alias_confidence = COALESCE(alias_confidence, 1.00),
+    alias_source = COALESCE(alias_source, 'self')
+WHERE canonical_slug IS NULL;
 `;
 
 async function main() {

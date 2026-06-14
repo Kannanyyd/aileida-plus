@@ -5,6 +5,46 @@ import { upsertModel } from "./model-store.js";
 import { upsertProvider } from "./provider-store.js";
 import type { OfficialModelCandidate, OfficialDiscoveryResult } from "../sources/official-model-discovery.js";
 
+function normalizeModelSlug(value: string): string {
+  return value.toLowerCase().replace(/^[~@]/, "").replace(/[:_\s]+/g, "-").replace(/[^a-z0-9./-]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
+}
+
+function inferFamily(slug: string, family?: string) {
+  const raw = normalizeModelSlug(family || slug).split("/").pop() ?? normalizeModelSlug(slug);
+  if (/^grok-4-1-fast/.test(raw)) return "grok-4-1-fast";
+  if (/^grok-4/.test(raw)) return "grok-4";
+  if (/^claude-/.test(raw)) return raw.split("-").slice(0, 3).join("-");
+  if (/^gemini-/.test(raw)) return raw.split("-").slice(0, 3).join("-");
+  if (/^qwen3/.test(raw)) return raw.split("-").slice(0, 2).join("-");
+  return raw.replace(/-(latest|preview|beta|experimental|reasoning|non-reasoning|thinking)$/g, "").split(/[/-]/).slice(0, 3).join("-");
+}
+
+function inferVariant(slug: string) {
+  const s = normalizeModelSlug(slug);
+  const flags: string[] = [];
+  if (/preview|beta|experimental/.test(s)) flags.push("preview");
+  if (/latest/.test(s)) flags.push("latest");
+  if (/non[-_]?reasoning/.test(s)) flags.push("non-reasoning");
+  else if (/reasoning|thinking/.test(s)) flags.push("reasoning");
+  if (/mini|small|lite|nano|flash/.test(s)) flags.push("light");
+  if (/pro|large|opus|max|ultra/.test(s)) flags.push("pro");
+  return flags.length > 0 ? flags.join("+") : "base";
+}
+
+function qualityFlags(candidate: OfficialModelCandidate, hasPricing: boolean) {
+  const flags = new Set<string>();
+  const text = `${candidate.model_slug} ${candidate.model_name}`.toLowerCase();
+  if (/preview|beta|experimental/.test(text)) flags.add("preview_or_beta");
+  if (!hasPricing) flags.add("domestic_price_missing");
+  if (!candidate.source_url || candidate.source_url === "unknown") flags.add("missing_price_source_url");
+  if (candidate.confidence_score < 0.7) flags.add("source_conflict");
+  if (/[{}[\]|<>]|\b(api|models|pricing|docs|guide|required)\b/i.test(text) && !/(gpt|claude|gemini|grok|qwen|llama|deepseek|kimi|glm|doubao|mistral|sonar|command)/i.test(text)) {
+    flags.add("suspicious_name");
+    flags.add("needs_manual_review");
+  }
+  return [...flags].sort();
+}
+
 async function ensureProvider(slug: string, name: string, region: "cn" | "global") {
   const found = await db.select().from(providers).where(eq(providers.slug, slug)).limit(1);
   if (found[0]) return found[0].id;
@@ -61,6 +101,11 @@ async function enqueueReview(candidate: OfficialModelCandidate, modelId: string 
 }
 
 async function upsertCandidate(candidate: OfficialModelCandidate, hasPricing: boolean, status: "known" | "inserted" | "candidate") {
+  const owner = candidate.provider_slug;
+  const canonicalModelSlug = `${owner}/${normalizeModelSlug(candidate.model_slug)}`;
+  const modelFamily = inferFamily(candidate.model_slug, candidate.family);
+  const modelVariant = inferVariant(candidate.model_slug);
+  const flags = qualityFlags(candidate, hasPricing);
   await db
     .insert(latestModelCandidates)
     .values({
@@ -81,6 +126,15 @@ async function upsertCandidate(candidate: OfficialModelCandidate, hasPricing: bo
       is_recommended_by_official: candidate.is_recommended_by_official,
       is_default_in_official_docs: candidate.is_default_in_official_docs,
       is_latest_alias: candidate.is_latest_alias,
+      canonical_model_slug: canonicalModelSlug,
+      model_family: modelFamily,
+      model_variant: modelVariant,
+      model_owner_provider: owner,
+      selling_platform_provider: candidate.provider_slug,
+      source_provider: candidate.source_id,
+      source_model_id: candidate.model_slug,
+      data_quality_flags: flags,
+      needs_alias_review: false,
       raw_evidence: { text: candidate.evidence },
       last_seen_at: new Date(),
       updated_at: new Date(),
@@ -100,6 +154,15 @@ async function upsertCandidate(candidate: OfficialModelCandidate, hasPricing: bo
         is_recommended_by_official: candidate.is_recommended_by_official,
         is_default_in_official_docs: candidate.is_default_in_official_docs,
         is_latest_alias: candidate.is_latest_alias,
+        canonical_model_slug: canonicalModelSlug,
+        model_family: modelFamily,
+        model_variant: modelVariant,
+        model_owner_provider: owner,
+        selling_platform_provider: candidate.provider_slug,
+        source_provider: candidate.source_id,
+        source_model_id: candidate.model_slug,
+        data_quality_flags: flags,
+        needs_alias_review: false,
         raw_evidence: { text: candidate.evidence },
         last_seen_at: new Date(),
         updated_at: new Date(),
@@ -148,6 +211,14 @@ export async function ingestOfficialDiscovery(result: OfficialDiscoveryResult) {
         is_recommended_by_official: candidate.is_recommended_by_official,
         is_default_in_official_docs: candidate.is_default_in_official_docs,
         is_latest_alias: candidate.is_latest_alias,
+        canonical_model_slug: `${candidate.provider_slug}/${normalizeModelSlug(candidate.model_slug)}`,
+        model_family: inferFamily(candidate.model_slug, candidate.family),
+        model_variant: inferVariant(candidate.model_slug),
+        model_owner_provider: candidate.provider_slug,
+        selling_platform_provider: candidate.provider_slug,
+        source_provider: candidate.source_id,
+        source_model_id: candidate.model_slug,
+        data_quality_flags: qualityFlags(candidate, false),
       });
       inserted++;
       status = "inserted";

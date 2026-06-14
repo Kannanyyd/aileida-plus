@@ -2,8 +2,18 @@
  * 通用查询：models 列表 + 价格 + 厂商聚合
  */
 import { db } from "./client";
-import { models, pricing, providers, priceChangeLog, promotions, latestModelCandidates, modelDiscoveryLogs } from "./schema";
+import { models, pricing, providers, priceChangeLog, promotions, latestModelCandidates, modelDiscoveryLogs, providerAliases, reviewQueue } from "./schema";
 import { desc, eq, sql, and, gte, isNotNull, inArray } from "drizzle-orm";
+import {
+  canonicalProviderSlug,
+  inferDataQualityFlags,
+  inferModelFamily,
+  inferModelOwnerProvider,
+  inferModelVariant,
+  inferSellingPlatform,
+  providerAliasInfo,
+  PROVIDER_ALIAS_RULES,
+} from "../data-quality/canonical";
 
 export interface ModelWithPricing {
   model_id: string;
@@ -20,6 +30,9 @@ export interface ModelWithPricing {
   provider_slug: string;
   provider_name_zh: string;
   provider_region: string;
+  canonical_provider_slug: string;
+  provider_type: string | null;
+  provider_needs_alias_review: boolean;
   input_per_1m_usd: number | null;
   output_per_1m_usd: number | null;
   input_cached_read_per_1m_usd: number | null;
@@ -28,6 +41,8 @@ export interface ModelWithPricing {
   pricing_region: string;
   channel: string;
   platform: string | null;
+  selling_platform_provider: string | null;
+  source_provider: string | null;
   is_official: boolean;
   is_aggregator: boolean;
   is_domestic: boolean;
@@ -51,6 +66,15 @@ export interface ModelWithPricing {
   model_is_recommended_by_official: boolean;
   model_is_default_in_official_docs: boolean;
   model_is_latest_alias: boolean;
+  canonical_model_slug: string;
+  model_family: string;
+  model_variant: string;
+  model_owner_provider: string;
+  model_selling_platform_provider: string;
+  model_source_provider: string;
+  source_model_id: string;
+  data_quality_flags: string[];
+  model_needs_alias_review: boolean;
 }
 
 const baseSelect = {
@@ -68,12 +92,24 @@ const baseSelect = {
   provider_slug: providers.slug,
   provider_name_zh: providers.name_zh,
   provider_region: providers.region,
+  provider_canonical_slug: providers.canonical_slug,
+  provider_type: providers.provider_type,
+  provider_needs_alias_review: providers.needs_alias_review,
   model_lifecycle_tier: models.lifecycle_tier,
   model_source_confidence: models.source_confidence,
   model_needs_pricing_review: models.needs_pricing_review,
   model_is_recommended_by_official: models.is_recommended_by_official,
   model_is_default_in_official_docs: models.is_default_in_official_docs,
   model_is_latest_alias: models.is_latest_alias,
+  canonical_model_slug: models.canonical_model_slug,
+  model_family: models.model_family,
+  model_variant: models.model_variant,
+  model_owner_provider: models.model_owner_provider,
+  model_selling_platform_provider: models.selling_platform_provider,
+  model_source_provider: models.source_provider,
+  source_model_id: models.source_model_id,
+  model_data_quality_flags: models.data_quality_flags,
+  model_needs_alias_review: models.needs_alias_review,
   input_per_1m_usd: pricing.input_per_1m_usd,
   output_per_1m_usd: pricing.output_per_1m_usd,
   input_cached_read_per_1m_usd: pricing.input_cached_read_per_1m_usd,
@@ -82,6 +118,8 @@ const baseSelect = {
   pricing_region: pricing.region,
   channel: pricing.channel,
   platform: pricing.platform,
+  pricing_selling_platform_provider: pricing.selling_platform_provider,
+  pricing_source_provider: pricing.source_provider,
   is_official: pricing.is_official,
   is_aggregator: pricing.is_aggregator,
   is_domestic: pricing.is_domestic,
@@ -89,6 +127,7 @@ const baseSelect = {
   primary_source_id: pricing.primary_source_id,
   source_url: pricing.source_url,
   need_manual_review: pricing.need_manual_review,
+  pricing_data_quality_flags: pricing.data_quality_flags,
   updated_at: pricing.updated_at,
 };
 
@@ -114,6 +153,34 @@ function minPair(
 }
 
 function normalizeModelRow(r: typeof baseSelect extends infer _T ? any : never): ModelWithPricing {
+  const alias = providerAliasInfo(r.provider_slug);
+  const canonical_provider_slug = r.provider_canonical_slug ?? canonicalProviderSlug(r.provider_slug);
+  const canonical_model_slug = r.canonical_model_slug ?? `${inferModelOwnerProvider({ providerSlug: r.provider_slug, modelSlug: r.model_slug, modelName: r.model_name })}/${r.model_slug}`;
+  const model_family = r.model_family ?? inferModelFamily(r.model_slug, r.family);
+  const model_variant = r.model_variant ?? inferModelVariant(r.model_slug);
+  const model_owner_provider = r.model_owner_provider ?? inferModelOwnerProvider({ providerSlug: r.provider_slug, modelSlug: r.model_slug, modelName: r.model_name });
+  const selling_platform_provider = r.pricing_selling_platform_provider ?? r.model_selling_platform_provider ?? inferSellingPlatform({
+    providerSlug: r.provider_slug,
+    platform: r.platform,
+    channel: r.channel,
+    isAggregator: r.is_aggregator,
+  });
+  const source_provider = r.pricing_source_provider ?? r.model_source_provider ?? r.primary_source_id ?? r.provider_slug;
+  const storedFlags = [...(r.model_data_quality_flags ?? []), ...(r.pricing_data_quality_flags ?? [])];
+  const inferredFlags = inferDataQualityFlags({
+    modelName: r.model_name,
+    modelSlug: r.model_slug,
+    status: r.status,
+    isAggregator: r.is_aggregator,
+    isOfficial: r.is_official,
+    sourceUrl: r.source_url,
+    currencyNative: r.currency_native,
+    isDomestic: r.is_domestic,
+    pricingRegion: r.pricing_region,
+    confidence: Number(r.confidence_score),
+    needsManualReview: r.need_manual_review,
+    needsAliasReview: r.model_needs_alias_review || r.provider_needs_alias_review || alias?.needsReview,
+  });
   return {
     ...r,
     release_date: r.release_date ? String(r.release_date) : null,
@@ -123,6 +190,20 @@ function normalizeModelRow(r: typeof baseSelect extends infer _T ? any : never):
     batch_discount: toNumber(r.batch_discount),
     confidence_score: Number(r.confidence_score),
     model_source_confidence: Number(r.model_source_confidence),
+    canonical_provider_slug,
+    provider_type: r.provider_type ?? alias?.providerType ?? null,
+    provider_needs_alias_review: Boolean(r.provider_needs_alias_review || alias?.needsReview),
+    canonical_model_slug,
+    model_family,
+    model_variant,
+    model_owner_provider,
+    model_selling_platform_provider: r.model_selling_platform_provider ?? selling_platform_provider,
+    model_source_provider: r.model_source_provider ?? source_provider,
+    selling_platform_provider,
+    source_provider,
+    source_model_id: r.source_model_id ?? r.model_slug,
+    data_quality_flags: Array.from(new Set([...storedFlags, ...inferredFlags])).sort(),
+    model_needs_alias_review: Boolean(r.model_needs_alias_review || alias?.needsReview),
     price_source_count: 1,
     domestic_min_input_usd: null,
     domestic_min_output_usd: null,
@@ -156,9 +237,10 @@ function hotModelScore(m: ModelWithPricing): number {
 function consolidateModelRows(rows: ReturnType<typeof normalizeModelRow>[]): ModelWithPricing[] {
   const groups = new Map<string, ModelWithPricing[]>();
   for (const row of rows) {
-    const list = groups.get(row.model_id) ?? [];
+    const key = row.canonical_model_slug || row.model_id;
+    const list = groups.get(key) ?? [];
     list.push(row);
-    groups.set(row.model_id, list);
+    groups.set(key, list);
   }
 
   return Array.from(groups.values()).map((group) => {
@@ -180,6 +262,9 @@ function consolidateModelRows(rows: ReturnType<typeof normalizeModelRow>[]): Mod
       ...representative,
       price_source_count: group.length,
       need_manual_review: group.some((r) => r.need_manual_review),
+      data_quality_flags: Array.from(new Set(group.flatMap((r) => r.data_quality_flags))).sort(),
+      provider_needs_alias_review: group.some((r) => r.provider_needs_alias_review),
+      model_needs_alias_review: group.some((r) => r.model_needs_alias_review),
       confidence_score: Math.max(...group.map((r) => r.confidence_score)),
       model_source_confidence: Math.max(...group.map((r) => r.model_source_confidence)),
       domestic_min_input_usd: domestic.input,
@@ -207,7 +292,9 @@ export async function listModels(filter?: {
     eq(pricing.is_current, true),
     eq(pricing.pricing_type, "api_token"),
   ];
-  if (filter?.providerSlug) conditions.push(eq(providers.slug, filter.providerSlug));
+  if (filter?.providerSlug) {
+    conditions.push(sql`(coalesce(${providers.canonical_slug}, ${providers.slug}) = ${filter.providerSlug} or ${providers.slug} = ${filter.providerSlug})`);
+  }
   if (filter?.needManualReview != null) conditions.push(eq(pricing.need_manual_review, filter.needManualReview));
   if (filter?.region) conditions.push(eq(pricing.region, filter.region));
   if (filter?.channel) conditions.push(eq(pricing.channel, filter.channel));
@@ -237,9 +324,9 @@ export async function listModels(filter?: {
       })
       .from(latestModelCandidates)
       .where(inArray(latestModelCandidates.model_slug, keys));
-    const byKey = new Map(candidates.map((c) => [`${c.provider_slug}/${c.model_slug}`, c]));
+    const byKey = new Map(candidates.map((c) => [`${canonicalProviderSlug(c.provider_slug)}/${c.model_slug}`, c]));
     for (const model of consolidated) {
-      const candidate = byKey.get(`${model.provider_slug}/${model.model_slug}`);
+      const candidate = byKey.get(`${model.canonical_provider_slug}/${model.model_slug}`) ?? byKey.get(`${canonicalProviderSlug(model.provider_slug)}/${model.model_slug}`);
       if (!candidate) continue;
       model.model_lifecycle_tier = candidate.lifecycle_tier;
       model.model_source_confidence = Math.max(model.model_source_confidence, Number(candidate.confidence_score));
@@ -266,8 +353,7 @@ export async function getModelBySlug(slug: string): Promise<ModelWithPricing | n
     ))
     .limit(1);
   if (rows.length === 0) return null;
-  const r = rows[0];
-  return normalizeModelRow(r);
+  return consolidateModelRows(rows.map(normalizeModelRow))[0] ?? null;
 }
 
 /** 获取模型所有渠道的价格 */
@@ -281,12 +367,15 @@ export interface PricingRow {
   region: string;
   channel: string;
   platform: string | null;
+  selling_platform_provider: string | null;
+  source_provider: string | null;
   is_official: boolean;
   is_aggregator: boolean;
   is_domestic: boolean;
   confidence_score: number;
   source_url: string;
   primary_source_id: string;
+  data_quality_flags: string[];
   updated_at: Date;
 }
 
@@ -302,12 +391,15 @@ export async function getModelPricingList(modelId: string): Promise<PricingRow[]
       region: pricing.region,
       channel: pricing.channel,
       platform: pricing.platform,
+      selling_platform_provider: pricing.selling_platform_provider,
+      source_provider: pricing.source_provider,
       is_official: pricing.is_official,
       is_aggregator: pricing.is_aggregator,
       is_domestic: pricing.is_domestic,
       confidence_score: pricing.confidence_score,
       source_url: pricing.source_url,
       primary_source_id: pricing.primary_source_id,
+      data_quality_flags: pricing.data_quality_flags,
       updated_at: pricing.updated_at,
     })
     .from(pricing)
@@ -340,6 +432,10 @@ export async function listProviders() {
       logo_url: providers.logo_url,
       short_description: providers.short_description,
       provider_category: providers.provider_category,
+      canonical_slug: providers.canonical_slug,
+      provider_type: providers.provider_type,
+      is_canonical: providers.is_canonical,
+      needs_alias_review: providers.needs_alias_review,
       company_type: providers.company_type,
       headquarters: providers.headquarters,
       supports_domestic_payment: providers.supports_domestic_payment,
@@ -351,9 +447,13 @@ export async function listProviders() {
     .leftJoin(models, eq(models.provider_id, providers.id))
     .where(eq(providers.is_active, true))
     .groupBy(providers.id)
-    .orderBy(providers.name_zh);
+    .orderBy(desc(sql<number>`count(${models.id})::int`), providers.name_zh);
   return rows.map((r) => ({
     ...r,
+    canonical_slug: r.canonical_slug ?? canonicalProviderSlug(r.slug),
+    provider_type: r.provider_type ?? providerAliasInfo(r.slug)?.providerType ?? r.provider_category,
+    is_canonical: r.is_canonical ?? canonicalProviderSlug(r.slug) === r.slug,
+    needs_alias_review: r.needs_alias_review ?? providerAliasInfo(r.slug)?.needsReview ?? false,
     profile_confidence_score: r.profile_confidence_score != null ? Number(r.profile_confidence_score) : null,
   }));
 }
@@ -362,7 +462,8 @@ export async function getProviderBySlug(slug: string) {
   const rows = await db
     .select()
     .from(providers)
-    .where(eq(providers.slug, slug))
+    .where(sql`${providers.slug} = ${slug} or coalesce(${providers.canonical_slug}, ${providers.slug}) = ${slug}`)
+    .orderBy(sql`case when ${providers.slug} = ${slug} then 0 else 1 end`)
     .limit(1);
   if (rows.length === 0) return null;
   const p = rows[0];
@@ -627,4 +728,118 @@ export async function listModelDiscoveryLogs(limit = 30) {
     .from(modelDiscoveryLogs)
     .orderBy(desc(modelDiscoveryLogs.fetched_at))
     .limit(limit);
+}
+
+export async function dataQualityOverview() {
+  const [providerAliasCount] = await db.select({ c: sql<number>`count(*)::int` }).from(providerAliases);
+  const [providerReviewCount] = await db
+    .select({ c: sql<number>`count(*)::int` })
+    .from(providerAliases)
+    .where(eq(providerAliases.needs_alias_review, true));
+  const [aggregatorOnly] = await db
+    .select({ c: sql<number>`count(distinct ${models.id})::int` })
+    .from(models)
+    .innerJoin(pricing, eq(pricing.model_id, models.id))
+    .where(and(eq(pricing.is_aggregator, true), eq(pricing.is_official, false), eq(pricing.is_current, true)));
+  const [missingSourceUrl] = await db
+    .select({ c: sql<number>`count(*)::int` })
+    .from(pricing)
+    .where(sql`${pricing.source_url} is null or ${pricing.source_url} = '' or ${pricing.source_url} = 'unknown'`);
+  const [domesticMissing] = await db
+    .select({ c: sql<number>`count(distinct ${models.id})::int` })
+    .from(models)
+    .innerJoin(providers, eq(providers.id, models.provider_id))
+    .leftJoin(pricing, eq(pricing.model_id, models.id))
+    .where(sql`(${providers.region} = 'cn' or ${pricing.region} = 'china_mainland' or ${pricing.is_domestic} = true) and not exists (
+      select 1 from pricing p2 where p2.model_id = ${models.id} and p2.is_current = true and p2.currency_native = 'CNY'
+    )`);
+  const [suspiciousName] = await db
+    .select({ c: sql<number>`count(*)::int` })
+    .from(models)
+    .where(sql`${models.data_quality_flags} ? 'suspicious_name' or ${models.name} ~* '[{}\\[\\]|<>]|\\m(api|models|pricing|docs|guide|required)\\M'`);
+  return {
+    providerAliasRules: providerAliasCount?.c ?? PROVIDER_ALIAS_RULES.length,
+    providerAliasesNeedReview: providerReviewCount?.c ?? 0,
+    aggregatorOnly: aggregatorOnly?.c ?? 0,
+    missingPriceSourceUrl: missingSourceUrl?.c ?? 0,
+    domesticPriceMissing: domesticMissing?.c ?? 0,
+    suspiciousName: suspiciousName?.c ?? 0,
+  };
+}
+
+export async function listProviderAliasAudit(limit = 200) {
+  const rows = await db
+    .select({
+      source_slug: providerAliases.source_slug,
+      canonical_slug: providerAliases.canonical_slug,
+      display_name: providerAliases.display_name,
+      provider_type: providerAliases.provider_type,
+      alias_confidence: providerAliases.alias_confidence,
+      needs_alias_review: providerAliases.needs_alias_review,
+      notes: providerAliases.notes,
+      provider_exists: sql<boolean>`exists(select 1 from providers p where p.slug = ${providerAliases.source_slug})`,
+      model_count: sql<number>`(select count(*)::int from models m join providers p on p.id = m.provider_id where p.slug = ${providerAliases.source_slug})`,
+    })
+    .from(providerAliases)
+    .orderBy(desc(providerAliases.needs_alias_review), providerAliases.canonical_slug, providerAliases.source_slug)
+    .limit(limit);
+  return rows.map((r) => ({
+    ...r,
+    alias_confidence: Number(r.alias_confidence),
+  }));
+}
+
+export async function listModelAliasAudit(limit = 200) {
+  const rows = await db
+    .select({
+      model_family: sql<string>`coalesce(${models.model_family}, ${models.family}, split_part(${models.slug}, '/', 1))`,
+      canonical_provider: sql<string>`coalesce(${models.model_owner_provider}, ${providers.canonical_slug}, ${providers.slug})`,
+      model_count: sql<number>`count(*)::int`,
+      variants: sql<string[]>`array_agg(${models.slug} order by ${models.slug})`,
+      needs_review: sql<boolean>`bool_or(${models.needs_alias_review})`,
+    })
+    .from(models)
+    .innerJoin(providers, eq(providers.id, models.provider_id))
+    .groupBy(sql`coalesce(${models.model_family}, ${models.family}, split_part(${models.slug}, '/', 1))`, sql`coalesce(${models.model_owner_provider}, ${providers.canonical_slug}, ${providers.slug})`)
+    .having(sql`count(*) > 1`)
+    .orderBy(desc(sql<number>`count(*)::int`))
+    .limit(limit);
+  return rows;
+}
+
+export async function domesticPricingGapAudit() {
+  const domesticProviders = [
+    "deepseek",
+    "alibaba-cloud",
+    "aliyun-bailian",
+    "bytedance-volcano",
+    "volcengine",
+    "tencent-hunyuan",
+    "baidu-qianfan",
+    "zhipu",
+    "moonshot",
+    "minimax",
+    "siliconflow",
+    "modelscope",
+  ];
+  const rows = await db
+    .select({
+      provider: sql<string>`coalesce(${providers.canonical_slug}, ${providers.slug})`,
+      models_count: sql<number>`count(distinct ${models.id})::int`,
+      cny_pricing_count: sql<number>`count(distinct case when ${pricing.currency_native} = 'CNY' and ${pricing.is_current} = true then ${pricing.id} end)::int`,
+      source_url_count: sql<number>`count(distinct case when ${pricing.source_url} is not null and ${pricing.source_url} <> '' and ${pricing.source_url} <> 'unknown' then ${pricing.id} end)::int`,
+      official_count: sql<number>`count(distinct case when ${pricing.is_official} = true then ${pricing.id} end)::int`,
+      aggregator_count: sql<number>`count(distinct case when ${pricing.is_aggregator} = true then ${pricing.id} end)::int`,
+      needs_pricing_review_count: sql<number>`count(distinct case when ${models.needs_pricing_review} = true then ${models.id} end)::int`,
+    })
+    .from(models)
+    .innerJoin(providers, eq(providers.id, models.provider_id))
+    .leftJoin(pricing, eq(pricing.model_id, models.id))
+    .where(sql`coalesce(${providers.canonical_slug}, ${providers.slug}) = any(${domesticProviders}) or ${providers.region} = 'cn'`)
+    .groupBy(sql`coalesce(${providers.canonical_slug}, ${providers.slug})`)
+    .orderBy(desc(sql<number>`count(distinct ${models.id})::int`));
+  return rows.map((r) => ({
+    ...r,
+    missing_price_model_count: Math.max(0, r.models_count - r.cny_pricing_count),
+  }));
 }

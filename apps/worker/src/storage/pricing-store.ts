@@ -55,6 +55,8 @@ export async function upsertPricing(input: UpsertPricingInput): Promise<UpsertPr
     region: input.pricing.region ?? "global",
     channel: input.pricing.channel ?? "official_api",
     platform: input.pricing.platform ?? null,
+    selling_platform_provider: input.pricing.selling_platform_provider ?? input.pricing.platform ?? null,
+    source_provider: input.pricing.source_provider ?? input.pricing.source_id ?? null,
     is_official: input.pricing.is_official ?? (input.pricing.channel === "official_api"),
     is_aggregator: input.pricing.is_aggregator ?? (input.pricing.channel === "aggregator"),
     is_domestic: input.pricing.is_domestic ?? (input.pricing.region === "china_mainland"),
@@ -67,6 +69,7 @@ export async function upsertPricing(input: UpsertPricingInput): Promise<UpsertPr
     source_url: input.pricing.source_url,
     source_type: input.pricing.source_type ?? "api_response",
     need_manual_review: input.pricing.need_manual_review ?? false,
+    data_quality_flags: input.pricing.data_quality_flags ?? [],
   };
 
   if (existing.length === 0) {

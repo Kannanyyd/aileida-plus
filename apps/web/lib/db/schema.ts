@@ -62,6 +62,14 @@ export const providers = pgTable(
     need_manual_review: boolean("need_manual_review").notNull().default(false),
     last_verified_at: timestamp("last_verified_at", { withTimezone: true }),
 
+    canonical_provider_id: uuid("canonical_provider_id"),
+    canonical_slug: text("canonical_slug"),
+    provider_type: text("provider_type"),
+    is_canonical: boolean("is_canonical").notNull().default(true),
+    alias_confidence: numeric("alias_confidence", { precision: 4, scale: 2 }).notNull().default("1.00"),
+    alias_source: text("alias_source").notNull().default("self"),
+    needs_alias_review: boolean("needs_alias_review").notNull().default(false),
+
     // 通用
     is_active: boolean("is_active").notNull().default(true),
     tags: jsonb("tags").$type<string[]>().notNull().default([]),
@@ -73,6 +81,28 @@ export const providers = pgTable(
     regionIdx: index("providers_region_idx").on(t.region),
     categoryIdx: index("providers_cat_idx").on(t.provider_category),
     activeIdx: index("providers_active_idx").on(t.is_active),
+  }),
+);
+
+export const providerAliases = pgTable(
+  "provider_aliases",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    source_slug: text("source_slug").notNull(),
+    canonical_slug: text("canonical_slug").notNull(),
+    display_name: text("display_name"),
+    provider_type: text("provider_type").notNull().default("model_vendor"),
+    alias_confidence: numeric("alias_confidence", { precision: 4, scale: 2 }).notNull().default("0.80"),
+    alias_source: text("alias_source").notNull().default("manual-baseline"),
+    needs_alias_review: boolean("needs_alias_review").notNull().default(false),
+    notes: text("notes"),
+    created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    sourceSlugUq: uniqueIndex("provider_aliases_source_slug_uq").on(t.source_slug),
+    canonicalIdx: index("provider_aliases_canonical_idx").on(t.canonical_slug),
+    reviewIdx: index("provider_aliases_review_idx").on(t.needs_alias_review),
   }),
 );
 
@@ -103,6 +133,15 @@ export const models = pgTable(
     is_recommended_by_official: boolean("is_recommended_by_official").notNull().default(false),
     is_default_in_official_docs: boolean("is_default_in_official_docs").notNull().default(false),
     is_latest_alias: boolean("is_latest_alias").notNull().default(false),
+    canonical_model_slug: text("canonical_model_slug"),
+    model_family: text("model_family"),
+    model_variant: text("model_variant"),
+    model_owner_provider: text("model_owner_provider"),
+    selling_platform_provider: text("selling_platform_provider"),
+    source_provider: text("source_provider"),
+    source_model_id: text("source_model_id"),
+    data_quality_flags: jsonb("data_quality_flags").$type<string[]>().notNull().default([]),
+    needs_alias_review: boolean("needs_alias_review").notNull().default(false),
     created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
@@ -133,6 +172,15 @@ export const latestModelCandidates = pgTable(
     is_recommended_by_official: boolean("is_recommended_by_official").notNull().default(false),
     is_default_in_official_docs: boolean("is_default_in_official_docs").notNull().default(false),
     is_latest_alias: boolean("is_latest_alias").notNull().default(false),
+    canonical_model_slug: text("canonical_model_slug"),
+    model_family: text("model_family"),
+    model_variant: text("model_variant"),
+    model_owner_provider: text("model_owner_provider"),
+    selling_platform_provider: text("selling_platform_provider"),
+    source_provider: text("source_provider"),
+    source_model_id: text("source_model_id"),
+    data_quality_flags: jsonb("data_quality_flags").$type<string[]>().notNull().default([]),
+    needs_alias_review: boolean("needs_alias_review").notNull().default(false),
     raw_evidence: jsonb("raw_evidence").notNull().default({}),
     first_seen_at: timestamp("first_seen_at", { withTimezone: true }).defaultNow().notNull(),
     last_seen_at: timestamp("last_seen_at", { withTimezone: true }).defaultNow().notNull(),
@@ -203,6 +251,8 @@ export const pricing = pgTable(
     region: text("region").notNull().default("global"), // global | overseas | china_mainland
     channel: text("channel").notNull().default("official"), // official_api | cloud_platform | aggregator | reseller
     platform: text("platform"), // openrouter | siliconflow | aliyun-bailian | volcengine-ark | etc.
+    selling_platform_provider: text("selling_platform_provider"),
+    source_provider: text("source_provider"),
 
     // 标签
     is_official: boolean("is_official").notNull().default(true),
@@ -221,6 +271,7 @@ export const pricing = pgTable(
     source_url: text("source_url").notNull(),
     source_type: text("source_type"), // official_page | api_response | third_party
     need_manual_review: boolean("need_manual_review").notNull().default(false),
+    data_quality_flags: jsonb("data_quality_flags").$type<string[]>().notNull().default([]),
 
     created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),

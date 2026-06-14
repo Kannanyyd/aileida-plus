@@ -5,6 +5,39 @@ import { eq } from "drizzle-orm";
 import { db } from "./client.js";
 import { models } from "./schema.js";
 
+function normalizeModelSlug(value: string): string {
+  return value.toLowerCase().replace(/^[~@]/, "").replace(/[:_\s]+/g, "-").replace(/[^a-z0-9./-]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
+}
+
+function inferFamily(slug: string, family?: string) {
+  const raw = normalizeModelSlug(family || slug).split("/").pop() ?? normalizeModelSlug(slug);
+  const cleaned = raw
+    .replace(/-\d{4}[-_]\d{2}[-_]\d{2}$/g, "")
+    .replace(/-\d{6,8}$/g, "")
+    .replace(/-(latest|preview|beta|experimental|instruct|chat|online|reasoning|non-reasoning|thinking)$/g, "");
+  if (/^grok-4-1-fast/.test(cleaned)) return "grok-4-1-fast";
+  if (/^grok-4/.test(cleaned)) return "grok-4";
+  if (/^gpt-5/.test(cleaned)) return "gpt-5";
+  if (/^claude-/.test(cleaned)) return cleaned.split("-").slice(0, 3).join("-");
+  if (/^gemini-/.test(cleaned)) return cleaned.split("-").slice(0, 3).join("-");
+  if (/^qwen3/.test(cleaned)) return cleaned.split("-").slice(0, 2).join("-");
+  if (/^deepseek-/.test(cleaned)) return cleaned.split("-").slice(0, 2).join("-");
+  return cleaned.split(/[/-]/).slice(0, 3).join("-");
+}
+
+function inferVariant(slug: string) {
+  const s = normalizeModelSlug(slug);
+  const tags: string[] = [];
+  if (/preview|beta|experimental/.test(s)) tags.push("preview");
+  if (/latest/.test(s)) tags.push("latest");
+  if (/non[-_]?reasoning/.test(s)) tags.push("non-reasoning");
+  else if (/reasoning|thinking|deep-research/.test(s)) tags.push("reasoning");
+  if (/mini|small|lite|nano|flash/.test(s)) tags.push("light");
+  if (/pro|large|opus|max|ultra/.test(s)) tags.push("pro");
+  if (/fast|turbo/.test(s)) tags.push("fast");
+  return tags.length > 0 ? tags.join("+") : "base";
+}
+
 export async function upsertModel(m: {
   provider_id: string;
   slug: string;
@@ -25,8 +58,22 @@ export async function upsertModel(m: {
   is_recommended_by_official?: boolean;
   is_default_in_official_docs?: boolean;
   is_latest_alias?: boolean;
+  canonical_model_slug?: string;
+  model_family?: string;
+  model_variant?: string;
+  model_owner_provider?: string;
+  selling_platform_provider?: string;
+  source_provider?: string;
+  source_model_id?: string;
+  data_quality_flags?: string[];
+  needs_alias_review?: boolean;
 }) {
   const now = new Date();
+  const sourceModelId = m.source_model_id ?? m.slug;
+  const owner = m.model_owner_provider ?? (m.slug.includes("/") ? m.slug.split("/")[0] : undefined);
+  const canonicalSlug = m.canonical_model_slug ?? `${owner ?? "unknown"}/${normalizeModelSlug(m.slug)}`;
+  const modelFamily = m.model_family ?? inferFamily(m.slug, m.family);
+  const modelVariant = m.model_variant ?? inferVariant(m.slug);
   const [u] = await db
     .insert(models)
     .values({
@@ -51,6 +98,15 @@ export async function upsertModel(m: {
       is_recommended_by_official: m.is_recommended_by_official ?? false,
       is_default_in_official_docs: m.is_default_in_official_docs ?? false,
       is_latest_alias: m.is_latest_alias ?? false,
+      canonical_model_slug: canonicalSlug,
+      model_family: modelFamily,
+      model_variant: modelVariant,
+      model_owner_provider: owner,
+      selling_platform_provider: m.selling_platform_provider,
+      source_provider: m.source_provider,
+      source_model_id: sourceModelId,
+      data_quality_flags: m.data_quality_flags ?? [],
+      needs_alias_review: m.needs_alias_review ?? false,
       first_seen_at: now,
       last_seen_at: now,
     })
@@ -76,6 +132,15 @@ export async function upsertModel(m: {
         is_recommended_by_official: m.is_recommended_by_official ?? false,
         is_default_in_official_docs: m.is_default_in_official_docs ?? false,
         is_latest_alias: m.is_latest_alias ?? false,
+        canonical_model_slug: canonicalSlug,
+        model_family: modelFamily,
+        model_variant: modelVariant,
+        model_owner_provider: owner,
+        selling_platform_provider: m.selling_platform_provider,
+        source_provider: m.source_provider,
+        source_model_id: sourceModelId,
+        data_quality_flags: m.data_quality_flags ?? [],
+        needs_alias_review: m.needs_alias_review ?? false,
         last_seen_at: now,
         updated_at: new Date(),
       },

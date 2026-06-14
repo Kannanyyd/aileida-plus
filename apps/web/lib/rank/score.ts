@@ -225,12 +225,26 @@ function capabilityScore(m: ModelWithPricing): number {
   return clamp(capScore + nameBonus, 0, 100);
 }
 
+function dataQualityPenalty(m: ModelWithPricing): number {
+  const flags = new Set(m.data_quality_flags ?? []);
+  let penalty = 0;
+  if (flags.has("suspicious_name")) penalty += 40;
+  if (flags.has("missing_price_source_url")) penalty += 25;
+  if (flags.has("source_conflict")) penalty += 20;
+  if (flags.has("aggregator_only")) penalty += 15;
+  if (flags.has("preview_or_beta")) penalty += 12;
+  if (flags.has("domestic_price_missing") && (m.provider_region === "cn" || m.pricing_region === "china_mainland")) penalty += 12;
+  if (flags.has("currency_estimated_only")) penalty += 8;
+  if (flags.has("needs_manual_review")) penalty += 30;
+  return penalty;
+}
+
 function clamp(v: number, lo: number, hi: number) {
   return Math.max(lo, Math.min(hi, v));
 }
 
 function canonicalFamily(m: ModelWithPricing): string {
-  const raw = (m.family ?? m.model_slug ?? m.model_name).toLowerCase();
+  const raw = (m.model_family ?? m.family ?? m.model_slug ?? m.model_name).toLowerCase();
   const cleaned = raw
     .replace(/-(latest|preview|beta|instruct|thinking|reasoning|non-reasoning|fast|turbo|mini|nano|chat|online)$/g, "")
     .replace(/-\d{4}[-_]\d{2}[-_]\d{2}$/g, "")
@@ -251,7 +265,7 @@ export function scoreModel(m: ModelWithPricing, others: ModelWithPricing[], w: S
   const capability = capabilityScore(m);
   const freshness = freshnessScore(m);
   const confidence = Math.max(m.confidence_score, m.model_source_confidence) * 100;
-  const total = w.price * price + w.context * context + w.capability * capability + w.freshness * freshness + w.confidence * confidence;
+  const total = w.price * price + w.context * context + w.capability * capability + w.freshness * freshness + w.confidence * confidence - dataQualityPenalty(m);
   return {
     total: Math.round(total * 10) / 10,
     price: Math.round(price * 10) / 10,
@@ -321,7 +335,7 @@ export function rank(models: ModelWithPricing[], presetKey: string, opts: RankOp
   const deduped: typeof scored = [];
 
   for (const item of scored) {
-    const prov = item.model.provider_slug;
+    const prov = item.model.canonical_provider_slug ?? item.model.provider_slug;
     const fam = canonicalFamily(item.model);
     const pc = provCount.get(prov) ?? 0;
     const fc = famCount.get(fam) ?? 0;
@@ -349,9 +363,15 @@ export function rank(models: ModelWithPricing[], presetKey: string, opts: RankOp
       model_slug: item.model.model_slug,
       model_name: item.model.model_name,
       family: canonicalFamily(item.model),
-      provider: item.model.provider_slug,
+      provider: item.model.canonical_provider_slug ?? item.model.provider_slug,
+      raw_provider: item.model.provider_slug,
       provider_name: item.model.provider_name_zh,
       provider_region: item.model.provider_region,
+      model_owner_provider: item.model.model_owner_provider,
+      selling_platform_provider: item.model.selling_platform_provider,
+      source_provider: item.model.source_provider,
+      model_variant: item.model.model_variant,
+      data_quality_flags: item.model.data_quality_flags,
       input_per_1m_usd: item.model.input_per_1m_usd,
       output_per_1m_usd: item.model.output_per_1m_usd,
       currency_native: item.model.currency_native,

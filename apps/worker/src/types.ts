@@ -48,6 +48,8 @@ export interface NormalizedPricing {
   region?: "global" | "overseas" | "china_mainland" | "hongkong" | "singapore" | "us" | "eu" | "unknown";
   channel?: "official_api" | "cloud_platform" | "aggregator" | "subscription_plan" | "enterprise" | "promotion" | "reseller";
   platform?: string; // openrouter | siliconflow | aliyun-bailian | volcengine-ark | etc.
+  selling_platform_provider?: string;
+  source_provider?: string;
   is_official?: boolean;
   is_aggregator?: boolean;
   is_domestic?: boolean;
@@ -60,6 +62,7 @@ export interface NormalizedPricing {
   source_type?: "official_page" | "api_response" | "third_party";
   confidence_score?: number;
   need_manual_review?: boolean;
+  data_quality_flags?: string[];
 }
 
 export interface NormalizedPromotion {

@@ -111,6 +111,7 @@ export default async function ModelDetailPage({
               <Tag variant={recommendForNewProject ? "success" : "danger"}>{recommendForNewProject ? "建议新项目优先评估" : "不建议新项目默认首选"}</Tag>
               {caps.map((c) => <Tag key={c} variant="primary">{c}</Tag>)}
               {m.modality?.map((mo) => <Tag key={mo} variant="cyan">{mo}</Tag>)}
+              {m.data_quality_flags?.map((flag) => <Tag key={flag} variant="warning">{flag}</Tag>)}
             </div>
           </div>
           <div className="text-right">
@@ -291,6 +292,28 @@ export default async function ModelDetailPage({
             置信度 <span className="font-mono text-white">{(m.confidence_score * 100).toFixed(0)}%</span>。
             多源冲突时本数据可能被替换，请关注后台复核队列。
           </p>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-2 pt-2">
+            {[
+              ["Model owner", m.model_owner_provider],
+              ["Canonical provider", m.canonical_provider_slug],
+              ["Selling platform", m.selling_platform_provider || m.model_selling_platform_provider],
+              ["Source provider", m.source_provider || m.model_source_provider],
+              ["Canonical model", m.canonical_model_slug],
+              ["Model family", m.model_family],
+              ["Variant", m.model_variant],
+              ["Source model id", m.source_model_id],
+            ].map(([label, value]) => (
+              <div key={label} className="rounded border border-white/10 bg-white/3 p-2">
+                <p className="text-[10px] text-slate-500">{label}</p>
+                <p className="mt-0.5 font-mono text-[11px] text-white break-all">{value || "unknown"}</p>
+              </div>
+            ))}
+          </div>
+          {(m.model_needs_alias_review || m.provider_needs_alias_review || (m.data_quality_flags?.length ?? 0) > 0) && (
+            <p className="text-warning">
+              Data quality review needed: {(m.data_quality_flags ?? []).join(", ") || "provider/model alias needs review"}.
+            </p>
+          )}
           {m.need_manual_review && (
             <p className="text-orange-300">
               ⚠ 本数据来源置信度较低或存在多源差异，已进入人工复核。
