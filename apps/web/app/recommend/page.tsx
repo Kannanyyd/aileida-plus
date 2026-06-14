@@ -218,7 +218,7 @@ export default function RecommendPage() {
                             {e.model.providerName} · {e.model.tierLabel} · {e.model.priceSourceCount} 个价格来源
                           </p>
                         </div>
-                        <span className="text-sm font-mono font-bold text-success">¥{e.monthlyCost.toFixed(0)}/月</span>
+                        <span className="text-sm font-mono font-bold text-success">${e.monthlyCost.toFixed(2)}/月</span>
                       </div>
                       <div className="flex flex-wrap gap-1">
                         {e.reasons.slice(0, 4).map(s => (
