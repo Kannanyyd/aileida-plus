@@ -622,3 +622,43 @@
   - 在服务器运行 `npm -w worker run crawl:cny-pricing` 或容器内等效命令。
   - 验证 CNY pricing 是否从 32 提升到 >= 60。
   - 验证 source_fetch_logs/source_snapshots、review_queue 去重、国内榜单/推荐、主要页面/API、日志关键错误。
+
+### 生产部署与验收结果
+
+- commit：`7e20a1e feat: expand domestic cny pricing sources`，已 push。
+- 服务器源码：`7e20a1e`。
+- 部署方式：
+  - 服务器到 GitHub `git fetch` 一度卡住；已停止卡住进程。
+  - 使用本地 git bundle 上传并在服务器 `git merge --ff-only FETCH_HEAD`，保持正式 git commit 状态。
+  - 已正式 `docker compose -f docker-compose.prod.yml build worker --progress=plain`。
+  - 已 `docker compose -f docker-compose.prod.yml up -d worker`。
+  - 未重建 web，因为本轮只改 worker 抓取逻辑和文档。
+- 已运行：`docker compose -f docker-compose.prod.yml exec -T worker npm -w worker run crawl:cny-pricing`。
+- CNY pricing：
+  - 入库前：32。
+  - 入库后：94。
+  - 按 owner：alibaba-cloud 19、zhipu 18、deepseek 18、minimax 17、moonshot 11、tencent-hunyuan 6、baidu 5。
+  - 按 selling platform：aliyun-bailian 30、siliconflow 19、minimax 11、zhipu 8、moonshot 8、tencent-hunyuan 6、alibaba-cloud 5、baidu-qianfan 5、deepseek 2。
+- 新增/扩展源：
+  - MiniMax：成功入库 11。
+  - Zhipu GLM：成功入库 8。
+  - Aliyun Bailian：成功跑出 37，本轮显著扩充 Qwen/DeepSeek/GLM/Kimi/MiniMax 平台价。
+  - SiliconFlow：成功跑出 19，本轮扩充 DeepSeek/Kimi/GLM/MiniMax/Qwen 平台价。
+  - Volcengine/Doubao：官方文档抓取成功，写 source_fetch_logs/source_snapshots；价格列顺序仍需人工确认，未写正式 pricing。
+  - ModelScope：官方文档抓取成功，写 source_fetch_logs/source_snapshots；未发现稳定 per-token CNY API 单价，未把免费额度当价格。
+- source_fetch_logs：本轮 CNY 源均 success；Volcengine/ModelScope 为 0 pricing success。
+- source_snapshots：10 个 CNY 源均有 snapshot。
+- 国内榜单/API：
+  - `/api/v1/rankings/domestic?limit=20`：200，Top20 中 18 个 CNY 标记。
+  - `/api/v1/rankings/frontier-value?region=china_mainland&limit=20`：200，返回 12 条，其中 6 个 CNY 标记。
+  - `/api/v1/recommend` 国内写作场景：200，`relaxedFilters=[]`，budget/balanced/premium 三组 Top5 均为 CNY，`pricingGapAlerts` 正常返回。
+- 页面状态：
+  - `/`、`/models`、`/models/new`、`/providers`、`/rankings`、`/recommend`、`/compare`：200。
+  - `/admin`、`/admin/review-queue`、`/admin/pricing-gaps`：未登录 307。
+  - `/api/admin/review-queue`、`/api/admin/pricing-gaps`：未登录 401。
+- 容器状态：
+  - `aileida-web` Up。
+  - `aileida-worker` Up，已使用新 worker 镜像。
+  - `aileida-postgres` healthy。
+- 日志关键字：web/worker tail 检查未见 `500 / digest / relation does not exist / tsx not found / EACCES / password authentication failed / server-side exception / rank` 匹配输出。
+- 注意：pending duplicate groups 查询为 1，不是用户提供的 0；本轮按要求不做 review_queue 清理，留给下一轮治理复核。

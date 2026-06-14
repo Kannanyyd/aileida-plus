@@ -210,3 +210,21 @@ ddd1e00 上线确认：
   - ModelScope 0 pricing rows, snapshot only.
 - `npm run typecheck` passed locally.
 - Next steps: commit/push, deploy/rebuild worker, run `crawl:cny-pricing`, verify CNY pricing total increases from 32 to >=60, then validate pages/API/logs and update final report.
+
+### Completed production result
+
+- Code commit: `7e20a1e feat: expand domestic cny pricing sources`, pushed.
+- Server source now at `7e20a1e`.
+- Server GitHub fetch hung; stopped the hung fetch and synced with a git bundle, then fast-forward merged.
+- Worker image formally rebuilt and restarted; no hotfix.
+- Ran production `crawl:cny-pricing`.
+- CNY pricing is now 94, up from 32.
+- API/page validation:
+  - public pages `/`, `/models`, `/models/new`, `/providers`, `/rankings`, `/recommend`, `/compare` are 200.
+  - admin pages unauthenticated are 307.
+  - admin APIs unauthenticated are 401.
+  - domestic ranking Top20 has 18 CNY markers.
+  - frontier-value china_mainland has 6 CNY markers out of 12 returned rows.
+  - domestic writing recommendation has `relaxedFilters=[]`; budget/balanced/premium Top5 are all CNY.
+- Logs: no matching critical errors in web/worker tail.
+- Follow-up risk: pending duplicate groups currently query as 1, not 0. This was not cleaned in this round.
