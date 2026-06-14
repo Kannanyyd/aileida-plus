@@ -42,7 +42,13 @@ async function main() {
       m.name as model_name,
       coalesce(m.model_owner_provider, pr.canonical_slug, pr.slug) as provider,
       coalesce(m.model_family, m.family, m.slug) as model_family,
-      m.lifecycle_tier,
+      coalesce((
+        select l.lifecycle_tier
+        from latest_model_candidates l
+        where l.model_slug = m.slug
+        order by l.last_seen_at desc
+        limit 1
+      ), m.lifecycle_tier) as lifecycle_tier,
       max(p.updated_at) as pricing_checked_at,
       round(extract(epoch from (now() - max(p.updated_at))) / 3600, 1) as pricing_age_hours,
       max(p.currency_native) as currency_native,
@@ -52,8 +58,24 @@ async function main() {
     join providers pr on pr.id = m.provider_id
     join pricing p on p.model_id = m.id and p.is_current = true and p.pricing_type = 'api_token'
     where m.status = 'active'
-      and m.lifecycle_tier in ('current_frontier', 'current_mainstream')
-      and p.updated_at >= now() - interval '12 hours'
+      and (
+        m.lifecycle_tier in ('current_frontier', 'current_mainstream')
+        or exists (
+          select 1 from latest_model_candidates l
+          where l.model_slug = m.slug
+            and l.lifecycle_tier in ('current_frontier', 'current_mainstream')
+            and l.discovery_status <> 'stale'
+        )
+      )
+      and (
+        p.updated_at >= now() - interval '12 hours'
+        or exists (
+          select 1 from latest_model_candidates l
+          where l.model_slug = m.slug
+            and l.last_seen_at >= now() - interval '12 hours'
+            and l.discovery_status <> 'stale'
+        )
+      )
       and coalesce(m.needs_pricing_review, false) = false
       and coalesce(p.need_manual_review, false) = false
       and not (m.data_quality_flags ?| array['suspicious_name','needs_manual_review'])
