@@ -841,7 +841,7 @@ export async function domesticPricingGapAudit() {
     .from(models)
     .innerJoin(providers, eq(providers.id, models.provider_id))
     .leftJoin(pricing, eq(pricing.model_id, models.id))
-    .where(sql`coalesce(${providers.canonical_slug}, ${providers.slug}) = any(${domesticProviders}) or ${providers.region} = 'cn'`)
+    .where(sql`${inArray(sql`coalesce(${providers.canonical_slug}, ${providers.slug})`, domesticProviders)} or ${providers.region} = 'cn'`)
     .groupBy(sql`coalesce(${providers.canonical_slug}, ${providers.slug})`)
     .orderBy(desc(sql<number>`count(distinct ${models.id})::int`));
   return rows.map((r) => ({
