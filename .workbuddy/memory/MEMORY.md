@@ -161,3 +161,34 @@ review_queue 清理：
 2. 不做 DNS / Nginx / HTTPS。
 3. 不硬卡 Chromium / Playwright。
 4. 不继续扩展新价格源，直到后台统计口径正式部署并验证。
+# 最新接手状态：Docker build 修复，ddd1e00 后台加固已正式上线
+
+更新时间：2026-06-14 22:22 UTC+8
+
+- 最新 commit：`2c64635`
+- GitHub：已 push
+- 服务器源码：`~/aileida-plus = 2c64635`
+- web 镜像：已正式 rebuild 并 `up -d web`
+- worker 镜像：未 rebuild，本轮无 worker 代码依赖；worker 正常运行
+- 未使用 `.next` / docker cp 热修
+
+Docker build 卡住根因：
+- 卡点在 web Dockerfile 的 `[7/10] RUN npm install --include=dev`。
+- web Dockerfile 未复制 `package-lock.json`，且用 `npm install`，清空 cache 后需要重新解析 workspace dependency。
+- BuildKit 的 `only one connection allowed` / `context canceled` 是超时取消后的症状，不是最初根因。
+- 已修复为 `COPY package.json package-lock.json tsconfig.base.json ./` + `RUN npm ci --production=false`。
+
+部署验收：
+- `/`、`/models`、`/models/new`、`/providers`、`/rankings`、`/recommend`、`/compare` 全部 200。
+- `/admin`、`/admin/review-queue`、`/admin/pricing-gaps`、`/admin/data-quality` 未登录 307。
+- `/api/admin/review-queue`、`/api/admin/pricing-gaps` 未登录 401。
+- 已登录 `/api/admin/review-queue?limit=3` 可用。
+- 已登录 `/api/admin/pricing-gaps` 可用。
+- `moonshot` CNY pricing 已显示 8。
+- pending duplicate groups = 0，pending duplicate rows = 0。
+- CNY pricing 总数仍为 32。
+
+ddd1e00 上线确认：
+- `/admin/review-queue` 已出现 high impact 默认排序、dedupe/source/last seen/confidence 列、批量按钮。
+- approve 缺 `currency_native` 会返回 400，必填校验生效。
+- web/worker/postgres 正常，日志无 500/digest/relation/tsx/EACCES/password/server-side exception/rank slice-map 错误。

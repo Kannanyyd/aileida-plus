@@ -501,3 +501,97 @@
 4. 暂停新价格源扩展，直到后台统计口径正式上线并验证。
 
 ---
+# 最新状态更新：Docker build 修复，后台治理正式上线
+
+更新时间：2026-06-14 22:22 UTC+8
+
+## 当前代码与部署
+
+- 最新 commit：`2c64635`
+- GitHub：已 push
+- 服务器源码：`~/aileida-plus = 2c64635`
+- web 镜像：已正式 rebuild
+- web 容器：已 `up -d web`
+- worker 镜像：未 rebuild，本轮无 worker 代码依赖
+- postgres volume：未动
+- 未使用 `.next` / docker cp 热修
+
+## Docker build 卡住根因
+
+- Docker daemon、buildx、磁盘、内存均正常。
+- build cache 曾清到 0，但 build 仍卡住，说明 cache 过大不是根因。
+- Docker 日志显示卡点在 web Dockerfile 的：
+  - `[7/10] RUN npm install --include=dev`
+- web Dockerfile 之前没有复制 `package-lock.json`，并使用 `npm install`。
+- 清空 cache 后需要重新解析 workspace dependency，安装阶段很慢且进度不明确。
+- BuildKit 报 `only one connection allowed` / `context canceled` 是超时取消后的症状。
+
+## 修复命令/改动
+
+- 修改 `Dockerfile`：
+  - `COPY package.json package-lock.json tsconfig.base.json ./`
+  - `RUN npm ci --production=false`
+- commit：`2c64635 fix: make web docker install deterministic`
+- 已执行：
+  - `docker builder prune -af`：只清 builder cache，未清 volume
+  - `docker compose -f docker-compose.prod.yml build web --progress=plain`
+  - `docker compose -f docker-compose.prod.yml up -d web`
+
+## 上线验收
+
+- 页面：
+  - `/`：200
+  - `/models`：200
+  - `/models/new`：200
+  - `/providers`：200
+  - `/rankings`：200
+  - `/recommend`：200
+  - `/compare`：200
+  - `/admin`：307
+  - `/admin/review-queue`：307
+  - `/admin/pricing-gaps`：307
+  - `/admin/data-quality`：307
+- API：
+  - `/api/admin/review-queue` 未登录：401
+  - `/api/admin/pricing-gaps` 未登录：401
+  - 已登录 `/api/admin/review-queue?limit=3`：可用
+  - 已登录 `/api/admin/pricing-gaps`：可用
+
+## ddd1e00 后台加固上线确认
+
+- `/admin/review-queue` 已显示：
+  - high impact
+  - Dedupe
+  - Source
+  - Last seen
+  - confidence desc
+  - Bulk ignore duplicates
+  - Needs more info
+  - Reject suspicious
+- approve 必填校验已生效：
+  - 缺 `currency_native` 的测试 review approve 返回 400
+- `/api/admin/pricing-gaps`：
+  - `moonshot`：models 43，CNY pricing 8，missing 35
+  - `alibaba-cloud`：529 / 7 / 522
+  - `deepseek`：33 / 6 / 27
+  - `siliconflow`：34 / 6 / 28
+- CNY pricing 总数：32
+- pending duplicate groups：0
+- pending duplicate rows：0
+
+## 容器与日志
+
+- `aileida-web`：Up，使用最新 web image
+- `aileida-worker`：Up
+- `aileida-postgres`：Healthy
+- 日志未发现：
+  - `500`
+  - `digest`
+  - `relation does not exist`
+  - `tsx not found`
+  - `EACCES`
+  - `password authentication failed`
+  - `server-side exception`
+  - `rank(...).slice/map`
+
+---
