@@ -94,7 +94,14 @@ export async function fetchOfficialModelSource(source: OfficialModelSource): Pro
   const rawParts: string[] = [];
 
   for (const url of source.urls) {
-    const raw = await fetchText(url, source.id);
+    let raw;
+    try {
+      raw = await fetchText(url, source.id);
+    } catch (err: any) {
+      rawParts.push(`URL: ${url}\nERROR: ${err?.message ?? err}`);
+      console.error(`[${source.id}] official url failed: ${url} ${err?.message ?? err}`);
+      continue;
+    }
     const text = stripHtml(raw.body);
     rawParts.push(`URL: ${url}\n${text.slice(0, 12000)}`);
     for (const match of text.matchAll(MODEL_TOKEN_RE)) {
