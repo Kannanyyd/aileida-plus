@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx scripts/migrate.ts",
+    "review:dedupe": "tsx scripts/cleanup-review-duplicates.ts",
     "db:seed": "tsx scripts/seed.ts",
     "scrape": "npm -w worker run scrape:all"
   },

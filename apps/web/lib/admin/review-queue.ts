@@ -1,4 +1,4 @@
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { models, pricing, providers, reviewAuditLogs, reviewQueue, sourceSnapshots } from "@/lib/db/schema";
 import { config } from "@/lib/env";
@@ -19,8 +19,17 @@ export type ReviewFilters = {
   created_from?: string;
   created_to?: string;
   q?: string;
+  sort?: string;
   limit?: number;
 };
+
+const HIGH_IMPACT_REASONS = [
+  "pricing-conflict",
+  "multi-source-divergence",
+  "low-confidence-new-pricing",
+  "latest-model-missing-pricing",
+  "domestic-price-missing",
+];
 
 function payloadText(key: string) {
   return sql<string>`coalesce(${reviewQueue.payload}->>${key}, ${reviewQueue.latest_payload}->>${key}, '')`;
@@ -43,7 +52,15 @@ export async function listReviewQueue(filters: ReviewFilters) {
   const where = [];
   if (filters.reason) where.push(eq(reviewQueue.reason, filters.reason));
   if (filters.status) where.push(eq(reviewQueue.status, filters.status));
-  if (filters.provider) where.push(sql`(${reviewQueue.payload}->>'provider_slug' = ${filters.provider} or ${reviewQueue.payload}->>'provider' = ${filters.provider})`);
+  if (filters.provider) {
+    where.push(sql`(
+      ${reviewQueue.payload}->>'provider_slug' = ${filters.provider}
+      or ${reviewQueue.payload}->>'provider' = ${filters.provider}
+      or ${reviewQueue.payload}->>'model_owner_provider' = ${filters.provider}
+      or ${reviewQueue.payload}->>'source_provider' = ${filters.provider}
+      or ${reviewQueue.payload}->>'selling_platform_provider' = ${filters.provider}
+    )`);
+  }
   if (filters.canonical_provider) where.push(sql`${reviewQueue.payload}->>'canonical_provider' = ${filters.canonical_provider}`);
   if (filters.model_family) where.push(sql`${reviewQueue.payload}->>'model_family' = ${filters.model_family}`);
   if (filters.currency) where.push(sql`${reviewQueue.payload}->>'currency_native' = ${filters.currency}`);
@@ -59,6 +76,23 @@ export async function listReviewQueue(filters: ReviewFilters) {
   if (filters.created_to) where.push(sql`${reviewQueue.created_at} <= ${new Date(filters.created_to)}`);
   if (filters.q) where.push(sql`cast(${reviewQueue.payload} as text) ilike ${`%${filters.q}%`}`);
 
+  const confidenceExpr = sql<number>`coalesce((${reviewQueue.payload}->>'confidence')::numeric, (${reviewQueue.payload}->>'confidence_score')::numeric, 0)`;
+  const priorityExpr = sql<number>`case ${reviewQueue.reason}
+    when 'pricing-conflict' then 10
+    when 'multi-source-divergence' then 9
+    when 'low-confidence-new-pricing' then 8
+    when 'latest-model-missing-pricing' then 7
+    when 'domestic-price-missing' then 6
+    else 0
+  end`;
+  const orderBy =
+    filters.sort === "occurrence_desc" ? [desc(reviewQueue.occurrence_count), desc(reviewQueue.last_seen_at)] :
+    filters.sort === "confidence_desc" ? [desc(confidenceExpr), desc(reviewQueue.created_at)] :
+    filters.sort === "confidence_asc" ? [asc(confidenceExpr), desc(reviewQueue.created_at)] :
+    filters.sort === "created_desc" ? [desc(reviewQueue.created_at)] :
+    filters.sort === "last_seen_desc" ? [desc(reviewQueue.last_seen_at)] :
+    [desc(priorityExpr), desc(reviewQueue.occurrence_count), desc(reviewQueue.last_seen_at), desc(reviewQueue.created_at)];
+
   const rows = await db
     .select({
       id: reviewQueue.id,
@@ -73,14 +107,16 @@ export async function listReviewQueue(filters: ReviewFilters) {
       last_seen_at: reviewQueue.last_seen_at,
       created_at: reviewQueue.created_at,
       source_url: payloadText("source_url"),
-      provider: sql<string>`coalesce(${reviewQueue.payload}->>'provider_slug', ${reviewQueue.payload}->>'provider', ${reviewQueue.payload}->>'model_owner_provider', '')`,
+      provider: sql<string>`coalesce(${reviewQueue.payload}->>'provider_slug', ${reviewQueue.payload}->>'provider', ${reviewQueue.payload}->>'model_owner_provider', ${reviewQueue.payload}->>'source_provider', '')`,
+      canonical_provider: sql<string>`coalesce(${reviewQueue.payload}->>'canonical_provider', ${reviewQueue.payload}->>'model_owner_provider', ${reviewQueue.payload}->>'provider_slug', ${reviewQueue.payload}->>'provider', '')`,
       model: sql<string>`coalesce(${reviewQueue.payload}->>'model_slug', ${reviewQueue.payload}->>'canonical_model_slug', ${reviewQueue.payload}->>'model_id', '')`,
       currency: payloadText("currency_native"),
       region: payloadText("region"),
+      confidence: confidenceExpr,
     })
     .from(reviewQueue)
     .where(where.length ? and(...where) : undefined)
-    .orderBy(desc(reviewQueue.created_at))
+    .orderBy(...orderBy)
     .limit(Math.min(filters.limit ?? 100, 500));
   return rows;
 }
@@ -141,7 +177,7 @@ export async function setReviewStatus(id: string, status: string, message?: stri
     .set({
       status,
       resolution: { action: status, message, at: new Date().toISOString() },
-      resolved_at: ["rejected", "ignored", "resolved", "approved"].includes(status) ? new Date() : null,
+      resolved_at: ["rejected", "ignored", "ignored_duplicate", "resolved", "approved"].includes(status) ? new Date() : null,
     })
     .where(eq(reviewQueue.id, id))
     .returning();
@@ -156,13 +192,44 @@ export async function approvePricingReview(id: string, override: Record<string, 
   const payload = { ...(item.latest_payload as any ?? item.payload as any), ...override };
   const modelId = payload.model_id ?? item.entity_id;
   if (!modelId) throw new Error("Pricing review has no model_id");
-  const currency = String(payload.currency_native ?? "USD").toUpperCase();
+  const currencyRaw = payload.currency_native;
+  if (!currencyRaw) throw new Error("currency_native is required before approve");
+  const currency = String(currencyRaw).toUpperCase();
   const inputNative = payload.input_price ?? payload.inputCny ?? payload.input_per_1m ?? payload.price_native ?? payload.input_per_1m_usd;
   const outputNative = payload.output_price ?? payload.outputCny ?? payload.output_per_1m ?? payload.output_per_1m_usd;
+  if (inputNative == null && outputNative == null) throw new Error("input_price or output_price is required before approve");
   const inputUsd = currency === "CNY" ? cnyToUsd(inputNative) : numOrNull(payload.input_per_1m_usd ?? inputNative);
   const outputUsd = currency === "CNY" ? cnyToUsd(outputNative) : numOrNull(payload.output_per_1m_usd ?? outputNative);
   const sourceUrl = String(payload.source_url ?? "");
   if (!sourceUrl) throw new Error("Pricing review requires source_url before approve");
+  if (!payload.region) throw new Error("region is required before approve");
+  if (!payload.billing_unit) throw new Error("billing_unit is required before approve");
+  if (currency === "CNY" && numOrNull(inputNative) == null && numOrNull(outputNative) == null) {
+    throw new Error("CNY pricing must keep native CNY input_price or output_price");
+  }
+  const sellingPlatform = payload.selling_platform_provider ? String(payload.selling_platform_provider) : null;
+  const channel = String(payload.channel ?? "official_api");
+  const region = String(payload.region);
+
+  const existingConflict = await db
+    .select({
+      id: pricing.id,
+      primary_source_id: pricing.primary_source_id,
+      source_url: pricing.source_url,
+    })
+    .from(pricing)
+    .where(and(
+      eq(pricing.model_id, String(modelId)),
+      eq(pricing.currency_native, currency),
+      eq(pricing.region, region),
+      eq(pricing.channel, channel),
+      sellingPlatform ? eq(pricing.selling_platform_provider, sellingPlatform) : sql`${pricing.selling_platform_provider} is null`,
+      sql`${pricing.primary_source_id} <> ${String(payload.source_id ?? payload.primary_source_id ?? "manual-review")}`,
+    ))
+    .limit(1);
+  if (existingConflict[0] && !payload.confirm_conflict) {
+    throw new Error(`Existing pricing conflict requires confirmation: ${existingConflict[0].id}`);
+  }
 
   const priceValues = {
     model_id: String(modelId),
@@ -170,14 +237,14 @@ export async function approvePricingReview(id: string, override: Record<string, 
     input_per_1m_usd: inputUsd,
     output_per_1m_usd: outputUsd,
     input_cached_read_per_1m_usd: currency === "CNY" ? cnyToUsd(payload.cached_input_price ?? payload.cacheReadCny) : numOrNull(payload.input_cached_read_per_1m_usd ?? payload.cached_input_price),
-    billing_unit: String(payload.billing_unit ?? "per_1M_tokens"),
+    billing_unit: String(payload.billing_unit),
     tiered_rules: currency === "CNY" ? [{ up_to: 1000000, input_per_1m: Number(inputNative), output_per_1m: Number(outputNative), unit: "CNY_per_1M_tokens" }] : null,
     currency_native: currency,
     price_native: numOrNull(inputNative),
-    region: String(payload.region ?? (currency === "CNY" ? "china_mainland" : "global")),
-    channel: String(payload.channel ?? "official_api"),
+    region,
+    channel,
     platform: payload.platform ? String(payload.platform) : null,
-    selling_platform_provider: payload.selling_platform_provider ? String(payload.selling_platform_provider) : null,
+    selling_platform_provider: sellingPlatform,
     source_provider: payload.source_provider ? String(payload.source_provider) : null,
     is_official: payload.is_official ?? payload.channel === "official_api",
     is_aggregator: payload.is_aggregator ?? payload.channel === "aggregator",
@@ -217,6 +284,7 @@ export function reviewFiltersFromUrl(url: URL): ReviewFilters {
     created_from: url.searchParams.get("created_from") ?? undefined,
     created_to: url.searchParams.get("created_to") ?? undefined,
     q: url.searchParams.get("q") ?? undefined,
+    sort: url.searchParams.get("sort") ?? undefined,
     limit: Number(url.searchParams.get("limit") ?? 100),
   };
 }

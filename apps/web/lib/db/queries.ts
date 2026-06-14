@@ -813,39 +813,142 @@ export async function listModelAliasAudit(limit = 200) {
   return rows;
 }
 
-export async function domesticPricingGapAudit() {
-  const domesticProviders = [
-    "deepseek",
-    "alibaba-cloud",
-    "aliyun-bailian",
-    "bytedance-volcano",
-    "volcengine",
-    "tencent-hunyuan",
-    "baidu-qianfan",
-    "zhipu",
-    "moonshot",
-    "minimax",
-    "siliconflow",
-    "modelscope",
-  ];
-  const rows = await db
-    .select({
-      provider: sql<string>`coalesce(${providers.canonical_slug}, ${providers.slug})`,
-      models_count: sql<number>`count(distinct ${models.id})::int`,
-      cny_pricing_count: sql<number>`count(distinct case when ${pricing.currency_native} = 'CNY' and ${pricing.is_current} = true then ${pricing.id} end)::int`,
-      source_url_count: sql<number>`count(distinct case when ${pricing.source_url} is not null and ${pricing.source_url} <> '' and ${pricing.source_url} <> 'unknown' then ${pricing.id} end)::int`,
-      official_count: sql<number>`count(distinct case when ${pricing.is_official} = true then ${pricing.id} end)::int`,
-      aggregator_count: sql<number>`count(distinct case when ${pricing.is_aggregator} = true then ${pricing.id} end)::int`,
-      needs_pricing_review_count: sql<number>`count(distinct case when ${models.needs_pricing_review} = true then ${models.id} end)::int`,
-    })
-    .from(models)
-    .innerJoin(providers, eq(providers.id, models.provider_id))
-    .leftJoin(pricing, eq(pricing.model_id, models.id))
-    .where(sql`${inArray(sql`coalesce(${providers.canonical_slug}, ${providers.slug})`, domesticProviders)} or ${providers.region} = 'cn'`)
-    .groupBy(sql`coalesce(${providers.canonical_slug}, ${providers.slug})`)
-    .orderBy(desc(sql<number>`count(distinct ${models.id})::int`));
-  return rows.map((r) => ({
+export type DomesticPricingGapRow = {
+  provider: string;
+  models_count: number;
+  cny_pricing_count: number;
+  source_url_count: number;
+  official_count: number;
+  aggregator_count: number;
+  needs_pricing_review_count: number;
+  missing_price_model_count: number;
+};
+
+export async function domesticPricingGapAudit(): Promise<DomesticPricingGapRow[]> {
+  const rows = await db.execute(sql<{
+    provider: string;
+    models_count: number;
+    cny_pricing_count: number;
+    source_url_count: number;
+    official_count: number;
+    aggregator_count: number;
+    needs_pricing_review_count: number;
+  }>`
+    with provider_keys(provider) as (
+      values
+        ('deepseek'),
+        ('alibaba-cloud'),
+        ('aliyun-bailian'),
+        ('bytedance-volcano'),
+        ('volcengine'),
+        ('tencent-hunyuan'),
+        ('baidu-qianfan'),
+        ('zhipu'),
+        ('moonshot'),
+        ('minimax'),
+        ('siliconflow'),
+        ('modelscope')
+    ),
+    model_scope as (
+      select
+        ${models.id} as model_id,
+        ${models.needs_pricing_review} as needs_pricing_review,
+        case
+          when coalesce(${models.model_owner_provider}, ${providers.canonical_slug}, ${providers.slug}) in ('moonshotai', 'kimi') then 'moonshot'
+          when coalesce(${models.model_owner_provider}, ${providers.canonical_slug}, ${providers.slug}) in ('qwen', 'alibaba', 'aliyun') then 'alibaba-cloud'
+          when coalesce(${models.model_owner_provider}, ${providers.canonical_slug}, ${providers.slug}) in ('doubao', 'volcano') then 'bytedance-volcano'
+          when coalesce(${models.model_owner_provider}, ${providers.canonical_slug}, ${providers.slug}) in ('baidu', 'wenxin') then 'baidu-qianfan'
+          when coalesce(${models.model_owner_provider}, ${providers.canonical_slug}, ${providers.slug}) in ('hunyuan', 'tencent') then 'tencent-hunyuan'
+          when coalesce(${providers.canonical_slug}, ${providers.slug}) in ('moonshotai', 'kimi') then 'moonshot'
+          else coalesce(${models.model_owner_provider}, ${providers.canonical_slug}, ${providers.slug})
+        end as owner_key,
+        case
+          when coalesce(${providers.canonical_slug}, ${providers.slug}) in ('moonshotai', 'kimi') then 'moonshot'
+          when coalesce(${providers.canonical_slug}, ${providers.slug}) in ('qwen', 'alibaba', 'aliyun') then 'alibaba-cloud'
+          when coalesce(${providers.canonical_slug}, ${providers.slug}) in ('doubao', 'volcano') then 'bytedance-volcano'
+          when coalesce(${providers.canonical_slug}, ${providers.slug}) in ('baidu', 'wenxin') then 'baidu-qianfan'
+          when coalesce(${providers.canonical_slug}, ${providers.slug}) in ('hunyuan', 'tencent') then 'tencent-hunyuan'
+          else coalesce(${providers.canonical_slug}, ${providers.slug})
+        end as model_provider_key,
+        ${providers.region} as provider_region
+      from ${models}
+      join ${providers} on ${providers.id} = ${models.provider_id}
+    ),
+    pricing_scope as (
+      select
+        ${pricing.id} as pricing_id,
+        ${pricing.model_id} as model_id,
+        ${pricing.currency_native} as currency_native,
+        ${pricing.is_current} as is_current,
+        ${pricing.source_url} as source_url,
+        ${pricing.is_official} as is_official,
+        ${pricing.is_aggregator} as is_aggregator,
+        case
+          when coalesce(${models.model_owner_provider}, ${providers.canonical_slug}, ${providers.slug}) in ('moonshotai', 'kimi') then 'moonshot'
+          when coalesce(${models.model_owner_provider}, ${providers.canonical_slug}, ${providers.slug}) in ('qwen', 'alibaba', 'aliyun') then 'alibaba-cloud'
+          when coalesce(${models.model_owner_provider}, ${providers.canonical_slug}, ${providers.slug}) in ('doubao', 'volcano') then 'bytedance-volcano'
+          when coalesce(${models.model_owner_provider}, ${providers.canonical_slug}, ${providers.slug}) in ('baidu', 'wenxin') then 'baidu-qianfan'
+          when coalesce(${models.model_owner_provider}, ${providers.canonical_slug}, ${providers.slug}) in ('hunyuan', 'tencent') then 'tencent-hunyuan'
+          else coalesce(${models.model_owner_provider}, ${providers.canonical_slug}, ${providers.slug})
+        end as owner_key,
+        case
+          when ${pricing.selling_platform_provider} in ('moonshotai', 'kimi') then 'moonshot'
+          when ${pricing.selling_platform_provider} in ('qwen', 'alibaba', 'aliyun') then 'alibaba-cloud'
+          when ${pricing.selling_platform_provider} in ('doubao', 'volcano') then 'bytedance-volcano'
+          when ${pricing.selling_platform_provider} in ('baidu', 'wenxin') then 'baidu-qianfan'
+          when ${pricing.selling_platform_provider} in ('hunyuan', 'tencent') then 'tencent-hunyuan'
+          else ${pricing.selling_platform_provider}
+        end as selling_key,
+        case
+          when ${pricing.source_provider} in ('moonshotai', 'kimi') then 'moonshot'
+          when ${pricing.source_provider} in ('qwen', 'alibaba', 'aliyun') then 'alibaba-cloud'
+          when ${pricing.source_provider} in ('doubao', 'volcano') then 'bytedance-volcano'
+          when ${pricing.source_provider} in ('baidu', 'wenxin') then 'baidu-qianfan'
+          when ${pricing.source_provider} in ('hunyuan', 'tencent') then 'tencent-hunyuan'
+          else ${pricing.source_provider}
+        end as source_key
+      from ${pricing}
+      join ${models} on ${models.id} = ${pricing.model_id}
+      join ${providers} on ${providers.id} = ${models.provider_id}
+    )
+    select
+      pk.provider,
+      count(distinct ms.model_id) filter (where ms.owner_key = pk.provider or ms.model_provider_key = pk.provider or ms.provider_region = 'cn')::int as models_count,
+      count(distinct ps.pricing_id) filter (
+        where ps.currency_native = 'CNY'
+          and ps.is_current = true
+          and (ps.owner_key = pk.provider or ps.selling_key = pk.provider or ps.source_key = pk.provider)
+      )::int as cny_pricing_count,
+      count(distinct ps.pricing_id) filter (
+        where ps.currency_native = 'CNY'
+          and ps.is_current = true
+          and (ps.owner_key = pk.provider or ps.selling_key = pk.provider or ps.source_key = pk.provider)
+          and ps.source_url is not null and ps.source_url <> '' and ps.source_url <> 'unknown'
+      )::int as source_url_count,
+      count(distinct ps.pricing_id) filter (
+        where ps.currency_native = 'CNY' and ps.is_current = true and ps.is_official = true
+          and (ps.owner_key = pk.provider or ps.selling_key = pk.provider or ps.source_key = pk.provider)
+      )::int as official_count,
+      count(distinct ps.pricing_id) filter (
+        where ps.currency_native = 'CNY' and ps.is_current = true and ps.is_aggregator = true
+          and (ps.owner_key = pk.provider or ps.selling_key = pk.provider or ps.source_key = pk.provider)
+      )::int as aggregator_count,
+      count(distinct ms.model_id) filter (where ms.needs_pricing_review = true and (ms.owner_key = pk.provider or ms.model_provider_key = pk.provider))::int as needs_pricing_review_count
+    from provider_keys pk
+    left join model_scope ms on ms.owner_key = pk.provider or ms.model_provider_key = pk.provider or (ms.provider_region = 'cn' and pk.provider = ms.model_provider_key)
+    left join pricing_scope ps on ps.owner_key = pk.provider or ps.selling_key = pk.provider or ps.source_key = pk.provider
+    group by pk.provider
+    order by models_count desc, pk.provider
+  `);
+  const rawRows = rows.rows as DomesticPricingGapRow[];
+  return rawRows.map((r) => ({
     ...r,
-    missing_price_model_count: Math.max(0, r.models_count - r.cny_pricing_count),
+    models_count: Number(r.models_count),
+    cny_pricing_count: Number(r.cny_pricing_count),
+    source_url_count: Number(r.source_url_count),
+    official_count: Number(r.official_count),
+    aggregator_count: Number(r.aggregator_count),
+    needs_pricing_review_count: Number(r.needs_pricing_review_count),
+    missing_price_model_count: Math.max(0, Number(r.models_count) - Number(r.cny_pricing_count)),
   }));
 }

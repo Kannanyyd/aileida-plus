@@ -3,7 +3,7 @@ import { setReviewStatus } from "@/lib/admin/review-queue";
 
 export const dynamic = "force-dynamic";
 
-const ALLOWED = new Set(["ignored", "rejected", "needs_more_info", "resolved"]);
+const ALLOWED = new Set(["ignored", "ignored_duplicate", "rejected", "needs_more_info", "resolved"]);
 
 export async function POST(req: NextRequest) {
   try {
