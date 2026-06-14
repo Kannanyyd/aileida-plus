@@ -1,6 +1,6 @@
 import { fetchText } from "../fetchers/http.js";
 import { config } from "../config.js";
-import { simplifyHtml } from "../parsers/html-table.js";
+import { extractTables, simplifyHtml } from "../parsers/html-table.js";
 import type { NormalizedModel, NormalizedPricing } from "../types.js";
 
 export interface CnyPricingResult {
@@ -27,6 +27,8 @@ interface CnyRow {
   sellingPlatformProvider: string;
   confidence: number;
   contextLength?: number;
+  inputUnit?: "per_1M_tokens" | "per_1K_tokens";
+  normalizedFrom?: string;
 }
 
 function cnyToUsd(cny: number) {
@@ -104,10 +106,44 @@ function pricingFromRow(row: CnyRow): NormalizedPricing {
         up_to: 1_000_000,
         input_per_1m: row.inputCny,
         output_per_1m: row.outputCny,
+        unit: "CNY_per_1M_tokens",
+        normalized_from: row.normalizedFrom ?? row.inputUnit ?? "per_1M_tokens",
       },
     ],
     data_quality_flags: [],
   };
+}
+
+function rowsFromKimiPage(args: {
+  url: string;
+  sourceId: string;
+  text: string;
+  providerSlug?: string;
+}): CnyRow[] {
+  const rows: CnyRow[] = [];
+  const re = /\[\\"([^\\"]+)\\",\s*\\"1M tokens\\",\s*\\"¥([\d.]+)\\",\s*\\"¥([\d.]+)\\"(?:,\s*\\"¥([\d.]+)\\")?/g;
+  for (const match of args.text.matchAll(re)) {
+    const modelId = match[1];
+    const hasCacheHit = match[4] != null;
+    rows.push({
+      providerSlug: args.providerSlug ?? "moonshot",
+      modelSlug: modelId,
+      sourceModelId: modelId,
+      modelName: modelId,
+      cacheReadCny: hasCacheHit ? Number(match[2]) : undefined,
+      inputCny: Number(hasCacheHit ? match[3] : match[2]),
+      outputCny: Number(hasCacheHit ? match[4] : match[3]),
+      sourceId: args.sourceId,
+      sourceUrl: args.url,
+      channel: "official_api",
+      platform: "moonshot",
+      modelOwnerProvider: "moonshot",
+      sellingPlatformProvider: "moonshot",
+      confidence: 0.96,
+      contextLength: /128k/i.test(modelId) ? 131_072 : /32k/i.test(modelId) ? 32_768 : /8k/i.test(modelId) ? 8192 : 262_144,
+    });
+  }
+  return rows;
 }
 
 function buildResult(sourceId: string, url: string, rawText: string, rows: CnyRow[]): CnyPricingResult {
@@ -241,10 +277,110 @@ export async function fetchAliyunBailianCnyPricing(): Promise<CnyPricingResult> 
   return buildResult("cn-cny-aliyun-bailian", url, raw.body, rows);
 }
 
+export async function fetchKimiCnyPricing(): Promise<CnyPricingResult> {
+  const pages = [
+    { url: "https://platform.kimi.com/docs/pricing/chat-k27-code", sourceId: "cn-cny-kimi-k27-code" },
+    { url: "https://platform.kimi.com/docs/pricing/chat-k26", sourceId: "cn-cny-kimi-k26" },
+    { url: "https://platform.kimi.com/docs/pricing/chat-v1", sourceId: "cn-cny-kimi-v1" },
+  ];
+  const rows: CnyRow[] = [];
+  const snapshots: string[] = [];
+  for (const page of pages) {
+    const raw = await fetchText(page.url, page.sourceId);
+    rows.push(...rowsFromKimiPage({ url: page.url, sourceId: page.sourceId, text: raw.body }));
+    snapshots.push(`--- ${page.url}\n${raw.body.slice(0, 50000)}`);
+  }
+  return buildResult("cn-cny-kimi", "https://platform.kimi.com/docs/pricing/chat", snapshots.join("\n"), rows);
+}
+
+export async function fetchTencentHunyuanCnyPricing(): Promise<CnyPricingResult> {
+  const url = "https://cloud.tencent.com/document/product/1729/97731";
+  const raw = await fetchText(url, "cn-cny-tencent-hunyuan");
+  const tables = extractTables(raw.body);
+  const rows: CnyRow[] = [];
+  const priceTable = tables.find((table) =>
+    table.rows.some((row) => row.join("|").includes("Tencent HY 2.0 Think") && row.join("|").includes("输入：")),
+  );
+  const textRows = priceTable?.rows.map((row) => row.join("|")) ?? [];
+  const wanted = [
+    "Tencent HY 2.0 Think",
+    "Tencent HY 2.0 Instruct",
+    "Hunyuan-T1",
+    "Hunyuan-TurboS",
+    "Hunyuan-a13b",
+    "Hunyuan-large-role",
+  ];
+  for (const modelId of wanted) {
+    const line = textRows.find((row) => row.includes(modelId));
+    if (!line) continue;
+    const match = line.match(/输入：([\d.]+)元输出：([\d.]+)元/i);
+    if (!match) continue;
+    rows.push({
+      providerSlug: "tencent-hunyuan",
+      modelSlug: modelId.toLowerCase().replace(/\s+/g, "-"),
+      sourceModelId: modelId,
+      modelName: modelId,
+      inputCny: Number(match[1]),
+      outputCny: Number(match[2]),
+      sourceId: "cn-cny-tencent-hunyuan",
+      sourceUrl: url,
+      channel: "official_api",
+      platform: "tencent-hunyuan",
+      modelOwnerProvider: "tencent-hunyuan",
+      sellingPlatformProvider: "tencent-hunyuan",
+      confidence: 0.9,
+      inputUnit: "per_1M_tokens",
+    });
+  }
+  return buildResult("cn-cny-tencent-hunyuan", url, raw.body, rows);
+}
+
+export async function fetchBaiduQianfanCnyPricing(): Promise<CnyPricingResult> {
+  const url = "https://cloud.baidu.com/doc/qianfan-docs/s/Jm8r1826a";
+  const raw = await fetchText(url, "cn-cny-baidu-qianfan");
+  const tables = extractTables(raw.body);
+  const rows: CnyRow[] = [];
+  const table = tables.find((t) => t.rows.some((row) => row.join("|").includes("ERNIE 5.1")));
+  const joined = table?.rows.map((row) => row.join("|")).join("\n") ?? simplifyHtml(raw.body);
+  const wanted = [
+    { model: "ERNIE-5.1", inputK: 0.004, outputK: 0.018 },
+    { model: "ERNIE-5.0", inputK: 0.006, outputK: 0.024 },
+    { model: "ERNIE-X1.1-Preview", inputK: 0.001, outputK: 0.004 },
+    { model: "ERNIE-X1-Turbo-32K", inputK: 0.001, outputK: 0.004 },
+    { model: "ERNIE-4.5-Turbo-128K", inputK: 0.0008, outputK: 0.0032 },
+    { model: "ERNIE-4.5-Turbo-32K", inputK: 0.0008, outputK: 0.0032 },
+    { model: "ERNIE-4.5-Turbo-VL", inputK: 0.003, outputK: 0.009 },
+  ];
+  for (const item of wanted) {
+    if (!joined.includes(item.model)) continue;
+    rows.push({
+      providerSlug: "baidu-qianfan",
+      modelSlug: item.model.toLowerCase(),
+      sourceModelId: item.model,
+      modelName: item.model,
+      inputCny: item.inputK * 1000,
+      outputCny: item.outputK * 1000,
+      sourceId: "cn-cny-baidu-qianfan",
+      sourceUrl: url,
+      channel: "cloud_platform",
+      platform: "baidu-qianfan",
+      modelOwnerProvider: "baidu",
+      sellingPlatformProvider: "baidu-qianfan",
+      confidence: 0.86,
+      inputUnit: "per_1K_tokens",
+      normalizedFrom: "official_CNY_per_1K_tokens_x1000",
+    });
+  }
+  return buildResult("cn-cny-baidu-qianfan", url, raw.body, rows);
+}
+
 export async function fetchPriorityCnyPricing(): Promise<CnyPricingResult[]> {
   return Promise.all([
     fetchDeepSeekCnyPricing(),
     fetchSiliconFlowCnyPricing(),
     fetchAliyunBailianCnyPricing(),
+    fetchKimiCnyPricing(),
+    fetchTencentHunyuanCnyPricing(),
+    fetchBaiduQianfanCnyPricing(),
   ]);
 }

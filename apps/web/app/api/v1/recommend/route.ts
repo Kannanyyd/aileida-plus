@@ -6,6 +6,7 @@ import type { RecommendInput } from "@pricing/core";
 import { db } from "@/lib/db/client";
 import { latestModelCandidates } from "@/lib/db/schema";
 import { desc, eq } from "drizzle-orm";
+import { config } from "@/lib/env";
 
 type ChannelFilter = "official_api" | "aggregator" | "cloud_platform";
 
@@ -131,6 +132,7 @@ function reasons(input: RecommendBody, m: Awaited<ReturnType<typeof listModels>>
   if (m.confidence_score >= 0.85) out.push("高置信度价格来源");
   if (input.regionPreference === "domestic" || input.techRequirements?.includes("cn-accessible")) {
     if (m.provider_region === "cn" || m.is_domestic) out.push("更适合国内使用");
+    if (m.currency_native !== "CNY" && (m.provider_region === "cn" || m.is_domestic || m.pricing_region === "china_mainland")) out.push("使用美元价估算人民币成本");
   }
   if (input.budget === "cheapest" && avgPrice(m) <= 0.5) out.push("成本较低");
   return out.slice(0, 5);
@@ -158,6 +160,7 @@ export async function POST(req: NextRequest) {
     if (models.length === 0) {
       return NextResponse.json({ error: "暂无模型数据" }, { status: 503 });
     }
+    const allModels = models;
 
     const baseEligible = (m: (typeof models)[number]) => {
       const tier = getModelTier(m);
@@ -240,6 +243,11 @@ export async function POST(req: NextRequest) {
           isDomestic: row.model.is_domestic || row.model.provider_region === "cn" || row.model.pricing_region === "china_mainland",
           isOverseasOfficial: (row.model.is_official || row.model.channel === "official_api") && row.model.provider_region !== "cn" && row.model.pricing_region !== "china_mainland",
           currencyNative: row.model.currency_native,
+          estimatedCurrency: row.model.currency_native !== "CNY" && (row.model.provider_region === "cn" || row.model.is_domestic || row.model.pricing_region === "china_mainland"),
+          nativeInputPer1mCny: row.model.input_per_1m_usd != null ? Math.round(row.model.input_per_1m_usd * config.fx.usdCny * 10000) / 10000 : null,
+          nativeOutputPer1mCny: row.model.output_per_1m_usd != null ? Math.round(row.model.output_per_1m_usd * config.fx.usdCny * 10000) / 10000 : null,
+          exchangeRate: config.fx.usdCny,
+          exchangeRateUpdatedAt: process.env.EXCHANGE_RATE_UPDATED_AT ?? null,
           dataQualityFlags: row.model.data_quality_flags,
           sourceConfidence: Math.max(row.model.confidence_score, row.model.model_source_confidence),
           dataConfidenceIssue: row.model.confidence_score < 0.75 || row.model.price_source_count < 2 || relaxedFilters.length > 0 || (row.model.data_quality_flags ?? []).length > 0,
@@ -267,11 +275,27 @@ export async function POST(req: NextRequest) {
       .orderBy(desc(latestModelCandidates.last_seen_at))
       .limit(6);
 
+    const domesticProviders = ["deepseek", "alibaba-cloud", "aliyun-bailian", "baidu-qianfan", "tencent-hunyuan", "zhipu", "moonshot", "minimax", "siliconflow", "volcengine", "bytedance-volcano", "modelscope"];
+    const pricingGapAlerts = domesticProviders
+      .map((provider) => {
+        const providerModels = allModels.filter((m) => [m.provider_slug, m.canonical_provider_slug, m.model_owner_provider, m.selling_platform_provider].includes(provider));
+        const cny = providerModels.filter((m) => m.currency_native === "CNY").length;
+        return {
+          provider,
+          models: providerModels.length,
+          cnyPricing: cny,
+          missingCnyPricing: Math.max(0, providerModels.length - cny),
+        };
+      })
+      .filter((row) => row.models > 0 && row.missingCnyPricing > 0)
+      .slice(0, 8);
+
     return NextResponse.json({
       budget: diverseTake(byCost.filter((x) => getModelTier(x.model) !== "legacy"), 5).map(enrich),
       balanced: diverseTake(scored, 5).map(enrich),
       premium: diverseTake(byQuality, 5).map(enrich),
       latestModelAlerts: latestUnpriced,
+      pricingGapAlerts,
       relaxedFilters,
       input: body,
       generatedAt: new Date().toISOString(),

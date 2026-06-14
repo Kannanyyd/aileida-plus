@@ -50,7 +50,7 @@ export interface NormalizedPricing {
   billing_unit?: "per_1M_tokens" | "per_image" | "per_audio_min" | "per_video_sec" | "per_1k_embeddings" | "per_request";
   // 折扣
   batch_discount?: number;
-  tiered_rules?: Array<{ up_to: number; input_per_1m: number; output_per_1m: number }>;
+  tiered_rules?: Array<{ up_to: number; input_per_1m: number; output_per_1m: number; unit?: string; normalized_from?: string }>;
   // 币种与区域
   currency_native?: string;
   price_native?: number;

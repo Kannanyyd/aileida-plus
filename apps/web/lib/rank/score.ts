@@ -1,4 +1,5 @@
 import type { ModelWithPricing } from "../db/queries";
+import { config } from "../env";
 
 export interface ScoreWeights {
   price: number;
@@ -384,6 +385,11 @@ export function rank(models: ModelWithPricing[], presetKey: string, opts: RankOp
       input_per_1m_usd: item.model.input_per_1m_usd,
       output_per_1m_usd: item.model.output_per_1m_usd,
       currency_native: item.model.currency_native,
+      estimated_currency: item.model.currency_native !== "CNY" && (item.model.pricing_region === "china_mainland" || item.model.is_domestic || presetKey === "domestic" || presetKey === "china-available"),
+      native_input_per_1m_cny: item.model.input_per_1m_usd != null ? Math.round(item.model.input_per_1m_usd * config.fx.usdCny * 10000) / 10000 : null,
+      native_output_per_1m_cny: item.model.output_per_1m_usd != null ? Math.round(item.model.output_per_1m_usd * config.fx.usdCny * 10000) / 10000 : null,
+      exchange_rate: config.fx.usdCny,
+      exchange_rate_updated_at: process.env.EXCHANGE_RATE_UPDATED_AT ?? null,
       pricing_region: item.model.pricing_region,
       channel: item.model.channel,
       is_domestic: item.model.is_domestic,

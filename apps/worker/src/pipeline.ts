@@ -7,7 +7,14 @@ import { fetchOpenRouter } from "./sources/openrouter.js";
 import { fetchLlmPricesCurrent } from "./sources/llm-prices.js";
 import { fetchGenaiPrices } from "./sources/genai-prices.js";
 import { fetchCnProvider } from "./sources/cn-provider.js";
-import { fetchAliyunBailianCnyPricing, fetchDeepSeekCnyPricing, fetchSiliconFlowCnyPricing } from "./sources/cn-cny-pricing.js";
+import {
+  fetchAliyunBailianCnyPricing,
+  fetchBaiduQianfanCnyPricing,
+  fetchDeepSeekCnyPricing,
+  fetchKimiCnyPricing,
+  fetchSiliconFlowCnyPricing,
+  fetchTencentHunyuanCnyPricing,
+} from "./sources/cn-cny-pricing.js";
 import { CN_PROVIDERS } from "./sources/cn-registry.js";
 import { fetchOfficialModelSource } from "./sources/official-model-discovery.js";
 import { OFFICIAL_MODEL_SOURCES } from "./sources/official-model-registry.js";
@@ -281,6 +288,9 @@ export async function runPriorityCnyPricing() {
     { id: "cn-cny-deepseek", url: "https://api-docs.deepseek.com/quick_start/pricing-details-cny", fn: fetchDeepSeekCnyPricing },
     { id: "cn-cny-siliconflow", url: "https://siliconflow.cn/pricing", fn: fetchSiliconFlowCnyPricing },
     { id: "cn-cny-aliyun-bailian", url: "https://help.aliyun.com/zh/model-studio/model-pricing", fn: fetchAliyunBailianCnyPricing },
+    { id: "cn-cny-kimi", url: "https://platform.kimi.com/docs/pricing/chat", fn: fetchKimiCnyPricing },
+    { id: "cn-cny-tencent-hunyuan", url: "https://cloud.tencent.com/document/product/1729/97731", fn: fetchTencentHunyuanCnyPricing },
+    { id: "cn-cny-baidu-qianfan", url: "https://cloud.baidu.com/doc/qianfan-docs/s/Jm8r1826a", fn: fetchBaiduQianfanCnyPricing },
   ];
   for (const source of sources) {
     await runSource(source.id, "official-cny-pricing", source.url, async () => {
