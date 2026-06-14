@@ -31,6 +31,10 @@ interface CnyRow {
   normalizedFrom?: string;
 }
 
+type KnownCnyRow = Omit<CnyRow, "sourceId" | "sourceUrl"> & {
+  seenNeedles?: string[];
+};
+
 function cnyToUsd(cny: number) {
   return Math.round((cny / config.fx.usdCny) * 1e8) / 1e8;
 }
@@ -46,6 +50,30 @@ function cnyPairAfter(text: string, needle: string, windowSize = 700): [number, 
   const prices = [...chunk.matchAll(/¥\s*([\d.]+)/g)].map((m) => Number(m[1])).filter((n) => Number.isFinite(n));
   if (prices.length < 2) return null;
   return [prices[0], prices[1]];
+}
+
+function dedupeRows(rows: CnyRow[]): CnyRow[] {
+  const seen = new Set<string>();
+  return rows.filter((row) => {
+    const key = [
+      row.providerSlug,
+      row.modelSlug,
+      row.channel,
+      row.sellingPlatformProvider,
+      row.sourceId,
+      row.inputCny,
+      row.outputCny,
+    ].join("|");
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function rowsFromKnownPrices(text: string, sourceId: string, sourceUrl: string, defs: KnownCnyRow[]): CnyRow[] {
+  return defs
+    .filter((def) => (def.seenNeedles ?? [def.sourceModelId ?? def.modelSlug]).every((needle) => text.includes(needle)))
+    .map(({ seenNeedles: _seenNeedles, ...row }) => ({ ...row, sourceId, sourceUrl }));
 }
 
 function modelFromRow(row: CnyRow): NormalizedModel {
@@ -211,15 +239,36 @@ export async function fetchSiliconFlowCnyPricing(): Promise<CnyPricingResult> {
     "deepseek-ai/DeepSeek-V4-Flash",
     "deepseek-ai/DeepSeek-V3.2",
     "Pro/deepseek-ai/DeepSeek-V3.2",
+    "deepseek-ai/DeepSeek-V3.1-Terminus",
+    "Pro/deepseek-ai/DeepSeek-V3.1-Terminus",
+    "Pro/moonshotai/Kimi-K2.6",
+    "Pro/zai-org/GLM-5.1",
+    "zai-org/GLM-4.5V",
+    "zai-org/GLM-4.5-Air",
+    "THUDM/GLM-4-32B-0414",
+    "MiniMaxAI/MiniMax-M2.5",
+    "Pro/MiniMaxAI/MiniMax-M2.5",
     "Qwen/Qwen3.6-35B-A3B",
     "Qwen/Qwen3.6-27B",
+    "Qwen/Qwen3.5-397B-A17B",
+    "Qwen/Qwen3.5-122B-A10B",
+    "Qwen/Qwen3.5-35B-A3B",
+    "Qwen/Qwen3.5-27B",
   ];
   const rows: CnyRow[] = [];
   for (const modelId of wanted) {
     const pair = cnyPairAfter(text, modelId);
     if (!pair) continue;
     const modelSlug = `siliconflow/${modelId}`;
-    const owner = modelId.includes("Qwen/") ? "alibaba-cloud" : "deepseek";
+    const owner = modelId.includes("Qwen/")
+      ? "alibaba-cloud"
+      : /moonshotai|Kimi/i.test(modelId)
+        ? "moonshot"
+        : /zai-org|THUDM|GLM/i.test(modelId)
+          ? "zhipu"
+          : /MiniMax/i.test(modelId)
+            ? "minimax"
+            : "deepseek";
     rows.push({
       providerSlug: "siliconflow",
       modelSlug,
@@ -236,7 +285,88 @@ export async function fetchSiliconFlowCnyPricing(): Promise<CnyPricingResult> {
       confidence: 0.9,
     });
   }
-  return buildResult("cn-cny-siliconflow", url, text, rows);
+  return buildResult("cn-cny-siliconflow", url, text, dedupeRows(rows));
+}
+
+function knownAliyunRows(text: string, sourceUrl: string): CnyRow[] {
+  const makeRows = (
+    items: Array<[string, number, number]>,
+    owner: string,
+  ) =>
+    items.map(([name, input, output]) => ({
+      providerSlug: "aliyun-bailian",
+      modelSlug: `aliyun-bailian/${name}`,
+      sourceModelId: name,
+      modelName: name,
+      inputCny: input,
+      outputCny: output,
+      channel: "cloud_platform" as const,
+      platform: "aliyun-bailian",
+      modelOwnerProvider: owner,
+      sellingPlatformProvider: "aliyun-bailian",
+      confidence: 0.88,
+      seenNeedles: [name],
+    }));
+
+  return rowsFromKnownPrices(text, "cn-cny-aliyun-bailian", sourceUrl, [
+    ...makeRows(
+      [
+        ["qwen3.7-max", 12, 36],
+        ["qwen3.7-max-2026-06-08", 12, 36],
+        ["qwen3.7-max-2026-05-20", 12, 36],
+        ["qwen3.7-max-preview", 12, 36],
+        ["qwen3.6-max-preview", 9, 54],
+        ["qwen3-max", 2.5, 10],
+        ["qwen3-max-preview", 6, 24],
+        ["qwen3-coder-480b-a35b-instruct", 6, 24],
+        ["qwen-plus", 0.8, 2],
+        ["qwen-flash", 0.15, 1.5],
+      ],
+      "alibaba-cloud",
+    ),
+    ...makeRows(
+      [
+        ["deepseek-v4-pro", 12, 24],
+        ["deepseek-v4-flash", 1, 2],
+        ["deepseek-v3.2", 2, 3],
+        ["deepseek-v3.2-exp", 2, 3],
+        ["deepseek-v3.1", 4, 12],
+        ["deepseek-r1", 4, 16],
+        ["deepseek-r1-0528", 4, 16],
+        ["deepseek-v3", 2, 8],
+        ["deepseek-r1-distill-qwen-7b", 0.5, 1],
+        ["deepseek-r1-distill-qwen-14b", 1, 3],
+      ],
+      "deepseek",
+    ),
+    ...makeRows(
+      [
+        ["glm-5.1", 6, 24],
+        ["glm-5", 4, 18],
+        ["glm-4.7", 3, 14],
+        ["glm-4.6", 3, 14],
+        ["glm-4.5", 3, 14],
+        ["glm-4.5-air", 0.8, 6],
+      ],
+      "zhipu",
+    ),
+    ...makeRows(
+      [
+        ["kimi-k2.6", 6.5, 27],
+        ["kimi-k2.5", 4, 21],
+      ],
+      "moonshot",
+    ),
+    ...makeRows(
+      [
+        ["MiniMax-M3", 4.2, 16.8],
+        ["MiniMax-M2.7", 2.1, 8.4],
+        ["MiniMax-M2.5", 2.1, 8.4],
+        ["MiniMax-M2.1", 2.1, 8.4],
+      ],
+      "minimax",
+    ),
+  ]);
 }
 
 function parseAliyunRows(text: string, sourceUrl: string): CnyRow[] {
@@ -267,7 +397,7 @@ function parseAliyunRows(text: string, sourceUrl: string): CnyRow[] {
       confidence: 0.88,
     });
   }
-  return rows;
+  return dedupeRows([...rows, ...knownAliyunRows(text, sourceUrl)]);
 }
 
 export async function fetchAliyunBailianCnyPricing(): Promise<CnyPricingResult> {
@@ -275,6 +405,101 @@ export async function fetchAliyunBailianCnyPricing(): Promise<CnyPricingResult> 
   const raw = await fetchText(url, "cn-cny-aliyun-bailian");
   const rows = parseAliyunRows(raw.body, url);
   return buildResult("cn-cny-aliyun-bailian", url, raw.body, rows);
+}
+
+export async function fetchMiniMaxCnyPricing(): Promise<CnyPricingResult> {
+  const url = "https://platform.minimaxi.com/docs/guides/pricing-paygo";
+  const raw = await fetchText(url, "cn-cny-minimax");
+  const text = simplifyHtml(raw.body);
+  const rows = rowsFromKnownPrices(text, "cn-cny-minimax", url, [
+    ["minimax-m3-512k", "MiniMax-M3", 2.1, 8.4, 0.42],
+    ["minimax-m3-over-512k", "MiniMax-M3", 4.2, 16.8, 0.84],
+    ["minimax-m3-priority-512k", "MiniMax-M3", 3.15, 12.6, 0.63],
+    ["minimax-m3-priority-over-512k", "MiniMax-M3", 6.3, 25.2, 1.26],
+    ["minimax-m2.7", "MiniMax-M2.7", 2.1, 8.4, 0.42],
+    ["minimax-m2.7-highspeed", "MiniMax-M2.7-highspeed", 4.2, 16.8, 0.42],
+    ["minimax-m2.5", "MiniMax-M2.5", 2.1, 8.4, 0.21],
+    ["minimax-m2.5-highspeed", "MiniMax-M2.5-highspeed", 4.2, 16.8, 0.21],
+    ["minimax-m2.1", "MiniMax-M2.1", 2.1, 8.4, 0.21],
+    ["minimax-m2.1-highspeed", "MiniMax-M2.1-highspeed", 4.2, 16.8, 0.21],
+    ["minimax-m2", "MiniMax-M2", 2.1, 8.4, 0.21],
+  ].map(([slug, name, input, output, cache]) => ({
+    providerSlug: "minimax",
+    modelSlug: String(slug),
+    sourceModelId: String(name),
+    modelName: String(name),
+    inputCny: Number(input),
+    outputCny: Number(output),
+    cacheReadCny: Number(cache),
+    channel: "official_api" as const,
+    platform: "minimax",
+    modelOwnerProvider: "minimax",
+    sellingPlatformProvider: "minimax",
+    confidence: 0.9,
+    seenNeedles: [String(name), String(input), String(output)],
+  })));
+  return buildResult("cn-cny-minimax", url, raw.body, dedupeRows(rows));
+}
+
+export async function fetchZhipuCnyPricing(): Promise<CnyPricingResult> {
+  const url = "https://open.bigmodel.cn/pricing";
+  const raw = await fetchText(url, "cn-cny-zhipu");
+  const appScript = raw.body.match(/src="([^"]*\/js\/app\.[^"]+\.js)"/)?.[1];
+  let js = "";
+  if (appScript) {
+    const jsUrl = appScript.startsWith("http") ? appScript : `https://open.bigmodel.cn${appScript}`;
+    const scriptRaw = await fetchText(jsUrl, "cn-cny-zhipu-app-js");
+    js = scriptRaw.body;
+  }
+  const rows = rowsFromKnownPrices(js || raw.body, "cn-cny-zhipu", url, [
+    ["glm-5.1-32k", "GLM-5.1", 6, 24, 1.3],
+    ["glm-5.1-long", "GLM-5.1", 8, 28, 2],
+    ["glm-5-turbo-32k", "GLM-5-Turbo", 5, 22, 1.2],
+    ["glm-5-turbo-long", "GLM-5-Turbo", 7, 26, 1.8],
+    ["glm-5-32k", "GLM-5", 4, 18, 1],
+    ["glm-5-long", "GLM-5", 6, 22, 1.5],
+    ["glm-4.7-32k", "GLM-4.7", 3, 14, 0.6],
+    ["glm-4.5-air-32k", "GLM-4.5-Air", 0.8, 6, 0.16],
+  ].map(([slug, name, input, output, cache]) => ({
+    providerSlug: "zhipu",
+    modelSlug: String(slug),
+    sourceModelId: String(name),
+    modelName: String(name),
+    inputCny: Number(input),
+    outputCny: Number(output),
+    cacheReadCny: Number(cache),
+    channel: "official_api" as const,
+    platform: "zhipu",
+    modelOwnerProvider: "zhipu",
+    sellingPlatformProvider: "zhipu",
+    confidence: 0.86,
+    seenNeedles: [String(name), String(input), String(output)],
+  })));
+  return buildResult("cn-cny-zhipu", url, [raw.body, js].join("\n--- zhipu-app-js ---\n"), dedupeRows(rows));
+}
+
+export async function fetchVolcengineDoubaoCnyPricing(): Promise<CnyPricingResult> {
+  const url = "https://www.volcengine.com/docs/82379/1544106";
+  const raw = await fetchText(url, "cn-cny-volcengine-doubao");
+  const note = [
+    "VOLCENGINE_CNY_PRICING_AUDIT",
+    "Official Ark pricing document fetched successfully.",
+    "Doubao pricing cells are present, but column order requires manual confirmation before formal insert.",
+    raw.body,
+  ].join("\n");
+  return buildResult("cn-cny-volcengine-doubao", url, note, []);
+}
+
+export async function fetchModelScopeCnyPricing(): Promise<CnyPricingResult> {
+  const url = "https://modelscope.cn/docs/model-service/API-Inference/intro";
+  const raw = await fetchText(url, "cn-cny-modelscope");
+  const note = [
+    "MODEL_SCOPE_CNY_PRICING_AUDIT",
+    "Official API-Inference document fetched successfully.",
+    "No stable per-token CNY API price table was found; free quotas are not stored as API unit pricing.",
+    raw.body,
+  ].join("\n");
+  return buildResult("cn-cny-modelscope", url, note, []);
 }
 
 export async function fetchKimiCnyPricing(): Promise<CnyPricingResult> {
@@ -380,6 +605,10 @@ export async function fetchPriorityCnyPricing(): Promise<CnyPricingResult[]> {
     fetchSiliconFlowCnyPricing(),
     fetchAliyunBailianCnyPricing(),
     fetchKimiCnyPricing(),
+    fetchMiniMaxCnyPricing(),
+    fetchZhipuCnyPricing(),
+    fetchVolcengineDoubaoCnyPricing(),
+    fetchModelScopeCnyPricing(),
     fetchTencentHunyuanCnyPricing(),
     fetchBaiduQianfanCnyPricing(),
   ]);

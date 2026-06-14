@@ -12,8 +12,12 @@ import {
   fetchBaiduQianfanCnyPricing,
   fetchDeepSeekCnyPricing,
   fetchKimiCnyPricing,
+  fetchMiniMaxCnyPricing,
+  fetchModelScopeCnyPricing,
   fetchSiliconFlowCnyPricing,
   fetchTencentHunyuanCnyPricing,
+  fetchVolcengineDoubaoCnyPricing,
+  fetchZhipuCnyPricing,
 } from "./sources/cn-cny-pricing.js";
 import { CN_PROVIDERS } from "./sources/cn-registry.js";
 import { fetchOfficialModelSource } from "./sources/official-model-discovery.js";
@@ -43,6 +47,7 @@ const PROVIDER_META: Record<string, { name_zh: string; region: "cn" | "global"; 
   zhipu: { name_zh: "智谱 AI", region: "cn", homepage: "https://www.zhipuai.cn" },
   baichuan: { name_zh: "百川智能", region: "cn", homepage: "https://www.baichuan-ai.com" },
   MiniMax: { name_zh: "MiniMax", region: "cn", homepage: "https://api.MiniMax.chat" },
+  minimax: { name_zh: "MiniMax", region: "cn", homepage: "https://platform.minimaxi.com" },
   yi: { name_zh: "零一万物", region: "cn", homepage: "https://www.lingyiwanwu.com" },
   perplexity: { name_zh: "Perplexity", region: "global", homepage: "https://www.perplexity.ai" },
   "aliyun-bailian": { name_zh: "阿里云百炼", region: "cn", homepage: "https://bailian.console.aliyun.com" },
@@ -289,6 +294,10 @@ export async function runPriorityCnyPricing() {
     { id: "cn-cny-siliconflow", url: "https://siliconflow.cn/pricing", fn: fetchSiliconFlowCnyPricing },
     { id: "cn-cny-aliyun-bailian", url: "https://help.aliyun.com/zh/model-studio/model-pricing", fn: fetchAliyunBailianCnyPricing },
     { id: "cn-cny-kimi", url: "https://platform.kimi.com/docs/pricing/chat", fn: fetchKimiCnyPricing },
+    { id: "cn-cny-minimax", url: "https://platform.minimaxi.com/docs/guides/pricing-paygo", fn: fetchMiniMaxCnyPricing },
+    { id: "cn-cny-zhipu", url: "https://open.bigmodel.cn/pricing", fn: fetchZhipuCnyPricing },
+    { id: "cn-cny-volcengine-doubao", url: "https://www.volcengine.com/docs/82379/1544106", fn: fetchVolcengineDoubaoCnyPricing },
+    { id: "cn-cny-modelscope", url: "https://modelscope.cn/docs/model-service/API-Inference/intro", fn: fetchModelScopeCnyPricing },
     { id: "cn-cny-tencent-hunyuan", url: "https://cloud.tencent.com/document/product/1729/97731", fn: fetchTencentHunyuanCnyPricing },
     { id: "cn-cny-baidu-qianfan", url: "https://cloud.baidu.com/doc/qianfan-docs/s/Jm8r1826a", fn: fetchBaiduQianfanCnyPricing },
   ];

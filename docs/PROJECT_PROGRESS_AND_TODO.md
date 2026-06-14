@@ -595,3 +595,30 @@
   - `rank(...).slice/map`
 
 ---
+## 2026-06-14 国内 CNY 价格第三轮补全（进行中）
+
+- 当前目标：只做国内原生人民币价格覆盖扩展，不处理 DNS / Nginx / HTTPS，不改 Docker build 链路，不硬卡 Chromium / Playwright。
+- 本地源码基线：`277e26d`。
+- 已实现代码改动：
+  - 扩展 `apps/worker/src/sources/cn-cny-pricing.ts`。
+  - 新增 MiniMax 官方 CNY 价格源：`https://platform.minimaxi.com/docs/guides/pricing-paygo`。
+  - 新增 Zhipu/GLM 官方价格页静态 JS 解析源：`https://open.bigmodel.cn/pricing`。
+  - 新增 Volcengine/Doubao 官方文档审计源：`https://www.volcengine.com/docs/82379/1544106`；当前只写 fetch log/snapshot，不把列顺序未确认的价格直接入正式 pricing。
+  - 新增 ModelScope 官方文档审计源：`https://modelscope.cn/docs/model-service/API-Inference/intro`；未发现稳定 per-token CNY API 价表，不把免费额度当价格入库。
+  - 扩展 SiliconFlow 静态解析范围：DeepSeek、Kimi、Zhipu/GLM、MiniMax、Qwen，保留 selling_platform_provider/source_provider 为 `siliconflow`。
+  - 扩展 Aliyun Bailian 静态价格行：Qwen、DeepSeek、GLM、Kimi、MiniMax，保留 selling_platform_provider/source_provider 为 `aliyun-bailian`。
+  - 在 `apps/worker/src/pipeline.ts` 注册新增 CNY 源，并补充 lowercase `minimax` provider metadata。
+- 本地预检结果（未入生产库）：
+  - `cn-cny-siliconflow`：19 pricing。
+  - `cn-cny-aliyun-bailian`：37 pricing。
+  - `cn-cny-minimax`：11 pricing。
+  - `cn-cny-zhipu`：8 pricing。
+  - `cn-cny-volcengine-doubao`：0 pricing，仅审计 snapshot。
+  - `cn-cny-modelscope`：0 pricing，仅审计 snapshot。
+- 本地验证：`npm run typecheck` 通过。
+- 下一步：
+  - commit/push。
+  - 服务器同步代码，正式 rebuild/up worker。
+  - 在服务器运行 `npm -w worker run crawl:cny-pricing` 或容器内等效命令。
+  - 验证 CNY pricing 是否从 32 提升到 >= 60。
+  - 验证 source_fetch_logs/source_snapshots、review_queue 去重、国内榜单/推荐、主要页面/API、日志关键错误。

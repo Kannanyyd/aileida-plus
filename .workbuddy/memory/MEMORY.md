@@ -192,3 +192,21 @@ ddd1e00 上线确认：
 - `/admin/review-queue` 已出现 high impact 默认排序、dedupe/source/last seen/confidence 列、批量按钮。
 - approve 缺 `currency_native` 会返回 400，必填校验生效。
 - web/worker/postgres 正常，日志无 500/digest/relation/tsx/EACCES/password/server-side exception/rank slice-map 错误。
+## 2026-06-14 CNY pricing round 3 handoff
+
+- Current active task: domestic native CNY pricing third round.
+- Do not work on DNS/Nginx/HTTPS, Docker build chain, Chromium/Playwright install, commercialization, or large manual price entry.
+- Local code changes prepared:
+  - Expanded `apps/worker/src/sources/cn-cny-pricing.ts`.
+  - Registered new CNY sources in `apps/worker/src/pipeline.ts`.
+  - New/expanded sources: MiniMax official, Zhipu official pricing JS, Aliyun Bailian expanded platform prices, SiliconFlow expanded platform prices.
+  - Volcengine/Doubao and ModelScope currently write fetch logs/snapshots only; no formal pricing insert because official static content needs manual confirmation or lacks stable token unit prices.
+- Local preflight counts before production ingest:
+  - SiliconFlow 19 pricing rows.
+  - Aliyun Bailian 37 pricing rows.
+  - MiniMax 11 pricing rows.
+  - Zhipu 8 pricing rows.
+  - Volcengine/Doubao 0 pricing rows, snapshot only.
+  - ModelScope 0 pricing rows, snapshot only.
+- `npm run typecheck` passed locally.
+- Next steps: commit/push, deploy/rebuild worker, run `crawl:cny-pricing`, verify CNY pricing total increases from 32 to >=60, then validate pages/API/logs and update final report.
