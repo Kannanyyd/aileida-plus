@@ -63,20 +63,32 @@ export function getModelTier(m: ModelWithPricing): ModelTier {
 }
 
 export function freshnessScore(m: ModelWithPricing): number {
+  let base: number;
   switch (getModelTier(m)) {
     case "current_frontier":
-      return 100;
+      base = 100;
+      break;
     case "current_mainstream":
-      return 78;
+      base = 78;
+      break;
     case "previous_generation":
-      return 42;
+      base = 42;
+      break;
     case "legacy":
-      return 12;
+      base = 12;
+      break;
     case "deprecated":
-      return 0;
+      base = 0;
+      break;
     case "unknown":
-      return 20;
+      base = 20;
+      break;
   }
+  if (m.has_newer_family_model) base -= 28;
+  if (m.freshness_status === "warning") base -= 8;
+  if (m.freshness_status === "stale") base -= 40;
+  if (m.freshness_status === "unknown") base -= 15;
+  return clamp(base, 0, 100);
 }
 
 type Preset = { weights: ScoreWeights; label: string; filter?: (m: ModelWithPricing) => boolean };
@@ -169,6 +181,10 @@ export interface RankOptions {
   hideLegacy?: boolean;
   hideDeprecated?: boolean;
   hideUnknown?: boolean;
+  hideStale?: boolean;
+  hideSuperseded?: boolean;
+  maxSourceAgeHours?: number;
+  homepageStrict?: boolean;
 }
 
 function filterModels(models: ModelWithPricing[], opts: RankOptions): ModelWithPricing[] {
@@ -176,6 +192,24 @@ function filterModels(models: ModelWithPricing[], opts: RankOptions): ModelWithP
   if (opts.hideDeprecated ?? true) result = result.filter((m) => getModelTier(m) !== "deprecated");
   if (opts.hideLegacy ?? true) result = result.filter((m) => !["legacy", "previous_generation"].includes(getModelTier(m)));
   if (opts.hideUnknown ?? true) result = result.filter((m) => getModelTier(m) !== "unknown");
+  if (opts.hideSuperseded ?? true) result = result.filter((m) => !m.has_newer_family_model);
+  if (opts.hideStale ?? true) {
+    const maxAge = opts.maxSourceAgeHours ?? 24;
+    result = result.filter((m) => {
+      const observedAge = m.source_age_hours ?? m.pricing_age_hours;
+      if (observedAge == null) return false;
+      return m.freshness_status !== "stale" && observedAge <= maxAge;
+    });
+  }
+  if (opts.homepageStrict) {
+    result = result.filter((m) => {
+      const flags = new Set(m.data_quality_flags ?? []);
+      if (flags.has("suspicious_name") || flags.has("needs_manual_review") || flags.has("missing_price_source_url")) return false;
+      if (flags.has("aggregator_only") && !m.model_is_recommended_by_official && !m.model_is_default_in_official_docs) return false;
+      if ((m.status === "preview" || m.status === "beta" || /preview|beta|experimental/i.test(m.model_name)) && !m.model_is_recommended_by_official && !m.model_is_default_in_official_docs) return false;
+      return Math.max(m.confidence_score, m.model_source_confidence) >= 0.7;
+    });
+  }
   return result;
 }
 
@@ -322,6 +356,7 @@ export function rank(models: ModelWithPricing[], presetKey: string, opts: RankOp
     hideLegacy: isOldModelsPreset ? false : opts.hideLegacy,
     hideDeprecated: isOldModelsPreset ? false : opts.hideDeprecated,
     hideUnknown: isOldModelsPreset ? false : opts.hideUnknown,
+    hideSuperseded: isOldModelsPreset ? false : opts.hideSuperseded,
   });
   if (preset.filter) candidates = candidates.filter(preset.filter);
 
@@ -409,8 +444,23 @@ export function rank(models: ModelWithPricing[], presetKey: string, opts: RankOp
       aggregator_min_input_usd: item.model.aggregator_min_input_usd,
       aggregator_min_output_usd: item.model.aggregator_min_output_usd,
       source_confidence_score: Math.round(Math.max(item.model.confidence_score, item.model.model_source_confidence) * 1000) / 10,
+      official_release_date: item.model.official_release_date,
+      first_seen_at: item.model.first_seen_at,
+      last_seen_at: item.model.last_seen_at,
+      latest_candidate_last_seen_at: item.model.latest_candidate_last_seen_at,
+      source_checked_at: item.model.source_checked_at,
+      pricing_checked_at: item.model.pricing_checked_at,
+      official_source_checked_at: item.model.official_source_checked_at,
+      source_age_hours: item.model.source_age_hours,
+      pricing_age_hours: item.model.pricing_age_hours,
+      model_age_days: item.model.model_age_days,
+      freshness_status: item.model.freshness_status,
+      has_newer_family_model: item.model.has_newer_family_model,
+      superseded_by_model_id: item.model.superseded_by_model_id,
+      is_current_default_pick: item.model.is_current_default_pick,
       score: item.score,
       reason: rankReason(item.score, item.model, presetKey),
+      why_ranked: rankReason(item.score, item.model, presetKey),
     })),
     slice: (start?: number, end?: number) => deduped.slice(start, end).map((item) => ({ model: item.model, score: item.score })),
     map: (fn: any) => deduped.map((item) => ({ model: item.model, score: item.score })).map(fn),

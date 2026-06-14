@@ -17,10 +17,12 @@
     "crawl:official-models": "tsx src/cli/run-source.ts official-models",
     "discover:models": "tsx src/cli/run-source.ts official-models",
     "audit:latest-models": "tsx src/cli/run-source.ts latest-models",
+    "audit:freshness": "tsx src/cli/audit-freshness.ts",
     "scrape:cn": "tsx src/cli/run-source.ts cn",
     "crawl:cny-pricing": "tsx src/cli/run-source.ts cn-cny-pricing",
     "crawl:once": "tsx src/cli/run-all.ts",
     "crawl:prices": "tsx src/cli/run-all.ts",
+    "crawl:pricing": "tsx src/cli/run-all.ts",
     "crawl:providers": "tsx src/cli/run-all.ts",
     "crawl:news": "tsx src/cli/run-all.ts"
   },

@@ -28,6 +28,9 @@ export async function GET(
   const hideLegacy = boolParam(url, "hide_legacy", true) && url.searchParams.get("show_legacy") !== "true";
   const hideDeprecated = boolParam(url, "hide_deprecated", true) && url.searchParams.get("show_deprecated") !== "true";
   const hideUnknown = boolParam(url, "hide_unknown", true) && url.searchParams.get("show_unknown") !== "true";
+  const hideStale = boolParam(url, "hide_stale", true);
+  const hideSuperseded = boolParam(url, "hide_superseded", true);
+  const maxSourceAgeHours = Math.min(Math.max(parseInt(url.searchParams.get("max_source_age_hours") ?? "24"), 1), 720);
   const filterRegion = url.searchParams.get("region");
   const filterChannel = url.searchParams.get("channel");
   const filterProvider = url.searchParams.get("provider");
@@ -53,6 +56,9 @@ export async function GET(
     hideLegacy,
     hideDeprecated,
     hideUnknown,
+    hideStale,
+    hideSuperseded,
+    maxSourceAgeHours,
   });
 
   const availablePresets = Object.entries(RANKING_PRESETS).map(([key, p]) => ({
@@ -70,6 +76,9 @@ export async function GET(
       hideLegacy,
       hideDeprecated,
       hideUnknown,
+      hideStale,
+      hideSuperseded,
+      maxSourceAgeHours,
       region: filterRegion,
       channel: filterChannel,
       provider: filterProvider,

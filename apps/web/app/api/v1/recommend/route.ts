@@ -166,6 +166,10 @@ export async function POST(req: NextRequest) {
       const tier = getModelTier(m);
       const allowOld = body.budget === "cheapest" || body.budget === "free-tier";
       if (!allowOld && ["previous_generation", "legacy", "deprecated", "unknown"].includes(tier)) return false;
+      if (!allowOld && m.has_newer_family_model) return false;
+      const observedAge = m.source_age_hours ?? m.pricing_age_hours;
+      if (!allowOld && observedAge != null && observedAge > 72) return false;
+      if (!allowOld && m.freshness_status === "stale" && observedAge != null && observedAge > 24) return false;
       if (body.budget !== "cheapest" && body.budget !== "free-tier" && (m.status === "preview" || m.status === "beta")) return false;
       const requiresReasoning = body.techRequirements?.includes("reasoning") || scenarioSlug(body.scenario) === "data-analysis";
       if (requiresReasoning && /non[-_ ]reasoning/i.test(m.model_name)) return false;
@@ -249,6 +253,14 @@ export async function POST(req: NextRequest) {
           exchangeRate: config.fx.usdCny,
           exchangeRateUpdatedAt: process.env.EXCHANGE_RATE_UPDATED_AT ?? null,
           dataQualityFlags: row.model.data_quality_flags,
+          sourceCheckedAt: row.model.source_checked_at,
+          pricingCheckedAt: row.model.pricing_checked_at,
+          sourceAgeHours: row.model.source_age_hours,
+          pricingAgeHours: row.model.pricing_age_hours,
+          freshnessStatus: row.model.freshness_status,
+          hasNewerFamilyModel: row.model.has_newer_family_model,
+          supersededByModelId: row.model.superseded_by_model_id,
+          isCurrentDefaultPick: row.model.is_current_default_pick,
           sourceConfidence: Math.max(row.model.confidence_score, row.model.model_source_confidence),
           dataConfidenceIssue: row.model.confidence_score < 0.75 || row.model.price_source_count < 2 || relaxedFilters.length > 0 || (row.model.data_quality_flags ?? []).length > 0,
         },

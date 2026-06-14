@@ -2,7 +2,7 @@
  * 通用查询：models 列表 + 价格 + 厂商聚合
  */
 import { db } from "./client";
-import { models, pricing, providers, priceChangeLog, promotions, latestModelCandidates, modelDiscoveryLogs, providerAliases, reviewQueue } from "./schema";
+import { models, pricing, providers, priceChangeLog, promotions, latestModelCandidates, modelDiscoveryLogs, providerAliases, reviewQueue, sourceFetchLogs } from "./schema";
 import { desc, eq, sql, and, gte, isNotNull, inArray } from "drizzle-orm";
 import {
   canonicalProviderSlug,
@@ -21,6 +21,11 @@ export interface ModelWithPricing {
   model_name: string;
   family: string | null;
   release_date: string | null;
+  first_seen_at: Date | null;
+  last_seen_at: Date | null;
+  official_release_date: string | null;
+  official_updated_at: Date | null;
+  official_source_url: string | null;
   context_length: number | null;
   capabilities: string[];
   modality: string[];
@@ -75,6 +80,17 @@ export interface ModelWithPricing {
   source_model_id: string;
   data_quality_flags: string[];
   model_needs_alias_review: boolean;
+  latest_candidate_last_seen_at: Date | null;
+  source_checked_at: Date | null;
+  pricing_checked_at: Date | null;
+  official_source_checked_at: Date | null;
+  source_age_hours: number | null;
+  pricing_age_hours: number | null;
+  model_age_days: number | null;
+  freshness_status: "fresh" | "warning" | "stale" | "unknown";
+  has_newer_family_model: boolean;
+  superseded_by_model_id: string | null;
+  is_current_default_pick: boolean;
 }
 
 const baseSelect = {
@@ -83,6 +99,11 @@ const baseSelect = {
   model_name: models.name,
   family: models.family,
   release_date: models.release_date,
+  first_seen_at: models.first_seen_at,
+  last_seen_at: models.last_seen_at,
+  official_release_date: models.official_release_date,
+  official_updated_at: models.official_updated_at,
+  official_source_url: models.official_source_url,
   context_length: models.context_length,
   capabilities: models.capabilities,
   modality: models.modality,
@@ -135,6 +156,44 @@ function toNumber(v: unknown): number | null {
   return v != null ? Number(v) : null;
 }
 
+function asDate(v: unknown): Date | null {
+  if (!v) return null;
+  const d = v instanceof Date ? v : new Date(String(v));
+  return Number.isFinite(d.getTime()) ? d : null;
+}
+
+function asDateString(v: unknown): string | null {
+  if (!v) return null;
+  return String(v);
+}
+
+function latestDate(...values: Array<Date | string | null | undefined>): Date | null {
+  const dates = values.map(asDate).filter((d): d is Date => Boolean(d));
+  if (dates.length === 0) return null;
+  return dates.sort((a, b) => b.getTime() - a.getTime())[0];
+}
+
+function ageHours(date: Date | string | null | undefined): number | null {
+  const d = asDate(date);
+  if (!d) return null;
+  return Math.round(((Date.now() - d.getTime()) / (1000 * 60 * 60)) * 10) / 10;
+}
+
+function ageDays(date: Date | string | null | undefined): number | null {
+  const d = asDate(date);
+  if (!d) return null;
+  return Math.round(((Date.now() - d.getTime()) / (1000 * 60 * 60 * 24)) * 10) / 10;
+}
+
+function freshnessStatus(sourceAge: number | null, pricingAge: number | null): ModelWithPricing["freshness_status"] {
+  const observed = [sourceAge, pricingAge].filter((x): x is number => x != null);
+  if (observed.length === 0) return "unknown";
+  const age = Math.min(...observed);
+  if (age <= 12) return "fresh";
+  if (age <= 24) return "warning";
+  return "stale";
+}
+
 function blendedPrice(m: Pick<ModelWithPricing, "input_per_1m_usd" | "output_per_1m_usd">): number {
   const input = m.input_per_1m_usd ?? Number.POSITIVE_INFINITY;
   const output = m.output_per_1m_usd ?? Number.POSITIVE_INFINITY;
@@ -183,7 +242,12 @@ function normalizeModelRow(r: typeof baseSelect extends infer _T ? any : never):
   });
   return {
     ...r,
-    release_date: r.release_date ? String(r.release_date) : null,
+    release_date: asDateString(r.release_date),
+    official_release_date: asDateString(r.official_release_date),
+    first_seen_at: asDate(r.first_seen_at),
+    last_seen_at: asDate(r.last_seen_at),
+    official_updated_at: asDate(r.official_updated_at),
+    official_source_url: r.official_source_url ?? null,
     input_per_1m_usd: toNumber(r.input_per_1m_usd),
     output_per_1m_usd: toNumber(r.output_per_1m_usd),
     input_cached_read_per_1m_usd: toNumber(r.input_cached_read_per_1m_usd),
@@ -204,6 +268,17 @@ function normalizeModelRow(r: typeof baseSelect extends infer _T ? any : never):
     source_model_id: r.source_model_id ?? r.model_slug,
     data_quality_flags: Array.from(new Set([...storedFlags, ...inferredFlags])).sort(),
     model_needs_alias_review: Boolean(r.model_needs_alias_review || alias?.needsReview),
+    latest_candidate_last_seen_at: null,
+    source_checked_at: null,
+    pricing_checked_at: asDate(r.updated_at),
+    official_source_checked_at: asDate(r.official_updated_at),
+    source_age_hours: null,
+    pricing_age_hours: ageHours(r.updated_at),
+    model_age_days: ageDays(r.official_release_date ?? r.release_date ?? r.first_seen_at),
+    freshness_status: freshnessStatus(null, ageHours(r.updated_at)),
+    has_newer_family_model: false,
+    superseded_by_model_id: null,
+    is_current_default_pick: false,
     price_source_count: 1,
     domestic_min_input_usd: null,
     domestic_min_output_usd: null,
@@ -271,6 +346,8 @@ function consolidateModelRows(rows: ReturnType<typeof normalizeModelRow>[]): Mod
       model_needs_alias_review: group.some((r) => r.model_needs_alias_review),
       confidence_score: Math.max(...group.map((r) => r.confidence_score)),
       model_source_confidence: Math.max(...group.map((r) => r.model_source_confidence)),
+      pricing_checked_at: latestDate(...group.map((r) => r.pricing_checked_at ?? r.updated_at)),
+      pricing_age_hours: ageHours(latestDate(...group.map((r) => r.pricing_checked_at ?? r.updated_at))),
       domestic_min_input_usd: domestic.input,
       domestic_min_output_usd: domestic.output,
       overseas_min_input_usd: overseas.input,
@@ -281,6 +358,151 @@ function consolidateModelRows(rows: ReturnType<typeof normalizeModelRow>[]): Mod
       aggregator_min_output_usd: aggregator.output,
     };
   });
+}
+
+function modelFamilyKey(m: ModelWithPricing): string {
+  return `${m.model_owner_provider || m.canonical_provider_slug || m.provider_slug}/${m.model_family || m.family || m.model_slug}`.toLowerCase();
+}
+
+function modelRecencyDate(m: ModelWithPricing): Date | null {
+  return latestDate(
+    m.latest_candidate_last_seen_at,
+    m.official_updated_at,
+    m.last_seen_at,
+    m.official_release_date,
+    m.release_date,
+    m.model_updated_at,
+  );
+}
+
+function currentPickScore(m: ModelWithPricing): number {
+  const tierScore: Record<string, number> = {
+    current_frontier: 1000,
+    current_mainstream: 700,
+    previous_generation: 200,
+    legacy: 50,
+    deprecated: -500,
+    unknown: 100,
+  };
+  const recency = modelRecencyDate(m)?.getTime() ?? 0;
+  const confidence = Math.max(m.confidence_score, m.model_source_confidence) * 100;
+  const official = (m.model_is_recommended_by_official ? 80 : 0) + (m.model_is_default_in_official_docs ? 80 : 0);
+  const latest = m.model_is_latest_alias ? 30 : 0;
+  return (tierScore[m.model_lifecycle_tier] ?? 100) + confidence + official + latest + recency / 1_000_000_000_000;
+}
+
+async function enrichFreshnessAndSupersession(input: ModelWithPricing[]): Promise<ModelWithPricing[]> {
+  if (input.length === 0) return input;
+
+  const sourceKeys = Array.from(new Set(input.flatMap((m) => [
+    m.primary_source_id,
+    m.source_provider,
+    m.selling_platform_provider,
+    m.model_source_provider,
+    m.model_selling_platform_provider,
+    m.canonical_provider_slug,
+    m.provider_slug,
+  ]).filter(Boolean) as string[]));
+
+  const sourceLogs = sourceKeys.length > 0
+    ? await db
+      .select({
+        source_id: sourceFetchLogs.source_id,
+        status: sourceFetchLogs.status,
+        fetched_at: sourceFetchLogs.fetched_at,
+      })
+      .from(sourceFetchLogs)
+      .where(inArray(sourceFetchLogs.source_id, sourceKeys))
+      .orderBy(desc(sourceFetchLogs.fetched_at))
+      .limit(Math.max(200, sourceKeys.length * 4))
+    : [];
+
+  const discoveryLogs = await db
+    .select({
+      provider_slug: modelDiscoveryLogs.provider_slug,
+      source_id: modelDiscoveryLogs.source_id,
+      status: modelDiscoveryLogs.status,
+      fetched_at: modelDiscoveryLogs.fetched_at,
+    })
+    .from(modelDiscoveryLogs)
+    .where(sql`${modelDiscoveryLogs.status} in ('success', 'partial')`)
+    .orderBy(desc(modelDiscoveryLogs.fetched_at))
+    .limit(500);
+
+  const latestSource = new Map<string, Date>();
+  for (const log of sourceLogs) {
+    if (!["success", "partial"].includes(log.status)) continue;
+    const current = latestSource.get(log.source_id);
+    if (!current || log.fetched_at > current) latestSource.set(log.source_id, log.fetched_at);
+  }
+
+  const latestDiscovery = new Map<string, Date>();
+  for (const log of discoveryLogs) {
+    for (const key of [log.source_id, log.provider_slug, canonicalProviderSlug(log.provider_slug)]) {
+      const current = latestDiscovery.get(key);
+      if (!current || log.fetched_at > current) latestDiscovery.set(key, log.fetched_at);
+    }
+  }
+
+  const enriched = input.map((model) => {
+    const checkedCandidates = [
+      model.primary_source_id,
+      model.source_provider,
+      model.selling_platform_provider,
+      model.model_source_provider,
+      model.model_selling_platform_provider,
+      model.canonical_provider_slug,
+      model.provider_slug,
+    ].filter(Boolean) as string[];
+    const latestSourceCheck = latestDate(...checkedCandidates.map((key) => latestSource.get(key)));
+    const latestOfficialCheck = latestDate(
+      model.official_updated_at,
+      model.latest_candidate_last_seen_at,
+      ...checkedCandidates.map((key) => latestDiscovery.get(key)),
+    );
+    const sourceChecked = latestDate(latestSourceCheck, latestOfficialCheck, model.pricing_checked_at);
+    const sourceAge = ageHours(sourceChecked);
+    const pricingAge = ageHours(model.pricing_checked_at);
+    return {
+      ...model,
+      source_checked_at: sourceChecked,
+      official_source_checked_at: latestOfficialCheck,
+      source_age_hours: sourceAge,
+      pricing_age_hours: pricingAge,
+      model_age_days: ageDays(model.official_release_date ?? model.release_date ?? model.first_seen_at),
+      freshness_status: freshnessStatus(sourceAge, pricingAge),
+    };
+  });
+
+  const groups = new Map<string, ModelWithPricing[]>();
+  for (const model of enriched) {
+    const key = modelFamilyKey(model);
+    const list = groups.get(key) ?? [];
+    list.push(model);
+    groups.set(key, list);
+  }
+
+  for (const group of groups.values()) {
+    if (group.length < 2) {
+      group[0].is_current_default_pick = ["current_frontier", "current_mainstream"].includes(group[0].model_lifecycle_tier) && group[0].freshness_status !== "stale";
+      continue;
+    }
+    const best = [...group].sort((a, b) => currentPickScore(b) - currentPickScore(a))[0];
+    for (const model of group) {
+      model.is_current_default_pick = model.model_id === best.model_id && ["current_frontier", "current_mainstream"].includes(model.model_lifecycle_tier) && model.freshness_status !== "stale";
+      if (model.model_id === best.model_id) continue;
+      const bestDate = modelRecencyDate(best)?.getTime() ?? 0;
+      const modelDate = modelRecencyDate(model)?.getTime() ?? 0;
+      if (bestDate > modelDate || currentPickScore(best) - currentPickScore(model) >= 80) {
+        model.has_newer_family_model = true;
+        model.superseded_by_model_id = best.model_id;
+        if (model.model_lifecycle_tier === "current_frontier") model.model_lifecycle_tier = "current_mainstream";
+        else if (model.model_lifecycle_tier === "current_mainstream") model.model_lifecycle_tier = "previous_generation";
+      }
+    }
+  }
+
+  return enriched;
 }
 
 export async function listModels(filter?: {
@@ -325,6 +547,9 @@ export async function listModels(filter?: {
         is_recommended_by_official: latestModelCandidates.is_recommended_by_official,
         is_default_in_official_docs: latestModelCandidates.is_default_in_official_docs,
         is_latest_alias: latestModelCandidates.is_latest_alias,
+        last_seen_at: latestModelCandidates.last_seen_at,
+        first_seen_at: latestModelCandidates.first_seen_at,
+        source_url: latestModelCandidates.source_url,
       })
       .from(latestModelCandidates)
       .where(inArray(latestModelCandidates.model_slug, keys));
@@ -338,10 +563,15 @@ export async function listModels(filter?: {
       model.model_is_recommended_by_official = candidate.is_recommended_by_official;
       model.model_is_default_in_official_docs = candidate.is_default_in_official_docs;
       model.model_is_latest_alias = candidate.is_latest_alias;
+      model.latest_candidate_last_seen_at = candidate.last_seen_at;
+      model.official_source_checked_at = latestDate(model.official_source_checked_at, candidate.last_seen_at);
+      model.official_source_url = model.official_source_url ?? candidate.source_url;
+      model.first_seen_at = latestDate(model.first_seen_at, candidate.first_seen_at) ?? model.first_seen_at;
     }
   }
 
-  return consolidated.sort((a, b) => hotModelScore(b) - hotModelScore(a)).slice(0, filter?.limit ?? 200);
+  const enriched = await enrichFreshnessAndSupersession(consolidated);
+  return enriched.sort((a, b) => hotModelScore(b) - hotModelScore(a)).slice(0, filter?.limit ?? 200);
 }
 
 export async function getModelBySlug(slug: string): Promise<ModelWithPricing | null> {
@@ -357,7 +587,8 @@ export async function getModelBySlug(slug: string): Promise<ModelWithPricing | n
     ))
     .limit(1);
   if (rows.length === 0) return null;
-  return consolidateModelRows(rows.map(normalizeModelRow))[0] ?? null;
+  const [model] = await enrichFreshnessAndSupersession(consolidateModelRows(rows.map(normalizeModelRow)));
+  return model ?? null;
 }
 
 /** 获取模型所有渠道的价格 */
@@ -670,6 +901,49 @@ export async function dashboardOverview() {
     review: reviewCount?.c ?? 0,
     todayChanges: todayChanges?.c ?? 0,
     promotions: activePromos?.c ?? 0,
+  };
+}
+
+export async function dataFreshnessOverview() {
+  const [latestModelDiscovery] = await db
+    .select({ fetched_at: sql<Date | null>`max(${modelDiscoveryLogs.fetched_at})` })
+    .from(modelDiscoveryLogs)
+    .where(sql`${modelDiscoveryLogs.status} in ('success', 'partial')`);
+  const [latestSourceFetch] = await db
+    .select({ fetched_at: sql<Date | null>`max(${sourceFetchLogs.fetched_at})` })
+    .from(sourceFetchLogs)
+    .where(sql`${sourceFetchLogs.status} in ('success', 'partial')`);
+  const [latestPricing] = await db
+    .select({ updated_at: sql<Date | null>`max(${pricing.updated_at})` })
+    .from(pricing)
+    .where(eq(pricing.is_current, true));
+  const [latestCnyPricing] = await db
+    .select({ updated_at: sql<Date | null>`max(${pricing.updated_at})` })
+    .from(pricing)
+    .where(and(eq(pricing.is_current, true), eq(pricing.currency_native, "CNY"), eq(pricing.region, "china_mainland")));
+  const [stale12] = await db
+    .select({ c: sql<number>`count(*)::int` })
+    .from(sourceFetchLogs)
+    .where(sql`${sourceFetchLogs.status} in ('success', 'partial') and ${sourceFetchLogs.fetched_at} < now() - interval '12 hours'`);
+  const [stale24] = await db
+    .select({ c: sql<number>`count(*)::int` })
+    .from(sourceFetchLogs)
+    .where(sql`${sourceFetchLogs.status} in ('success', 'partial') and ${sourceFetchLogs.fetched_at} < now() - interval '24 hours'`);
+
+  const sourceCheckedAt = latestDate(latestSourceFetch?.fetched_at ?? null, latestModelDiscovery?.fetched_at ?? null);
+  const pricingCheckedAt = latestPricing?.updated_at ?? null;
+  const cnyPricingCheckedAt = latestCnyPricing?.updated_at ?? null;
+  return {
+    latest_model_discovery_checked_at: latestModelDiscovery?.fetched_at ?? null,
+    latest_source_checked_at: sourceCheckedAt,
+    latest_pricing_checked_at: pricingCheckedAt,
+    latest_cny_pricing_checked_at: cnyPricingCheckedAt,
+    source_age_hours: ageHours(sourceCheckedAt),
+    pricing_age_hours: ageHours(pricingCheckedAt),
+    cny_pricing_age_hours: ageHours(cnyPricingCheckedAt),
+    stale_source_logs_over_12h: stale12?.c ?? 0,
+    stale_source_logs_over_24h: stale24?.c ?? 0,
+    freshness_status: freshnessStatus(ageHours(sourceCheckedAt), ageHours(pricingCheckedAt)),
   };
 }
 

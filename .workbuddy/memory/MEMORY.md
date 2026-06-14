@@ -261,3 +261,24 @@ ddd1e00 上线确认：
   - `npm -w web run build`.
 - Encoding caution:
   - Some old TSX Chinese copy was already corrupted. Rewritten high-traffic pages currently use ASCII-safe copy to keep build stability. Restore polished Chinese microcopy later with a safe UTF-8 workflow.
+
+## Latest handoff: P0 data freshness + homepage curated ranking repair
+
+- Current local work is focused on data freshness and homepage selected Top8 credibility, not broad UI redesign.
+- User explicitly asked not to work on DNS/Nginx/HTTPS, Chromium/Playwright, new large pricing-source expansion, or commercialization.
+- Implemented locally:
+  - Derived model freshness fields from pricing timestamps, source fetch logs, discovery logs, and latest model candidates.
+  - Derived supersession fields for same owner/family models: `has_newer_family_model`, `superseded_by_model_id`, `is_current_default_pick`.
+  - Ranking API supports `max_source_age_hours`, `hide_stale`, `hide_superseded`; default ranking payload returns freshness fields and `why_ranked`.
+  - Homepage uses strict 12h freshness Top8, hides stale/superseded/old/unknown/manual-review candidates, limits provider/family repetition, and displays freshness cards.
+  - Recommendation API filters stale/superseded models by default for non-cheapest scenarios and returns freshness metadata.
+  - Added worker command `npm run audit:freshness` plus root aliases `freshness:audit` and `crawl:pricing`.
+- Local checks passed:
+  - `npm run typecheck`
+  - `npm -w web run build`
+  - `npm -w worker run build`
+- Local `npm run audit:freshness` failed only because local Postgres is not running at `127.0.0.1:5432`; run in production worker/container after deployment.
+- Production before deployment of this round:
+  - Server source was `f9f4317`.
+  - web/worker/postgres were up.
+  - Need formal web and worker rebuild; no `.next` hotfix / no `docker cp`.

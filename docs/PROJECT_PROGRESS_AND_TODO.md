@@ -698,3 +698,48 @@
   - `npm -w web run build` passed.
 - Note:
   - Some high-traffic pages were rewritten with ASCII-safe copy during this pass because prior UTF-8 text in several TSX files was corrupted by Windows shell encoding. The trust/SEO features are in place; final Chinese microcopy can be restored later using a safer encoding workflow.
+
+---
+## 2026-06-15 P0 data freshness audit + homepage curated ranking repair
+
+- Scope requested by `D:\Desktop\下一步.txt`: pause broad Chinese copy polish and UI redesign; fix public homepage data freshness and selected Top8 credibility first.
+- Do not work on DNS/Nginx/HTTPS, Chromium/Playwright, new large pricing-source expansion, or commercialization.
+- Code changes prepared locally:
+  - `apps/web/lib/db/queries.ts`
+    - Adds derived freshness fields to `ModelWithPricing`: `source_checked_at`, `pricing_checked_at`, `official_source_checked_at`, `freshness_status`, `source_age_hours`, `pricing_age_hours`, `model_age_days`.
+    - Adds derived supersession fields: `has_newer_family_model`, `superseded_by_model_id`, `is_current_default_pick`.
+    - Enriches models from `source_fetch_logs`, `model_discovery_logs`, and `latest_model_candidates`.
+    - Adds `dataFreshnessOverview()` for homepage freshness cards.
+  - `apps/web/lib/rank/score.ts`
+    - Ranking defaults now support and return freshness/supersession metadata.
+    - Adds `hide_stale`, `hide_superseded`, `max_source_age_hours`, and `homepageStrict` logic.
+    - Homepage strict mode filters stale, superseded, legacy/previous/unknown, suspicious, manual-review, missing-source, and low-confidence candidates.
+  - `apps/web/app/api/v1/rankings/[type]/route.ts`
+    - API supports `max_source_age_hours`, `hide_stale`, `hide_superseded`.
+    - API response now includes freshness fields and `why_ranked`.
+  - `apps/web/app/api/v1/recommend/route.ts`
+    - Default non-cheapest recommendation filters superseded models and stale data over 72h.
+    - Recommendation model payload includes freshness/supersession fields.
+  - `apps/web/app/page.tsx`
+    - Homepage copy tightened into a more professional "API model pricing intelligence" positioning.
+    - Homepage Top8 now uses current-main-model strict ranking with 12h freshness, max 2/provider and max 1/family.
+    - Adds model discovery / pricing source / CNY pricing freshness cards.
+  - `apps/worker/src/cli/audit-freshness.ts`
+    - New `npm run audit:freshness` command for stale source/pricing audit.
+  - `package.json` and `apps/worker/package.json`
+    - Adds `audit:freshness`, `freshness:audit`, and `crawl:pricing` aliases.
+- Local validation passed:
+  - `npm run typecheck`
+  - `npm -w web run build`
+  - `npm -w worker run build`
+- Local `npm run audit:freshness` starts correctly but cannot connect because local Postgres is not running at `127.0.0.1:5432`; run it in production worker/container after deploy.
+- Current production before deploy:
+  - Server source: `f9f4317`.
+  - web/worker/postgres are up.
+  - Existing homepage/API before fix showed stale/aggregator-ish selected cards even while latest source logs were fresh.
+- Next required actions:
+  1. Commit and push these changes.
+  2. Sync server source.
+  3. Formally rebuild web and worker images.
+  4. Run `npm run audit:freshness` in the production worker context.
+  5. Validate `/`, `/models`, `/models/new`, `/providers`, `/rankings`, `/recommend`, `/compare`, admin 307, admin API 401, and logs.
