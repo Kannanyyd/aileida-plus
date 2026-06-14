@@ -785,3 +785,44 @@
   - No matches for `500`, `digest`, `relation does not exist`, `tsx not found`, `EACCES`, `password authentication failed`, `server-side exception`, or `rank(...).slice/map`.
 - Note:
   - `audit:freshness` also prints old pricing rows. Many historical/current pricing rows are older than 24h, but homepage/default Top8 is now guarded by recent source checks and stale/superseded filtering. Future work can split source freshness from per-price-row recrawl freshness more precisely.
+
+---
+## 2026-06-15 P0 official-current coverage audit + homepage Top8 currentness repair
+
+- Scope requested by latest `D:\Desktop\下一步.txt`: stop broad Chinese copy/SEO/UI polish; fix the higher-level issue that homepage Top8 can still contain old or non-official-mainstream models even when `freshness_status=fresh`.
+- Root cause found:
+  - Previous `freshness_status` mixed source recrawl freshness with model-version currentness.
+  - `current_mainstream` was too broad for homepage use; models could enter from capability/context/confidence or aggregator freshness without official current/recommended evidence.
+  - Production pre-fix Top8 included `mimo-v2.5` and `openrouter/xiaomi/mimo-v2.5`, proving source freshness was being mistaken for official current model evidence.
+- Code changes prepared locally:
+  - `packages/pricing-core/src/official-current/index.ts`
+    - Adds a minimal official current model catalog with provider, model slug, aliases, family, official source URL, status, confidence, and homepage eligibility.
+    - Catalog is conservative and is used as evidence, not as a replacement for raw provider/source/pricing data.
+  - `apps/web/lib/db/queries.ts`
+    - Splits freshness into `source_freshness_status` and `model_recency_status`.
+    - Adds `is_official_current`, `is_official_recommended`, `official_current_*`, and `official_current_catalog_match`.
+    - Applies catalog evidence during model enrichment without overwriting owner/selling/source provider fields.
+  - `apps/web/lib/rank/score.ts`
+    - Homepage strict mode now requires fresh source data, current/recent model recency, no supersession, and optional official-current catalog evidence.
+    - Ranking API now returns source freshness, model recency, and official-current evidence fields.
+  - `apps/web/app/api/v1/rankings/[type]/route.ts`
+    - Adds `homepage_strict` and `require_official_current` query params for reproducible audits.
+  - `apps/web/app/page.tsx`
+    - Homepage curated and domestic blocks now require official-current evidence in strict mode.
+  - `apps/worker/src/cli/audit-official-current.ts`
+    - Adds `npm run audit:official-current`.
+    - Reports official current/recommended/latest model coverage, DB missing models, and missing pricing.
+  - `apps/worker/src/cli/audit-homepage-currentness.ts`
+    - Adds `npm run audit:homepage-currentness`.
+    - Compares old-like homepage ranking with strict official-current homepage ranking and flags stale/unknown/superseded/missing-evidence rows.
+  - `package.json` and `apps/worker/package.json`
+    - Adds root and worker scripts for both new audits.
+- Local validation passed:
+  - `npm run typecheck`
+  - `npm run build`
+- Pending production steps:
+  1. Commit and push.
+  2. Sync server source.
+  3. Formally rebuild web and worker images.
+  4. Run `npm run audit:official-current` and `npm run audit:homepage-currentness` in the production worker container.
+  5. Validate public pages/admin redirects/admin API auth/logs.

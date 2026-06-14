@@ -30,6 +30,8 @@ export async function GET(
   const hideUnknown = boolParam(url, "hide_unknown", true) && url.searchParams.get("show_unknown") !== "true";
   const hideStale = boolParam(url, "hide_stale", true);
   const hideSuperseded = boolParam(url, "hide_superseded", true);
+  const homepageStrict = boolParam(url, "homepage_strict", false);
+  const requireOfficialCurrent = boolParam(url, "require_official_current", false);
   const maxSourceAgeHours = Math.min(Math.max(parseInt(url.searchParams.get("max_source_age_hours") ?? "24"), 1), 720);
   const filterRegion = url.searchParams.get("region");
   const filterChannel = url.searchParams.get("channel");
@@ -59,6 +61,8 @@ export async function GET(
     hideStale,
     hideSuperseded,
     maxSourceAgeHours,
+    homepageStrict,
+    requireOfficialCurrent,
   });
 
   const availablePresets = Object.entries(RANKING_PRESETS).map(([key, p]) => ({
@@ -78,6 +82,8 @@ export async function GET(
       hideUnknown,
       hideStale,
       hideSuperseded,
+      homepageStrict,
+      requireOfficialCurrent,
       maxSourceAgeHours,
       region: filterRegion,
       channel: filterChannel,

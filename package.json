@@ -32,6 +32,8 @@
     "discover:models": "npm -w worker run discover:models",
     "audit:latest-models": "npm -w worker run audit:latest-models",
     "audit:freshness": "npm -w worker run audit:freshness",
+    "audit:official-current": "npm -w worker run audit:official-current",
+    "audit:homepage-currentness": "npm -w worker run audit:homepage-currentness",
     "freshness:audit": "npm run audit:freshness"
   },
   "engines": {

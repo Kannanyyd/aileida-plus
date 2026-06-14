@@ -295,3 +295,28 @@ ddd1e00 上线确认：
 - Recommend domestic writing smoke has `relaxedFilters=[]` and fresh CNY-priced balanced results.
 - Public pages are 200, admin pages unauthenticated are 307, admin APIs unauthenticated are 401.
 - Logs had no critical matches.
+
+## Latest handoff: official-current coverage + homepage Top8 currentness
+
+- Current round responds to `D:\Desktop\下一步.txt`: the website logic is still messy because homepage Top8 treats recently checked source data as if the model itself is current.
+- Do not work on DNS/Nginx/HTTPS, Chromium/Playwright, new price sources, commercialization, broad UI redesign, or broad Chinese copy polish in this round.
+- Root cause:
+  - `freshness_status` represented source/pricing check recency, not model-version recency.
+  - `current_mainstream` was too permissive for homepage selection.
+  - Production pre-fix Top8 included `mimo-v2.5` and `openrouter/xiaomi/mimo-v2.5`; both are fresh data rows, but not reliable official-current homepage picks.
+- Local code changes now prepared:
+  - Added `packages/pricing-core/src/official-current/index.ts` as a conservative official current/recommended/latest catalog.
+  - Web model enrichment now exposes `source_freshness_status`, `model_recency_status`, `is_official_current`, `is_official_recommended`, and `official_current_*` fields.
+  - Homepage strict ranking now requires official-current catalog evidence through `requireOfficialCurrent`.
+  - Ranking API supports `homepage_strict=true` and `require_official_current=true`.
+  - Added worker audit commands:
+    - `npm run audit:official-current`
+    - `npm run audit:homepage-currentness`
+- Local validation:
+  - `npm run typecheck` passed.
+  - `npm run build` passed.
+- Next required steps:
+  1. Commit/push.
+  2. Deploy with formal web and worker rebuilds.
+  3. Run the new audits in production.
+  4. Confirm homepage strict Top8 no longer includes old/non-official-current substitutes.

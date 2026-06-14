@@ -90,6 +90,7 @@ export default async function HomePage() {
     hideLegacy: true,
     hideDeprecated: true,
     hideUnknown: true,
+    requireOfficialCurrent: true,
     maxPerProvider: 2,
     maxPerFamily: 1,
   }).items;
@@ -104,6 +105,7 @@ export default async function HomePage() {
     hideLegacy: true,
     hideDeprecated: true,
     hideUnknown: true,
+    requireOfficialCurrent: true,
     maxPerProvider: 2,
     maxPerFamily: 1,
   }).items;

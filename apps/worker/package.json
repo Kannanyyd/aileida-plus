@@ -18,6 +18,8 @@
     "discover:models": "tsx src/cli/run-source.ts official-models",
     "audit:latest-models": "tsx src/cli/run-source.ts latest-models",
     "audit:freshness": "tsx src/cli/audit-freshness.ts",
+    "audit:official-current": "tsx src/cli/audit-official-current.ts",
+    "audit:homepage-currentness": "tsx src/cli/audit-homepage-currentness.ts",
     "scrape:cn": "tsx src/cli/run-source.ts cn",
     "crawl:cny-pricing": "tsx src/cli/run-source.ts cn-cny-pricing",
     "crawl:once": "tsx src/cli/run-all.ts",

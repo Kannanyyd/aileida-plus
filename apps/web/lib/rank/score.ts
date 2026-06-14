@@ -85,9 +85,14 @@ export function freshnessScore(m: ModelWithPricing): number {
       break;
   }
   if (m.has_newer_family_model) base -= 28;
-  if (m.freshness_status === "warning") base -= 8;
-  if (m.freshness_status === "stale") base -= 40;
-  if (m.freshness_status === "unknown") base -= 15;
+  if (m.model_recency_status === "current") base += 10;
+  if (m.model_recency_status === "recent") base += 4;
+  if (m.model_recency_status === "previous") base -= 30;
+  if (m.model_recency_status === "stale") base -= 55;
+  if (m.model_recency_status === "unknown") base -= 18;
+  if (m.source_freshness_status === "warning") base -= 8;
+  if (m.source_freshness_status === "stale") base -= 40;
+  if (m.source_freshness_status === "unknown") base -= 15;
   return clamp(base, 0, 100);
 }
 
@@ -185,6 +190,7 @@ export interface RankOptions {
   hideSuperseded?: boolean;
   maxSourceAgeHours?: number;
   homepageStrict?: boolean;
+  requireOfficialCurrent?: boolean;
 }
 
 function filterModels(models: ModelWithPricing[], opts: RankOptions): ModelWithPricing[] {
@@ -198,7 +204,7 @@ function filterModels(models: ModelWithPricing[], opts: RankOptions): ModelWithP
     result = result.filter((m) => {
       const observedAge = m.source_age_hours ?? m.pricing_age_hours;
       if (observedAge == null) return false;
-      return m.freshness_status !== "stale" && observedAge <= maxAge;
+      return m.source_freshness_status !== "stale" && observedAge <= maxAge;
     });
   }
   if (opts.homepageStrict) {
@@ -207,6 +213,10 @@ function filterModels(models: ModelWithPricing[], opts: RankOptions): ModelWithP
       if (flags.has("suspicious_name") || flags.has("needs_manual_review") || flags.has("missing_price_source_url")) return false;
       if (flags.has("aggregator_only") && !m.model_is_recommended_by_official && !m.model_is_default_in_official_docs) return false;
       if ((m.status === "preview" || m.status === "beta" || /preview|beta|experimental/i.test(m.model_name)) && !m.model_is_recommended_by_official && !m.model_is_default_in_official_docs) return false;
+      if (m.source_freshness_status !== "fresh") return false;
+      if (!["current", "recent"].includes(m.model_recency_status)) return false;
+      if (m.has_newer_family_model || m.superseded_by_model_id) return false;
+      if (opts.requireOfficialCurrent && !(m.is_official_current || m.is_official_recommended || m.official_current_catalog_match)) return false;
       return Math.max(m.confidence_score, m.model_source_confidence) >= 0.7;
     });
   }
@@ -314,6 +324,8 @@ export function scoreModel(m: ModelWithPricing, others: ModelWithPricing[], w: S
 function rankReason(s: ScoreBreakdown, m: ModelWithPricing, preset: string): string {
   const reasons: string[] = [];
   const tier = getModelTier(m);
+  if (m.official_current_source_url) reasons.push("瀹樻柟 current/recommended 璇佹嵁");
+  if (m.model_recency_status === "previous" || m.model_recency_status === "stale") reasons.push("宸叉湁鏇存柊涓诲姏妯″瀷");
   if (preset === "cheapest" || preset === "low-cost" || preset === "legacy-low-cost") {
     if (s.price >= 90) reasons.push("价格极低");
   }
@@ -455,6 +467,16 @@ export function rank(models: ModelWithPricing[], presetKey: string, opts: RankOp
       pricing_age_hours: item.model.pricing_age_hours,
       model_age_days: item.model.model_age_days,
       freshness_status: item.model.freshness_status,
+      source_freshness_status: item.model.source_freshness_status,
+      model_recency_status: item.model.model_recency_status,
+      is_official_current: item.model.is_official_current,
+      is_official_recommended: item.model.is_official_recommended,
+      official_current_status: item.model.official_current_status,
+      official_current_source_url: item.model.official_current_source_url,
+      official_current_checked_at: item.model.official_current_checked_at,
+      official_current_confidence: item.model.official_current_confidence,
+      official_current_notes: item.model.official_current_notes,
+      official_current_catalog_match: item.model.official_current_catalog_match,
       has_newer_family_model: item.model.has_newer_family_model,
       superseded_by_model_id: item.model.superseded_by_model_id,
       is_current_default_pick: item.model.is_current_default_pick,

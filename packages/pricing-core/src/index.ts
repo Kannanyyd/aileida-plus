@@ -1,6 +1,7 @@
 export * from "./schema/index";
 export * from "./calculator/index";
 export * from "./registry/index";
+export * from "./official-current/index";
 
 import { estimateCost, rankByCost } from "./calculator/index";
 import type { Pricing } from "./schema/index";

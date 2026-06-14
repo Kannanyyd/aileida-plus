@@ -5,6 +5,11 @@ import { db } from "./client";
 import { models, pricing, providers, priceChangeLog, promotions, latestModelCandidates, modelDiscoveryLogs, providerAliases, reviewQueue, sourceFetchLogs } from "./schema";
 import { desc, eq, sql, and, gte, isNotNull, inArray } from "drizzle-orm";
 import {
+  findOfficialCurrentModel,
+  type OfficialModelStatus,
+  type OfficialCurrentModel,
+} from "@pricing/core";
+import {
   canonicalProviderSlug,
   inferDataQualityFlags,
   inferModelFamily,
@@ -88,6 +93,16 @@ export interface ModelWithPricing {
   pricing_age_hours: number | null;
   model_age_days: number | null;
   freshness_status: "fresh" | "warning" | "stale" | "unknown";
+  source_freshness_status: "fresh" | "warning" | "stale" | "unknown";
+  model_recency_status: "current" | "recent" | "previous" | "stale" | "unknown";
+  is_official_current: boolean;
+  is_official_recommended: boolean;
+  official_current_status: OfficialModelStatus | null;
+  official_current_source_url: string | null;
+  official_current_checked_at: string | null;
+  official_current_confidence: number | null;
+  official_current_notes: string | null;
+  official_current_catalog_match: boolean;
   has_newer_family_model: boolean;
   superseded_by_model_id: string | null;
   is_current_default_pick: boolean;
@@ -194,6 +209,51 @@ function freshnessStatus(sourceAge: number | null, pricingAge: number | null): M
   return "stale";
 }
 
+function sourceFreshnessStatus(sourceAge: number | null): ModelWithPricing["source_freshness_status"] {
+  if (sourceAge == null) return "unknown";
+  if (sourceAge <= 12) return "fresh";
+  if (sourceAge <= 24) return "warning";
+  return "stale";
+}
+
+function officialStatusIsCurrent(status: OfficialModelStatus | null): boolean {
+  return status === "current" || status === "recommended" || status === "latest";
+}
+
+function applyOfficialCurrentCatalog(model: ModelWithPricing): ModelWithPricing {
+  const official = findOfficialCurrentModel(model) as OfficialCurrentModel | null;
+  if (!official) {
+    return {
+      ...model,
+      is_official_current: Boolean(model.model_is_latest_alias || model.model_is_default_in_official_docs),
+      is_official_recommended: Boolean(model.model_is_recommended_by_official || model.model_is_default_in_official_docs),
+      official_current_status: null,
+      official_current_source_url: null,
+      official_current_checked_at: null,
+      official_current_confidence: null,
+      official_current_notes: null,
+      official_current_catalog_match: false,
+    };
+  }
+  return {
+    ...model,
+    official_source_url: model.official_source_url ?? official.officialSourceUrl,
+    model_source_confidence: Math.max(model.model_source_confidence, official.confidence),
+    model_is_recommended_by_official: model.model_is_recommended_by_official || official.officialStatus === "recommended",
+    model_is_default_in_official_docs: model.model_is_default_in_official_docs || official.officialStatus === "recommended" || official.officialStatus === "latest",
+    model_is_latest_alias: model.model_is_latest_alias || official.officialStatus === "latest",
+    model_needs_pricing_review: model.model_needs_pricing_review || Boolean(official.needsPricingReview),
+    is_official_current: officialStatusIsCurrent(official.officialStatus),
+    is_official_recommended: official.officialStatus === "recommended" || official.officialStatus === "latest",
+    official_current_status: official.officialStatus,
+    official_current_source_url: official.officialSourceUrl,
+    official_current_checked_at: official.officialCheckedAt,
+    official_current_confidence: official.confidence,
+    official_current_notes: official.notes ?? null,
+    official_current_catalog_match: true,
+  };
+}
+
 function blendedPrice(m: Pick<ModelWithPricing, "input_per_1m_usd" | "output_per_1m_usd">): number {
   const input = m.input_per_1m_usd ?? Number.POSITIVE_INFINITY;
   const output = m.output_per_1m_usd ?? Number.POSITIVE_INFINITY;
@@ -276,6 +336,16 @@ function normalizeModelRow(r: typeof baseSelect extends infer _T ? any : never):
     pricing_age_hours: ageHours(r.updated_at),
     model_age_days: ageDays(r.official_release_date ?? r.release_date ?? r.first_seen_at),
     freshness_status: freshnessStatus(null, ageHours(r.updated_at)),
+    source_freshness_status: sourceFreshnessStatus(null),
+    model_recency_status: "unknown",
+    is_official_current: false,
+    is_official_recommended: false,
+    official_current_status: null,
+    official_current_source_url: null,
+    official_current_checked_at: null,
+    official_current_confidence: null,
+    official_current_notes: null,
+    official_current_catalog_match: false,
     has_newer_family_model: false,
     superseded_by_model_id: null,
     is_current_default_pick: false,
@@ -375,6 +445,19 @@ function modelRecencyDate(m: ModelWithPricing): Date | null {
   );
 }
 
+function modelRecencyStatus(m: ModelWithPricing): ModelWithPricing["model_recency_status"] {
+  if (m.status === "deprecated" || m.model_lifecycle_tier === "deprecated") return "stale";
+  if (m.has_newer_family_model || m.superseded_by_model_id) return "previous";
+  if (m.is_official_current || m.is_official_recommended) return "current";
+  if (m.model_is_latest_alias || m.model_is_default_in_official_docs || m.model_is_recommended_by_official) return "recent";
+  if (m.model_lifecycle_tier === "legacy") return "stale";
+  if (m.model_lifecycle_tier === "previous_generation") return "previous";
+  const age = m.model_age_days ?? ageDays(modelRecencyDate(m));
+  if (age != null && age <= 120 && Math.max(m.confidence_score, m.model_source_confidence) >= 0.85 && m.official_source_url) return "recent";
+  if (age != null && age > 540) return "stale";
+  return "unknown";
+}
+
 function currentPickScore(m: ModelWithPricing): number {
   const tierScore: Record<string, number> = {
     current_frontier: 1000,
@@ -386,7 +469,7 @@ function currentPickScore(m: ModelWithPricing): number {
   };
   const recency = modelRecencyDate(m)?.getTime() ?? 0;
   const confidence = Math.max(m.confidence_score, m.model_source_confidence) * 100;
-  const official = (m.model_is_recommended_by_official ? 80 : 0) + (m.model_is_default_in_official_docs ? 80 : 0);
+  const official = (m.is_official_current ? 200 : 0) + (m.model_is_recommended_by_official ? 80 : 0) + (m.model_is_default_in_official_docs ? 80 : 0);
   const latest = m.model_is_latest_alias ? 30 : 0;
   return (tierScore[m.model_lifecycle_tier] ?? 100) + confidence + official + latest + recency / 1_000_000_000_000;
 }
@@ -444,7 +527,8 @@ async function enrichFreshnessAndSupersession(input: ModelWithPricing[]): Promis
     }
   }
 
-  const enriched = input.map((model) => {
+  const enriched = input.map((rawModel) => {
+    const model = applyOfficialCurrentCatalog(rawModel);
     const checkedCandidates = [
       model.primary_source_id,
       model.source_provider,
@@ -471,6 +555,12 @@ async function enrichFreshnessAndSupersession(input: ModelWithPricing[]): Promis
       pricing_age_hours: pricingAge,
       model_age_days: ageDays(model.official_release_date ?? model.release_date ?? model.first_seen_at),
       freshness_status: freshnessStatus(sourceAge, pricingAge),
+      source_freshness_status: sourceFreshnessStatus(sourceAge),
+      model_recency_status: modelRecencyStatus({
+        ...model,
+        source_age_hours: sourceAge,
+        pricing_age_hours: pricingAge,
+      }),
     };
   });
 
@@ -484,12 +574,13 @@ async function enrichFreshnessAndSupersession(input: ModelWithPricing[]): Promis
 
   for (const group of groups.values()) {
     if (group.length < 2) {
-      group[0].is_current_default_pick = ["current_frontier", "current_mainstream"].includes(group[0].model_lifecycle_tier) && group[0].freshness_status !== "stale";
+      group[0].model_recency_status = modelRecencyStatus(group[0]);
+      group[0].is_current_default_pick = ["current_frontier", "current_mainstream"].includes(group[0].model_lifecycle_tier) && group[0].source_freshness_status !== "stale" && ["current", "recent"].includes(group[0].model_recency_status);
       continue;
     }
     const best = [...group].sort((a, b) => currentPickScore(b) - currentPickScore(a))[0];
     for (const model of group) {
-      model.is_current_default_pick = model.model_id === best.model_id && ["current_frontier", "current_mainstream"].includes(model.model_lifecycle_tier) && model.freshness_status !== "stale";
+      model.is_current_default_pick = model.model_id === best.model_id && ["current_frontier", "current_mainstream"].includes(model.model_lifecycle_tier) && model.source_freshness_status !== "stale";
       if (model.model_id === best.model_id) continue;
       const bestDate = modelRecencyDate(best)?.getTime() ?? 0;
       const modelDate = modelRecencyDate(model)?.getTime() ?? 0;
@@ -499,6 +590,10 @@ async function enrichFreshnessAndSupersession(input: ModelWithPricing[]): Promis
         if (model.model_lifecycle_tier === "current_frontier") model.model_lifecycle_tier = "current_mainstream";
         else if (model.model_lifecycle_tier === "current_mainstream") model.model_lifecycle_tier = "previous_generation";
       }
+    }
+    for (const model of group) {
+      model.model_recency_status = modelRecencyStatus(model);
+      model.is_current_default_pick = model.is_current_default_pick && ["current", "recent"].includes(model.model_recency_status);
     }
   }
 
