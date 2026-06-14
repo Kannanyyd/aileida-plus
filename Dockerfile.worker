@@ -29,6 +29,8 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/packages/pricing-core/package.json ./packages/pricing-core/package.json
 COPY --from=builder /app/packages/pricing-core/dist ./packages/pricing-core/dist
 COPY --from=builder /app/apps/worker/dist ./apps/worker/dist
+COPY --from=builder /app/apps/worker/src ./apps/worker/src
+COPY --from=builder /app/apps/worker/tsconfig.json ./apps/worker/tsconfig.json
 COPY --from=builder /app/apps/worker/package.json ./apps/worker/package.json
 
 USER nodejs
