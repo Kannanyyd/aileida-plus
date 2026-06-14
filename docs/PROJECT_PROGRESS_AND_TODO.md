@@ -281,3 +281,113 @@
 8. **厂商详情页补充**：真实介绍
 9. **Nginx + 域名**：skillstop.online 正式入口
 10. **数据库备份**：cron pg_dump
+# 最新状态更新：P1 review_queue / pricing gaps 后台治理
+
+更新时间：2026-06-14 20:27 UTC+8
+
+## 当前代码与部署
+
+- 最新 commit：`6f94857`
+- GitHub：已 push 到 `origin/main`
+- 服务器：`175.178.213.71`
+- 服务器路径：`~/aileida-plus`
+- 服务器 HEAD：`6f94857`
+- SSH key：`D:\Agent\自动化\AI订阅雷达\NewLeiDa.pem`
+- 已正式 rebuild：web / worker
+- 已执行数据库迁移：`npm run db:migrate`
+- 容器状态：web Up，worker Up，postgres Healthy
+
+## 本轮完成
+
+- 新增后台 review queue 列表页：`/admin/review-queue`
+- 新增后台 review queue 详情页：`/admin/review-queue/[id]`
+- 增强国内价格缺口页：`/admin/pricing-gaps`
+- 新增 admin API：
+  - `GET /api/admin/review-queue`
+  - `GET /api/admin/review-queue/[id]`
+  - `POST /api/admin/review-queue/[id]/approve`
+  - `POST /api/admin/review-queue/[id]/reject`
+  - `POST /api/admin/review-queue/[id]/ignore`
+  - `POST /api/admin/review-queue/[id]/needs-more-info`
+  - `POST /api/admin/review-queue/bulk`
+  - `GET /api/admin/pricing-gaps`
+
+## 数据库与工作流
+
+- `review_queue` 新增字段：
+  - `dedupe_key`
+  - `last_seen_at`
+  - `occurrence_count`
+  - `latest_payload`
+  - `latest_error_message`
+- 新增审计表：`review_audit_logs`
+- 新增 pending 去重索引：`review_pending_dedupe_uq`
+- worker 后续写入 review_queue 已改为 upsert 去重：
+  - 相同问题重复抓取时更新 `last_seen_at`
+  - 增加 `occurrence_count`
+  - 更新 `latest_payload`
+  - 更新 `latest_error_message`
+  - 不再无限新增重复 pending 项
+
+## 后台能力
+
+- `/admin/review-queue` 支持筛选：reason、provider、canonical_provider、model_family、currency、region、source_provider、selling_platform_provider、status、has_source_url、has_snapshot、confidence_min、created_from、created_to、q。
+- `/admin/review-queue/[id]` 支持查看 payload、source_url、source snapshot 摘要、已有 pricing、同模型其他渠道价格，并支持 approve pricing、ignore、reject、needs_more_info。
+- `/admin/pricing-gaps` 支持 provider、models、CNY pricing、missing CNY pricing、review pending、source status、next action。
+
+## 当前 review_queue 状态
+
+| reason | count |
+|---|---:|
+| low-confidence-new-pricing | 486 |
+| latest-model-missing-pricing | 336 |
+| multi-source-divergence | 197 |
+| official-new-model | 172 |
+| low-confidence | 26 |
+| possible-deprecated | 13 |
+
+- 总数：`1233`
+- 当前 pending 旧重复：117 组、158 条重复行
+- 旧重复未清理，避免误删历史审计数据
+- 新重复写入机制已生效
+
+## 验收结果
+
+- `/`、`/models`、`/models/new`、`/providers`、`/rankings`、`/recommend`、`/compare` 全部 200。
+- `/admin`、`/admin/review-queue`、`/admin/pricing-gaps`、`/admin/data-quality` 未登录全部 307。
+- `/admin/review-queue`、`/admin/pricing-gaps`、`/admin/review-queue/[id]` 已登录全部 200。
+- `/api/admin/review-queue`、`/api/admin/pricing-gaps` 未登录 401；已登录可返回数据。
+- 日志未发现：`500 / digest / relation does not exist / tsx not found / EACCES / password authentication failed / server-side exception`。
+
+## 操作闭环验收
+
+- approve：已用 smoke test 验证，可从 review_queue 写入 pricing
+- ignore：已验证
+- reject：已验证
+- audit log：已验证写入
+- 测试 pricing 已删除，避免污染真实价格
+- smoke test review/audit log 保留用于验收追踪
+
+## 国内 pricing gaps 样例
+
+| provider | models | CNY pricing | missing CNY |
+|---|---:|---:|---:|
+| alibaba-cloud | 505 | 5 | 500 |
+| siliconflow | 34 | 6 | 28 |
+| moonshot | 27 | 3 | 24 |
+| minimax | 20 | 0 | 20 |
+| deepseek | 19 | 2 | 17 |
+| bytedance-volcano | 10 | 0 | 10 |
+| baidu-qianfan | 14 | 5 | 9 |
+| tencent-hunyuan | 14 | 6 | 8 |
+| zhipu | 2 | 0 | 2 |
+
+## 后续建议
+
+1. 不处理 DNS / Nginx / HTTPS，除非用户明确切换任务。
+2. 不硬卡 Chromium / Playwright。
+3. review_queue 旧重复如需清理，先做只读 SQL 审计和迁移方案，不直接删除。
+4. pricing gaps 下一轮优先补 MiniMax、火山方舟、智谱、阿里百炼大缺口。
+5. 后台 bulk 当前只做状态处理，暂不做批量价格入库，避免误操作。
+
+---

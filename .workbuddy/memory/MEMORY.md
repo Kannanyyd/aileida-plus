@@ -64,3 +64,58 @@
 - `/rankings/[type]` 和 `/compare` 线上 404（源码已有，需 Docker 重建）
 - 国内 scraper 无价格（Playwright 不可用）
 - Docker Hub 不可达
+# 最新接手状态：P1 review_queue / pricing gaps 后台治理
+
+更新时间：2026-06-14 20:27 UTC+8
+
+- 最新 commit：`6f94857`
+- GitHub：`origin/main = 6f94857`
+- 服务器：`~/aileida-plus = 6f94857`
+- 可用 SSH key：`D:\Agent\自动化\AI订阅雷达\NewLeiDa.pem`
+- 默认 `id_ed25519` 对当前服务器不可用。
+- 已正式 rebuild：web / worker。
+- 已执行迁移：`npm run db:migrate`。
+- 容器：web Up，worker Up，postgres Healthy。
+
+本轮完成：
+- `/admin/review-queue`
+- `/admin/review-queue/[id]`
+- `/admin/pricing-gaps`
+- `/api/admin/review-queue`
+- `/api/admin/review-queue/[id]`
+- `/api/admin/review-queue/[id]/approve`
+- `/api/admin/review-queue/[id]/reject`
+- `/api/admin/review-queue/[id]/ignore`
+- `/api/admin/review-queue/[id]/needs-more-info`
+- `/api/admin/review-queue/bulk`
+- `/api/admin/pricing-gaps`
+
+数据库：
+- `review_queue` 新增 `dedupe_key / last_seen_at / occurrence_count / latest_payload / latest_error_message`。
+- 新增 `review_audit_logs`。
+- 新增 pending 去重索引 `review_pending_dedupe_uq`。
+- worker 后续写 review_queue 已改为 upsert 去重，重复抓取更新 occurrence，不继续无限新增。
+
+当前 review_queue：
+- 总数：`1233`
+- `low-confidence-new-pricing`：486
+- `latest-model-missing-pricing`：336
+- `multi-source-divergence`：197
+- `official-new-model`：172
+- `low-confidence`：26
+- `possible-deprecated`：13
+- 旧 pending 重复仍存在：117 组、158 条重复行；未清理，避免误删历史审计。
+
+验收：
+- `/`、`/models`、`/models/new`、`/providers`、`/rankings`、`/recommend`、`/compare` 全部 200。
+- `/admin/*` 未登录 307。
+- `/api/admin/*` 未登录 401。
+- `/admin/review-queue`、`/admin/pricing-gaps` 已登录 200。
+- approve / ignore / reject API 已 smoke test；测试 pricing 已删除，audit log 保留。
+- 日志无 `500 / digest / relation does not exist / tsx not found / EACCES / password authentication failed / server-side exception`。
+
+后续注意：
+- 不处理 DNS / Nginx / HTTPS，除非用户明确切换任务。
+- 不硬卡 Chromium / Playwright。
+- review_queue 旧重复如需处理，先审计方案，不直接删。
+- pricing gaps 下一轮优先补 MiniMax、火山方舟、智谱、阿里百炼。
