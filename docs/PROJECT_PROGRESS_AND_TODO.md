@@ -1029,3 +1029,53 @@ Pending before handoff complete:
 3. Run production public/admin smoke tests.
 4. Run `audit:homepage-currentness`, `audit:official-current`, `audit:freshness-fields`.
 5. Check production logs for critical patterns.
+
+### Production completion
+
+Code commit deployed: `09a983e fix: restore public Chinese copy`.
+
+Production actions:
+- Server source pulled to `09a983e`.
+- Web image formally rebuilt with Docker compose.
+- Web container restarted from the rebuilt image.
+- Worker image was not rebuilt because this round only changed web copy/components/docs and one web ranking reason string; worker code/runtime did not change.
+- No `.next` hotfix and no `docker cp` hotfix were used.
+
+Production validation:
+- Public pages returned 200:
+  - `/`
+  - `/models`
+  - `/models/new`
+  - `/models/deepseek-chat`
+  - `/models/kimi-k2.6`
+  - `/models/ernie-5.1`
+  - `/providers`
+  - `/rankings`
+  - `/rankings/domestic`
+  - `/rankings/frontier-value`
+  - `/recommend`
+  - `/compare`
+  - `/robots.txt`
+  - `/sitemap.xml`
+- Admin pages returned unauthenticated 307:
+  - `/admin`
+  - `/admin/official-current`
+  - `/admin/model-aliases`
+  - `/admin/review-queue`
+  - `/admin/pricing-gaps`
+- Admin APIs returned unauthenticated 401:
+  - `/api/admin/review-queue`
+  - `/api/admin/pricing-gaps`
+- Production audits passed:
+  - `npm run audit:homepage-currentness`
+  - `npm run audit:official-current`
+  - `npm run audit:freshness-fields`
+- Log check clean for critical patterns:
+  - `500`
+  - `digest`
+  - `relation does not exist`
+  - `tsx not found`
+  - `EACCES`
+  - `password authentication failed`
+  - `server-side exception`
+  - `rank(`

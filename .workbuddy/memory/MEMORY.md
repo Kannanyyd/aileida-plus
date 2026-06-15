@@ -436,3 +436,24 @@ ddd1e00 上线确认：
   3. Public/admin smoke tests.
   4. Production audits: `audit:homepage-currentness`, `audit:official-current`, `audit:freshness-fields`.
   5. Production log critical-pattern check.
+
+## Latest deployed result: public Chinese copy recovery
+- Code commit deployed: 09a983e (`fix: restore public Chinese copy`).
+- GitHub push: done.
+- Server source was pulled to 09a983e before rebuild.
+- Web image was formally rebuilt/restarted from Docker compose.
+- Worker image was not rebuilt because no worker runtime code changed in this round.
+- No `.next` or `docker cp` hotfix was used.
+- Public smoke test:
+  - `/`, `/models`, `/models/new`, `/models/deepseek-chat`, `/models/kimi-k2.6`, `/models/ernie-5.1`, `/providers`, `/rankings`, `/rankings/domestic`, `/rankings/frontier-value`, `/recommend`, `/compare`, `/robots.txt`, `/sitemap.xml`: 200.
+- Admin auth smoke test:
+  - `/admin`, `/admin/official-current`, `/admin/model-aliases`, `/admin/review-queue`, `/admin/pricing-gaps`: unauthenticated 307.
+  - `/api/admin/review-queue`, `/api/admin/pricing-gaps`: unauthenticated 401.
+- Production audits passed:
+  - `npm run audit:homepage-currentness`
+  - `npm run audit:official-current`
+  - `npm run audit:freshness-fields`
+- Logs clean for critical patterns:
+  - no 500/digest/relation/tsx/EACCES/password/server-side exception/rank errors.
+- Note:
+  - `nginx_aileida.conf` remains untracked locally and was intentionally not committed because this round explicitly excluded Nginx work.
