@@ -167,6 +167,29 @@ b5c5853 fix(seo): unify site URL for robots.txt, sitemap, and metadata
 
 ---
 
+## 完成任务：服务器 Git 状态整理 (2026-06-16)
+
+### 问题
+服务器 git 状态不干净：
+- HEAD 停留在 `09a983e`，落后于 GitHub 的 `bee76b8`
+- 工作区有 4 个未提交的 SEO URL 修改文件
+
+### 修复
+```bash
+cd ~/aileida-plus
+git config http.sslVerify false   # 临时关闭 SSL 验证解决 TLS 问题
+git fetch origin main
+git reset --hard origin/main
+git config http.sslVerify true    # 恢复 SSL 验证
+```
+
+### 结果
+- HEAD: `bee76b8` (与 GitHub 同步)
+- 工作区: clean
+- 分支: up to date with origin/main
+
+---
+
 ## 服务器常用命令
 
 ## 服务器常用命令
