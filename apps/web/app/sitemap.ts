@@ -1,7 +1,8 @@
 import type { MetadataRoute } from "next";
+import { getSiteUrl } from "@/lib/site-url";
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const host = process.env.APP_BASE_URL ?? "http://175.178.213.71:3000";
+  const host = getSiteUrl();
   const now = new Date();
   const paths = [
     "/",

@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { TopNav } from "@/components/top-nav";
+import { getSiteUrl } from "@/lib/site-url";
 
 export const dynamic = "force-dynamic";
 
-const baseUrl = process.env.APP_BASE_URL ?? "http://175.178.213.71:3000";
+const baseUrl = getSiteUrl();
 
 export const metadata: Metadata = {
   metadataBase: new URL(baseUrl),
