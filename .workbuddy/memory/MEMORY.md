@@ -388,3 +388,25 @@ ddd1e00 上线确认：
   - Audits: audit:homepage-currentness, audit:official-current, audit:freshness-fields.
 - Local validation passed: core/web/worker typecheck, web build, worker build, audit:freshness-fields.
 - Local DB migration was not run because local PostgreSQL was down; production migration and sync still required before deployment validation.
+
+## Latest deployed result: official-current catalog stabilization phase 1
+- Code commit deployed: 4fc15ee.
+- DB catalog established and populated:
+  - official_current_models: 27
+  - official_model_aliases: 54
+  - official_catalog_runs: 1
+- official-current candidates/review_queue populated:
+  - latest_model_candidates source_id=official-current-catalog: 27
+  - pending official-current reviews: 7 (6 model missing, 1 price missing)
+- Alias policy now enforced:
+  - Gemini latest aliases dedupe to canonical representatives.
+  - Grok grok-4.20 maps explicitly to grok-4-0709.
+  - ambiguous latest/fast/reasoning/non-reasoning aliases are needs_alias_review and homepage excluded.
+- Production rebuilt: web and worker both formally rebuilt/restarted; no .next/docker cp hotfix.
+- Production validation passed:
+  - public pages 200.
+  - admin pages unauth 307.
+  - admin APIs unauth 401.
+  - audit:homepage-currentness, audit:official-current, audit:freshness-fields passed.
+  - logs clean for critical errors.
+- Operational note: run production migration/sync through compose containers, not host env guesses.

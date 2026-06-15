@@ -942,3 +942,43 @@ Production TODO for this round:
 4. Validate /admin/official-current and /admin/model-aliases unauthenticated 307.
 5. Run npm run audit:homepage-currentness, npm run audit:official-current, npm run audit:freshness-fields.
 6. Smoke test public pages, admin APIs, and logs.
+
+---
+
+## 2026-06-15 official-current catalog stabilization phase 1 - production complete
+
+Code commit deployed: `4fc15ee fix: stabilize official current catalog`.
+
+Production actions:
+- Pulled server source to `4fc15ee`.
+- Rebuilt web and worker images formally with Docker compose.
+- Ran migration inside compose web container.
+- Ran `npm run sync:official-current` inside compose worker container.
+- Restarted web and worker with the new images.
+
+Production DB results:
+- `official_current_models`: 27
+- `official_model_aliases`: 54
+- `official_catalog_runs`: 1
+- `latest_model_candidates` from `official-current-catalog`: 27
+- pending official-current reviews: 7
+  - `official-current-model-missing`: 6
+  - `official-current-price-missing`: 1
+- pending duplicate groups: 0
+
+Alias results:
+- Gemini latest aliases now resolve to one canonical representative per official family.
+- Grok aliases now explicitly map `grok-4.20` / `grok-4-latest` to `grok-4-0709`.
+- Ambiguous Gemini/Grok broad aliases are marked `needs_alias_review=true` and `homepage_eligible=false`.
+
+Validation:
+- Public pages `/`, `/models`, `/models/new`, `/providers`, `/rankings`, `/rankings/frontier-value`, `/recommend`, `/compare`: 200.
+- Admin pages `/admin`, `/admin/official-current`, `/admin/model-aliases`, `/admin/review-queue`, `/admin/pricing-gaps`: unauthenticated 307.
+- Admin APIs `/api/admin/review-queue`, `/api/admin/pricing-gaps`: unauthenticated 401.
+- Production audits passed: `audit:homepage-currentness`, `audit:official-current`, `audit:freshness-fields`.
+- Logs clean for critical patterns: no 500/digest/relation/tsx/EACCES/password/server-side exception/rank errors.
+
+Important operational note:
+- Host-level migration with guessed env failed because host env did not match compose DB auth/Docker DNS. Final successful path is compose-run container execution:
+  - `docker compose -f docker-compose.prod.yml run --rm web npm run db:migrate`
+  - `docker compose -f docker-compose.prod.yml run --rm worker npm run sync:official-current`
