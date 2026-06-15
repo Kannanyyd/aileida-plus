@@ -374,3 +374,17 @@ ddd1e00 上线确认：
   - In DB but no pricing: `mistral-medium-3.5`.
 - Public pages returned 200; admin pages returned 307 unauthenticated; admin APIs returned 401.
 - Logs had no critical matches.
+
+## Latest handoff: official-current catalog stabilization phase 1
+- Scope lock: do not do DNS/Nginx/HTTPS, Chinese copy/SEO, new price sources, UI redesign, or commercial features.
+- Goal: make homepage official-current selection depend on DB-backed catalog + exact alias mapping, not fuzzy model-family fallback.
+- Local changes prepared:
+  - packages/pricing-core/src/official-current/index.ts: removed fuzzy family fallback; explicit grok-4.20 -> grok-4-0709.
+  - DB/migration/schema: added official_current_models, official_model_aliases, official_catalog_runs.
+  - apps/web/lib/db/queries.ts: DB catalog preferred; code catalog is marked code-fallback.
+  - apps/web/lib/rank/score.ts: diversity family key prefers official_current_model_slug; API marks freshness_status deprecated.
+  - apps/worker/src/cli/sync-official-current.ts: syncs code catalog to DB, upserts candidates/review_queue for missing official-current models and price-pending models.
+  - Admin pages: /admin/official-current, enhanced /admin/model-aliases.
+  - Audits: audit:homepage-currentness, audit:official-current, audit:freshness-fields.
+- Local validation passed: core/web/worker typecheck, web build, worker build, audit:freshness-fields.
+- Local DB migration was not run because local PostgreSQL was down; production migration and sync still required before deployment validation.

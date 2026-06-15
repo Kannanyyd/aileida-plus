@@ -46,6 +46,62 @@ async function loadOfficialCatalog() {
   throw lastError;
 }
 
+async function loadDbCatalog(): Promise<OfficialCurrentModel[] | null> {
+  try {
+    const rows = await query<{
+      provider_slug: string;
+      model_slug: string;
+      model_family: string;
+      official_name: string;
+      official_source_url: string;
+      official_status: string;
+      official_checked_at: string;
+      confidence: number;
+      homepage_eligible: boolean;
+      needs_pricing_review: boolean;
+      notes: string | null;
+      aliases: string[];
+    }>(`
+      select
+        o.provider_slug,
+        o.model_slug,
+        o.model_family,
+        o.official_name,
+        o.official_source_url,
+        o.official_status,
+        o.official_checked_at::text,
+        o.confidence,
+        o.homepage_eligible,
+        o.needs_pricing_review,
+        o.notes,
+        coalesce(array_agg(a.alias_slug order by a.alias_slug) filter (where a.alias_slug is not null and a.needs_alias_review = false), '{}'::text[]) as aliases
+      from official_current_models o
+      left join official_model_aliases a
+        on a.provider_slug = o.provider_slug
+       and a.canonical_model_slug = o.model_slug
+      group by o.id
+      order by o.provider_slug, o.model_slug
+    `);
+    if (rows.length === 0) return null;
+    return rows.map((row) => ({
+      provider: row.provider_slug,
+      modelSlug: row.model_slug,
+      aliases: row.aliases.filter((alias) => alias !== row.model_slug),
+      modelFamily: row.model_family,
+      officialName: row.official_name,
+      officialSourceUrl: row.official_source_url,
+      officialStatus: row.official_status,
+      officialCheckedAt: String(row.official_checked_at).slice(0, 10),
+      confidence: Number(row.confidence),
+      notes: row.notes ?? undefined,
+      homepageEligible: Boolean(row.homepage_eligible),
+      needsPricingReview: Boolean(row.needs_pricing_review),
+    }));
+  } catch {
+    return null;
+  }
+}
+
 async function modelCoverage(entry: OfficialCurrentModel) {
   const slugs = [entry.modelSlug, ...(entry.aliases ?? [])];
   const rows = await query<{
@@ -114,7 +170,11 @@ async function modelCoverage(entry: OfficialCurrentModel) {
 }
 
 async function main() {
-  const { OFFICIAL_CURRENT_MODELS, OFFICIAL_CURRENT_PROVIDERS, providerOfficialCurrentModels } = await loadOfficialCatalog();
+  const codeCatalog = await loadOfficialCatalog();
+  const dbCatalog = await loadDbCatalog();
+  const OFFICIAL_CURRENT_MODELS = dbCatalog ?? codeCatalog.OFFICIAL_CURRENT_MODELS;
+  const OFFICIAL_CURRENT_PROVIDERS = Array.from(new Set(OFFICIAL_CURRENT_MODELS.map((entry) => entry.provider)));
+  const providerOfficialCurrentModels = (provider: string) => OFFICIAL_CURRENT_MODELS.filter((entry) => entry.provider === provider);
   const coverage: Awaited<ReturnType<typeof modelCoverage>>[] = [];
   for (const entry of OFFICIAL_CURRENT_MODELS) {
     coverage.push(await modelCoverage(entry));
@@ -137,10 +197,30 @@ async function main() {
     };
   });
 
+  const aliasRows = await query<{
+    provider_slug: string;
+    alias_slug: string;
+    canonical_model_slug: string;
+    needs_alias_review: boolean;
+    homepage_eligible: boolean;
+  }>(`
+    select provider_slug, alias_slug, canonical_model_slug, needs_alias_review, homepage_eligible
+    from official_model_aliases
+    where provider_slug in ('google', 'xai')
+    order by provider_slug, canonical_model_slug, alias_slug
+  `).catch(() => []);
+  const aliasGroups = aliasRows.reduce<Record<string, string[]>>((acc, row) => {
+    const key = `${row.provider_slug}/${row.canonical_model_slug}`;
+    acc[key] = [...(acc[key] ?? []), `${row.alias_slug}${row.needs_alias_review ? ' (review)' : ''}${row.homepage_eligible ? '' : ' (excluded)'}`];
+    return acc;
+  }, {});
+
+  printSection("catalog source", { source: dbCatalog ? "db" : "code-fallback", models: OFFICIAL_CURRENT_MODELS.length });
   printSection("official current provider coverage", byProvider);
   printSection("official current model coverage", coverage);
   printSection("missing official current models", coverage.filter((item) => item.database_missing_model));
   printSection("official current models without pricing", coverage.filter((item) => item.database_has_model && !item.has_pricing));
+  printSection("gemini/grok alias mapping", aliasGroups);
 }
 
 main()

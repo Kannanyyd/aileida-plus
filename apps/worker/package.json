@@ -20,6 +20,7 @@
     "audit:freshness": "tsx src/cli/audit-freshness.ts",
     "audit:official-current": "tsx src/cli/audit-official-current.ts",
     "audit:homepage-currentness": "tsx src/cli/audit-homepage-currentness.ts",
+    "sync:official-current": "tsx src/cli/sync-official-current.ts",
     "scrape:cn": "tsx src/cli/run-source.ts cn",
     "crawl:cny-pricing": "tsx src/cli/run-source.ts cn-cny-pricing",
     "crawl:once": "tsx src/cli/run-all.ts",

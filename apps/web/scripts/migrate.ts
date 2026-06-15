@@ -91,6 +91,66 @@ CREATE UNIQUE INDEX IF NOT EXISTS provider_aliases_source_slug_uq ON provider_al
 CREATE INDEX IF NOT EXISTS provider_aliases_canonical_idx ON provider_aliases (canonical_slug);
 CREATE INDEX IF NOT EXISTS provider_aliases_review_idx ON provider_aliases (needs_alias_review);
 
+CREATE TABLE IF NOT EXISTS official_current_models (
+  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  provider_slug text NOT NULL,
+  model_slug text NOT NULL,
+  model_family text NOT NULL,
+  official_name text NOT NULL,
+  official_source_url text NOT NULL,
+  official_status text NOT NULL DEFAULT 'current',
+  official_checked_at timestamptz NOT NULL DEFAULT now(),
+  confidence numeric(4, 2) NOT NULL DEFAULT 0.80,
+  homepage_eligible boolean NOT NULL DEFAULT false,
+  has_pricing boolean NOT NULL DEFAULT false,
+  needs_pricing_review boolean NOT NULL DEFAULT true,
+  source_kind text NOT NULL DEFAULT 'code-catalog-sync',
+  notes text,
+  raw_entry jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS official_current_models_provider_model_uq ON official_current_models (provider_slug, model_slug);
+CREATE INDEX IF NOT EXISTS official_current_models_provider_idx ON official_current_models (provider_slug);
+CREATE INDEX IF NOT EXISTS official_current_models_family_idx ON official_current_models (provider_slug, model_family);
+CREATE INDEX IF NOT EXISTS official_current_models_eligible_idx ON official_current_models (homepage_eligible);
+
+CREATE TABLE IF NOT EXISTS official_model_aliases (
+  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  provider_slug text NOT NULL,
+  alias_slug text NOT NULL,
+  canonical_model_slug text NOT NULL,
+  alias_type text NOT NULL DEFAULT 'alias',
+  model_family text,
+  official_source_url text,
+  confidence numeric(4, 2) NOT NULL DEFAULT 0.80,
+  needs_alias_review boolean NOT NULL DEFAULT false,
+  homepage_eligible boolean NOT NULL DEFAULT true,
+  notes text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS official_model_aliases_provider_alias_uq ON official_model_aliases (provider_slug, alias_slug);
+CREATE INDEX IF NOT EXISTS official_model_aliases_canonical_idx ON official_model_aliases (provider_slug, canonical_model_slug);
+CREATE INDEX IF NOT EXISTS official_model_aliases_review_idx ON official_model_aliases (needs_alias_review);
+
+CREATE TABLE IF NOT EXISTS official_catalog_runs (
+  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  run_type text NOT NULL DEFAULT 'sync',
+  source text NOT NULL DEFAULT 'code-catalog',
+  status text NOT NULL,
+  models_upserted integer NOT NULL DEFAULT 0,
+  aliases_upserted integer NOT NULL DEFAULT 0,
+  candidates_upserted integer NOT NULL DEFAULT 0,
+  reviews_upserted integer NOT NULL DEFAULT 0,
+  error_message text,
+  started_at timestamptz NOT NULL DEFAULT now(),
+  finished_at timestamptz
+);
+CREATE INDEX IF NOT EXISTS official_catalog_runs_source_idx ON official_catalog_runs (source);
+CREATE INDEX IF NOT EXISTS official_catalog_runs_status_idx ON official_catalog_runs (status);
+CREATE INDEX IF NOT EXISTS official_catalog_runs_started_idx ON official_catalog_runs (started_at);
+
 CREATE TABLE IF NOT EXISTS models (
   id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
   provider_id uuid NOT NULL REFERENCES providers(id) ON DELETE CASCADE,

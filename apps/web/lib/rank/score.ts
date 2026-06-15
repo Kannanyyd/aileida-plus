@@ -289,6 +289,9 @@ function clamp(v: number, lo: number, hi: number) {
 }
 
 function canonicalFamily(m: ModelWithPricing): string {
+  if (m.official_current_model_slug) {
+    return `${m.model_owner_provider || m.canonical_provider_slug || m.provider_slug}/${m.official_current_model_slug}`.toLowerCase();
+  }
   const raw = (m.model_family ?? m.family ?? m.model_slug ?? m.model_name).toLowerCase();
   const cleaned = raw
     .replace(/-(latest|preview|beta|instruct|thinking|reasoning|non-reasoning|fast|turbo|mini|nano|chat|online)$/g, "")
@@ -467,6 +470,8 @@ export function rank(models: ModelWithPricing[], presetKey: string, opts: RankOp
       pricing_age_hours: item.model.pricing_age_hours,
       model_age_days: item.model.model_age_days,
       freshness_status: item.model.freshness_status,
+      freshness_status_deprecated: true,
+      freshness_status_deprecation_message: "Use source_freshness_status with model_recency_status; freshness_status only describes observed source/price age.",
       source_freshness_status: item.model.source_freshness_status,
       model_recency_status: item.model.model_recency_status,
       is_official_current: item.model.is_official_current,
@@ -477,6 +482,11 @@ export function rank(models: ModelWithPricing[], presetKey: string, opts: RankOp
       official_current_confidence: item.model.official_current_confidence,
       official_current_notes: item.model.official_current_notes,
       official_current_catalog_match: item.model.official_current_catalog_match,
+      official_current_model_slug: item.model.official_current_model_slug,
+      official_current_model_family: item.model.official_current_model_family,
+      official_current_source_kind: item.model.official_current_source_kind,
+      official_current_alias_slug: item.model.official_current_alias_slug,
+      official_current_alias_needs_review: item.model.official_current_alias_needs_review,
       has_newer_family_model: item.model.has_newer_family_model,
       superseded_by_model_id: item.model.superseded_by_model_id,
       is_current_default_pick: item.model.is_current_default_pick,

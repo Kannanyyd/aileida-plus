@@ -24,6 +24,7 @@ function summarizeItem(item: Record<string, unknown>) {
     model_family: item.family,
     lifecycle_tier: item.tier,
     freshness_status: item.freshness_status,
+    freshness_status_deprecated: item.freshness_status_deprecated,
     source_freshness_status: item.source_freshness_status,
     model_recency_status: item.model_recency_status,
     source_checked_at: item.source_checked_at,
@@ -35,6 +36,11 @@ function summarizeItem(item: Record<string, unknown>) {
     is_official_current: item.is_official_current,
     is_official_recommended: item.is_official_recommended,
     official_current_catalog_match: item.official_current_catalog_match,
+    official_current_model_slug: item.official_current_model_slug,
+    official_current_model_family: item.official_current_model_family,
+    official_current_source_kind: item.official_current_source_kind,
+    official_current_alias_slug: item.official_current_alias_slug,
+    official_current_alias_needs_review: item.official_current_alias_needs_review,
     official_current_status: item.official_current_status,
     official_current_confidence: item.official_current_confidence,
     has_newer_family_model: item.has_newer_family_model,
@@ -65,6 +71,12 @@ async function main() {
     item.has_newer_family_model ||
     item.superseded_by_model_id,
   );
+  const familyKeys = strictItems.map((item) => `${item.canonical_provider}/${item.official_current_model_slug ?? item.model_family ?? item.model_slug}`);
+  const duplicateFamilies = familyKeys.filter((key, index) => familyKeys.indexOf(key) !== index);
+  const geminiDuplicates = strictItems.filter((item) => item.canonical_provider === "google").map((item) => item.official_current_model_slug ?? item.model_slug);
+  const grokDuplicates = strictItems.filter((item) => item.canonical_provider === "xai").map((item) => item.official_current_model_slug ?? item.model_slug);
+  const aliasReviewItems = strictItems.filter((item) => item.official_current_alias_needs_review);
+  const missingDeprecatedMarker = strictItems.filter((item) => item.freshness_status != null && !(item as Record<string, unknown>).freshness_status_deprecated);
 
   printSection("homepage top8 before-like ranking", ((beforeLike.items ?? []) as Record<string, unknown>[]).map(summarizeItem));
   printSection("homepage top8 official-current strict", strictItems);
@@ -74,8 +86,17 @@ async function main() {
     missing_official_source_count: strictItems.filter((item) => !item.official_source_url).length,
     source_fresh_but_model_not_current_count: strictItems.filter((item) => item.source_freshness_status === "fresh" && !["current", "recent"].includes(String(item.model_recency_status))).length,
     superseded_count: strictItems.filter((item) => item.has_newer_family_model || item.superseded_by_model_id).length,
+    official_alias_duplicate_count: duplicateFamilies.length,
+    duplicate_official_representatives: Array.from(new Set(duplicateFamilies)),
+    gemini_alias_dedupe_ok: new Set(geminiDuplicates).size === geminiDuplicates.length,
+    grok_alias_dedupe_ok: new Set(grokDuplicates).size === grokDuplicates.length,
+    alias_review_items_count: aliasReviewItems.length,
+    freshness_status_has_deprecated_marker: missingDeprecatedMarker.length === 0,
     failing,
   });
+  if (failing.length > 0 || duplicateFamilies.length > 0 || aliasReviewItems.length > 0 || missingDeprecatedMarker.length > 0) {
+    process.exitCode = 1;
+  }
 }
 
 main()

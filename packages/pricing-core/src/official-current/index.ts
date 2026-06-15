@@ -123,7 +123,7 @@ export const OFFICIAL_CURRENT_MODELS: OfficialCurrentModel[] = [
   {
     provider: "xai",
     modelSlug: "grok-4-0709",
-    aliases: ["grok-4"],
+    aliases: ["grok-4", "grok-4.20", "grok-4-latest"],
     modelFamily: "grok-4",
     officialName: "Grok 4 0709",
     officialSourceUrl: "https://docs.x.ai/docs/models/grok-4-0709",
@@ -397,13 +397,11 @@ export function findOfficialCurrentModel(model: OfficialCurrentModelInput): Offi
     normalize(model.canonical_model_slug),
     normalize(model.canonical_model_slug?.split("/").slice(1).join("/")),
   ].filter(Boolean));
-  const family = normalize(model.model_family ?? model.family);
 
   for (const entry of OFFICIAL_CURRENT_MODELS) {
     if (!providers.has(entry.provider)) continue;
     const entrySlugs = [entry.modelSlug, ...(entry.aliases ?? [])].map(normalize);
     if (entrySlugs.some((slug) => slugCandidates.has(slug))) return entry;
-    if (family && normalize(entry.modelFamily) === family && entry.confidence >= 0.9) return entry;
   }
   return null;
 }

@@ -169,7 +169,8 @@ export async function POST(req: NextRequest) {
       if (!allowOld && m.has_newer_family_model) return false;
       const observedAge = m.source_age_hours ?? m.pricing_age_hours;
       if (!allowOld && observedAge != null && observedAge > 72) return false;
-      if (!allowOld && m.freshness_status === "stale" && observedAge != null && observedAge > 24) return false;
+      if (!allowOld && m.source_freshness_status === "stale" && observedAge != null && observedAge > 24) return false;
+      if (!allowOld && !["current", "recent"].includes(m.model_recency_status)) return false;
       if (body.budget !== "cheapest" && body.budget !== "free-tier" && (m.status === "preview" || m.status === "beta")) return false;
       const requiresReasoning = body.techRequirements?.includes("reasoning") || scenarioSlug(body.scenario) === "data-analysis";
       if (requiresReasoning && /non[-_ ]reasoning/i.test(m.model_name)) return false;
@@ -258,6 +259,9 @@ export async function POST(req: NextRequest) {
           sourceAgeHours: row.model.source_age_hours,
           pricingAgeHours: row.model.pricing_age_hours,
           freshnessStatus: row.model.freshness_status,
+          freshnessStatusDeprecated: true,
+          sourceFreshnessStatus: row.model.source_freshness_status,
+          modelRecencyStatus: row.model.model_recency_status,
           hasNewerFamilyModel: row.model.has_newer_family_model,
           supersededByModelId: row.model.superseded_by_model_id,
           isCurrentDefaultPick: row.model.is_current_default_pick,

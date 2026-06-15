@@ -8,6 +8,7 @@
     "start": "next start --port 3000",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
+    "audit:freshness-fields": "tsx scripts/audit-freshness-field-usage.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx scripts/migrate.ts",
     "review:dedupe": "tsx scripts/cleanup-review-duplicates.ts",

@@ -99,6 +99,81 @@ export const providerAliases = pgTable(
   }),
 );
 
+export const officialCurrentModels = pgTable(
+  "official_current_models",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    provider_slug: text("provider_slug").notNull(),
+    model_slug: text("model_slug").notNull(),
+    model_family: text("model_family").notNull(),
+    official_name: text("official_name").notNull(),
+    official_source_url: text("official_source_url").notNull(),
+    official_status: text("official_status").notNull().default("current"),
+    official_checked_at: timestamp("official_checked_at", { withTimezone: true }).defaultNow().notNull(),
+    confidence: numeric("confidence", { precision: 4, scale: 2 }).notNull().default("0.80"),
+    homepage_eligible: boolean("homepage_eligible").notNull().default(false),
+    has_pricing: boolean("has_pricing").notNull().default(false),
+    needs_pricing_review: boolean("needs_pricing_review").notNull().default(true),
+    source_kind: text("source_kind").notNull().default("code-catalog-sync"),
+    notes: text("notes"),
+    raw_entry: jsonb("raw_entry").notNull().default({}),
+    created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    providerModelUq: uniqueIndex("official_current_models_provider_model_uq").on(t.provider_slug, t.model_slug),
+    providerIdx: index("official_current_models_provider_idx").on(t.provider_slug),
+    familyIdx: index("official_current_models_family_idx").on(t.provider_slug, t.model_family),
+    eligibleIdx: index("official_current_models_eligible_idx").on(t.homepage_eligible),
+  }),
+);
+
+export const officialModelAliases = pgTable(
+  "official_model_aliases",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    provider_slug: text("provider_slug").notNull(),
+    alias_slug: text("alias_slug").notNull(),
+    canonical_model_slug: text("canonical_model_slug").notNull(),
+    alias_type: text("alias_type").notNull().default("alias"),
+    model_family: text("model_family"),
+    official_source_url: text("official_source_url"),
+    confidence: numeric("confidence", { precision: 4, scale: 2 }).notNull().default("0.80"),
+    needs_alias_review: boolean("needs_alias_review").notNull().default(false),
+    homepage_eligible: boolean("homepage_eligible").notNull().default(true),
+    notes: text("notes"),
+    created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    providerAliasUq: uniqueIndex("official_model_aliases_provider_alias_uq").on(t.provider_slug, t.alias_slug),
+    canonicalIdx: index("official_model_aliases_canonical_idx").on(t.provider_slug, t.canonical_model_slug),
+    reviewIdx: index("official_model_aliases_review_idx").on(t.needs_alias_review),
+  }),
+);
+
+export const officialCatalogRuns = pgTable(
+  "official_catalog_runs",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    run_type: text("run_type").notNull().default("sync"),
+    source: text("source").notNull().default("code-catalog"),
+    status: text("status").notNull(),
+    models_upserted: integer("models_upserted").notNull().default(0),
+    aliases_upserted: integer("aliases_upserted").notNull().default(0),
+    candidates_upserted: integer("candidates_upserted").notNull().default(0),
+    reviews_upserted: integer("reviews_upserted").notNull().default(0),
+    error_message: text("error_message"),
+    started_at: timestamp("started_at", { withTimezone: true }).defaultNow().notNull(),
+    finished_at: timestamp("finished_at", { withTimezone: true }),
+  },
+  (t) => ({
+    sourceIdx: index("official_catalog_runs_source_idx").on(t.source),
+    statusIdx: index("official_catalog_runs_status_idx").on(t.status),
+    startedIdx: index("official_catalog_runs_started_idx").on(t.started_at),
+  }),
+);
+
 export const models = pgTable(
   "models",
   {

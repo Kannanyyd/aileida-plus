@@ -103,6 +103,11 @@ export interface ModelWithPricing {
   official_current_confidence: number | null;
   official_current_notes: string | null;
   official_current_catalog_match: boolean;
+  official_current_model_slug: string | null;
+  official_current_model_family: string | null;
+  official_current_source_kind: string | null;
+  official_current_alias_slug: string | null;
+  official_current_alias_needs_review: boolean;
   has_newer_family_model: boolean;
   superseded_by_model_id: string | null;
   is_current_default_pick: boolean;
@@ -220,8 +225,160 @@ function officialStatusIsCurrent(status: OfficialModelStatus | null): boolean {
   return status === "current" || status === "recommended" || status === "latest";
 }
 
-function applyOfficialCurrentCatalog(model: ModelWithPricing): ModelWithPricing {
+type OfficialCatalogMatch = OfficialCurrentModel & {
+  sourceKind: "db" | "code-fallback";
+  aliasSlug?: string | null;
+  aliasNeedsReview?: boolean;
+  aliasHomepageEligible?: boolean;
+};
+
+type DbOfficialCatalog = {
+  byProviderSlug: Map<string, OfficialCatalogMatch>;
+  byProviderAlias: Map<string, OfficialCatalogMatch>;
+  loadedFromDb: boolean;
+};
+
+function normalizeOfficialKey(value: string | null | undefined): string {
+  return (value ?? "")
+    .toLowerCase()
+    .replace(/^openrouter\//, "")
+    .replace(/^models\//, "")
+    .replace(/_/g, "-")
+    .trim();
+}
+
+function officialProviderCandidates(model: ModelWithPricing): string[] {
+  return Array.from(new Set([
+    model.model_owner_provider,
+    model.canonical_provider_slug,
+    model.provider_slug,
+    model.canonical_model_slug?.split("/")[0],
+  ].map(normalizeOfficialKey).filter(Boolean)));
+}
+
+function officialSlugCandidates(model: ModelWithPricing): string[] {
+  return Array.from(new Set([
+    model.model_slug,
+    model.canonical_model_slug,
+    model.canonical_model_slug?.split("/").slice(1).join("/"),
+    model.source_model_id,
+  ].map(normalizeOfficialKey).filter(Boolean)));
+}
+
+async function loadOfficialCurrentCatalog(): Promise<DbOfficialCatalog> {
+  const byProviderSlug = new Map<string, OfficialCatalogMatch>();
+  const byProviderAlias = new Map<string, OfficialCatalogMatch>();
+  try {
+    const result = await db.execute(sql<{
+      provider_slug: string;
+      model_slug: string;
+      model_family: string;
+      official_name: string;
+      official_source_url: string;
+      official_status: OfficialModelStatus;
+      official_checked_at: Date | string;
+      confidence: string | number;
+      homepage_eligible: boolean;
+      needs_pricing_review: boolean;
+      source_kind: string;
+      notes: string | null;
+      alias_slug: string | null;
+      alias_type: string | null;
+      alias_needs_review: boolean | null;
+      alias_homepage_eligible: boolean | null;
+    }>`
+      select
+        o.provider_slug,
+        o.model_slug,
+        o.model_family,
+        o.official_name,
+        o.official_source_url,
+        o.official_status,
+        o.official_checked_at,
+        o.confidence,
+        o.homepage_eligible,
+        o.needs_pricing_review,
+        o.source_kind,
+        o.notes,
+        a.alias_slug,
+        a.alias_type,
+        a.needs_alias_review as alias_needs_review,
+        a.homepage_eligible as alias_homepage_eligible
+      from official_current_models o
+      left join official_model_aliases a
+        on a.provider_slug = o.provider_slug
+       and a.canonical_model_slug = o.model_slug
+      order by o.provider_slug, o.model_slug
+    `);
+    const rows = result.rows as Array<{
+      provider_slug: string;
+      model_slug: string;
+      model_family: string;
+      official_name: string;
+      official_source_url: string;
+      official_status: OfficialModelStatus;
+      official_checked_at: Date | string;
+      confidence: string | number;
+      homepage_eligible: boolean;
+      needs_pricing_review: boolean;
+      source_kind: string;
+      notes: string | null;
+      alias_slug: string | null;
+      alias_type: string | null;
+      alias_needs_review: boolean | null;
+      alias_homepage_eligible: boolean | null;
+    }>;
+    for (const row of rows) {
+      const match: OfficialCatalogMatch = {
+        provider: normalizeOfficialKey(row.provider_slug) as OfficialCurrentModel["provider"],
+        modelSlug: normalizeOfficialKey(row.model_slug),
+        modelFamily: normalizeOfficialKey(row.model_family),
+        officialName: row.official_name,
+        officialSourceUrl: row.official_source_url,
+        officialStatus: row.official_status,
+        officialCheckedAt: String(row.official_checked_at).slice(0, 10),
+        confidence: Number(row.confidence),
+        notes: row.notes ?? undefined,
+        homepageEligible: Boolean(row.homepage_eligible),
+        needsPricingReview: Boolean(row.needs_pricing_review),
+        sourceKind: "db",
+        aliasSlug: row.alias_slug ? normalizeOfficialKey(row.alias_slug) : null,
+        aliasNeedsReview: Boolean(row.alias_needs_review),
+        aliasHomepageEligible: row.alias_homepage_eligible == null ? true : Boolean(row.alias_homepage_eligible),
+      };
+      byProviderSlug.set(`${match.provider}/${match.modelSlug}`, match);
+      if (match.aliasSlug) byProviderAlias.set(`${match.provider}/${match.aliasSlug}`, match);
+    }
+    return { byProviderSlug, byProviderAlias, loadedFromDb: byProviderSlug.size > 0 };
+  } catch {
+    return { byProviderSlug, byProviderAlias, loadedFromDb: false };
+  }
+}
+
+function findOfficialCurrentInDb(model: ModelWithPricing, catalog: DbOfficialCatalog): OfficialCatalogMatch | null {
+  for (const provider of officialProviderCandidates(model)) {
+    for (const slug of officialSlugCandidates(model)) {
+      const direct = catalog.byProviderSlug.get(`${provider}/${slug}`);
+      if (direct) return direct;
+      const alias = catalog.byProviderAlias.get(`${provider}/${slug}`);
+      if (alias) {
+        if (alias.aliasNeedsReview || alias.aliasHomepageEligible === false) return null;
+        return alias;
+      }
+    }
+  }
+  return null;
+}
+
+function findOfficialCurrentWithFallback(model: ModelWithPricing, catalog?: DbOfficialCatalog): OfficialCatalogMatch | null {
+  const dbMatch = catalog?.loadedFromDb ? findOfficialCurrentInDb(model, catalog) : null;
+  if (dbMatch) return dbMatch;
   const official = findOfficialCurrentModel(model) as OfficialCurrentModel | null;
+  return official ? { ...official, sourceKind: "code-fallback", aliasSlug: null, aliasNeedsReview: false, aliasHomepageEligible: true } : null;
+}
+
+function applyOfficialCurrentCatalog(model: ModelWithPricing, catalog?: DbOfficialCatalog): ModelWithPricing {
+  const official = findOfficialCurrentWithFallback(model, catalog);
   if (!official) {
     return {
       ...model,
@@ -233,11 +390,21 @@ function applyOfficialCurrentCatalog(model: ModelWithPricing): ModelWithPricing 
       official_current_confidence: null,
       official_current_notes: null,
       official_current_catalog_match: false,
+      official_current_model_slug: null,
+      official_current_model_family: null,
+      official_current_source_kind: null,
+      official_current_alias_slug: null,
+      official_current_alias_needs_review: false,
     };
   }
+  const qualityFlags = Array.from(new Set([
+    ...(model.data_quality_flags ?? []),
+    ...(official.aliasNeedsReview ? ["needs_manual_review"] : []),
+  ])).sort();
   return {
     ...model,
     official_source_url: model.official_source_url ?? official.officialSourceUrl,
+    data_quality_flags: qualityFlags,
     model_source_confidence: Math.max(model.model_source_confidence, official.confidence),
     model_is_recommended_by_official: model.model_is_recommended_by_official || official.officialStatus === "recommended",
     model_is_default_in_official_docs: model.model_is_default_in_official_docs || official.officialStatus === "recommended" || official.officialStatus === "latest",
@@ -251,6 +418,11 @@ function applyOfficialCurrentCatalog(model: ModelWithPricing): ModelWithPricing 
     official_current_confidence: official.confidence,
     official_current_notes: official.notes ?? null,
     official_current_catalog_match: true,
+    official_current_model_slug: official.modelSlug,
+    official_current_model_family: official.modelFamily,
+    official_current_source_kind: official.sourceKind,
+    official_current_alias_slug: official.aliasSlug ?? null,
+    official_current_alias_needs_review: Boolean(official.aliasNeedsReview),
   };
 }
 
@@ -346,6 +518,11 @@ function normalizeModelRow(r: typeof baseSelect extends infer _T ? any : never):
     official_current_confidence: null,
     official_current_notes: null,
     official_current_catalog_match: false,
+    official_current_model_slug: null,
+    official_current_model_family: null,
+    official_current_source_kind: null,
+    official_current_alias_slug: null,
+    official_current_alias_needs_review: false,
     has_newer_family_model: false,
     superseded_by_model_id: null,
     is_current_default_pick: false,
@@ -476,6 +653,7 @@ function currentPickScore(m: ModelWithPricing): number {
 
 async function enrichFreshnessAndSupersession(input: ModelWithPricing[]): Promise<ModelWithPricing[]> {
   if (input.length === 0) return input;
+  const officialCatalog = await loadOfficialCurrentCatalog();
 
   const sourceKeys = Array.from(new Set(input.flatMap((m) => [
     m.primary_source_id,
@@ -528,7 +706,7 @@ async function enrichFreshnessAndSupersession(input: ModelWithPricing[]): Promis
   }
 
   const enriched = input.map((rawModel) => {
-    const model = applyOfficialCurrentCatalog(rawModel);
+    const model = applyOfficialCurrentCatalog(rawModel, officialCatalog);
     const checkedCandidates = [
       model.primary_source_id,
       model.source_provider,
@@ -1180,6 +1358,101 @@ export async function listModelAliasAudit(limit = 200) {
     .orderBy(desc(sql<number>`count(*)::int`))
     .limit(limit);
   return rows;
+}
+
+export type OfficialCurrentCatalogRow = {
+  provider_slug: string;
+  model_slug: string;
+  model_family: string;
+  official_name: string;
+  official_source_url: string;
+  official_status: string;
+  official_checked_at: Date;
+  confidence: number;
+  homepage_eligible: boolean;
+  has_pricing: boolean;
+  needs_pricing_review: boolean;
+  source_kind: string;
+  notes: string | null;
+  alias_count: number;
+  aliases_need_review: number;
+};
+
+export async function listOfficialCurrentCatalog(limit = 500): Promise<OfficialCurrentCatalogRow[]> {
+  try {
+    const rows = await db.execute(sql<OfficialCurrentCatalogRow>`
+      select
+        o.provider_slug,
+        o.model_slug,
+        o.model_family,
+        o.official_name,
+        o.official_source_url,
+        o.official_status,
+        o.official_checked_at,
+        o.confidence,
+        o.homepage_eligible,
+        o.has_pricing,
+        o.needs_pricing_review,
+        o.source_kind,
+        o.notes,
+        count(a.id)::int as alias_count,
+        count(a.id) filter (where a.needs_alias_review = true)::int as aliases_need_review
+      from official_current_models o
+      left join official_model_aliases a
+        on a.provider_slug = o.provider_slug
+       and a.canonical_model_slug = o.model_slug
+      group by o.id
+      order by o.homepage_eligible desc, o.provider_slug, o.model_family, o.model_slug
+      limit ${limit}
+    `);
+    return (rows.rows as OfficialCurrentCatalogRow[]).map((r) => ({
+      ...r,
+      confidence: Number(r.confidence),
+      alias_count: Number(r.alias_count),
+      aliases_need_review: Number(r.aliases_need_review),
+    }));
+  } catch {
+    return [];
+  }
+}
+
+export type OfficialModelAliasRow = {
+  provider_slug: string;
+  alias_slug: string;
+  canonical_model_slug: string;
+  alias_type: string;
+  model_family: string | null;
+  official_source_url: string | null;
+  confidence: number;
+  needs_alias_review: boolean;
+  homepage_eligible: boolean;
+  notes: string | null;
+  updated_at: Date;
+};
+
+export async function listOfficialModelAliases(limit = 500): Promise<OfficialModelAliasRow[]> {
+  try {
+    const rows = await db.execute(sql<OfficialModelAliasRow>`
+      select
+        provider_slug,
+        alias_slug,
+        canonical_model_slug,
+        alias_type,
+        model_family,
+        official_source_url,
+        confidence,
+        needs_alias_review,
+        homepage_eligible,
+        notes,
+        updated_at
+      from official_model_aliases
+      order by needs_alias_review desc, provider_slug, canonical_model_slug, alias_slug
+      limit ${limit}
+    `);
+    return (rows.rows as OfficialModelAliasRow[]).map((r) => ({ ...r, confidence: Number(r.confidence) }));
+  } catch {
+    return [];
+  }
 }
 
 export type DomesticPricingGapRow = {

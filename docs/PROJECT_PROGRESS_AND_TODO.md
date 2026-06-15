@@ -909,3 +909,36 @@
   2. Insert missing official-current models as price-pending candidates.
   3. Move official-current catalog governance from code to DB/admin workflow.
   4. Rename/deprecate ambiguous API fields such as `freshness_status`.
+
+---
+
+## 2026-06-15 official-current catalog stabilization phase 1
+
+Scope lock: no DNS/Nginx/HTTPS, no Chinese copy/SEO, no new price source expansion, no UI redesign, no commercial features.
+
+Completed locally:
+- Removed fuzzy model-family fallback from official-current matching; explicit alias grok-4.20 -> grok-4-0709.
+- Added DB catalog tables to schema/migration: official_current_models, official_model_aliases, official_catalog_runs.
+- Web now prefers DB official-current catalog and marks code catalog as code-fallback.
+- Ranking diversity dedupe now prefers official_current_model_slug, preventing latest alias/concrete version duplicates on homepage.
+- API keeps freshness_status for compatibility and adds deprecation marker; frontend/recommend filtering now uses source_freshness_status + model_recency_status.
+- Added worker command: npm run sync:official-current.
+- Added read-only admin page: /admin/official-current; enhanced /admin/model-aliases.
+- Added audit:freshness-fields and strengthened audit:homepage-currentness / audit:official-current.
+
+Local validation:
+- npm -w @pricing/core run typecheck: passed.
+- npm -w web run typecheck: passed.
+- npm -w worker run typecheck: passed.
+- npm run audit:freshness-fields: passed.
+- npm run build: passed.
+- npm -w worker run build: passed.
+- Local npm run db:migrate failed only because local PostgreSQL was not listening on 127.0.0.1:5432.
+
+Production TODO for this round:
+1. Commit/push this change.
+2. On server: git pull, npm run db:migrate, npm run sync:official-current.
+3. Formally rebuild web and worker images.
+4. Validate /admin/official-current and /admin/model-aliases unauthenticated 307.
+5. Run npm run audit:homepage-currentness, npm run audit:official-current, npm run audit:freshness-fields.
+6. Smoke test public pages, admin APIs, and logs.
