@@ -296,6 +296,29 @@ ddd1e00 上线确认：
 - Public pages are 200, admin pages unauthenticated are 307, admin APIs unauthenticated are 401.
 - Logs had no critical matches.
 
+## Latest handoff: system logic audit / architecture freeze
+
+- User asked to pause all new feature development, price-source expansion, Chinese copy, SEO, HTTPS/DNS/Nginx, and UI redesign.
+- Goal of this round: document how data flows through the system and freeze source-of-truth rules, not fix another single page.
+- Added:
+  - `docs/SYSTEM_INVARIANTS.md`
+  - `docs/SYSTEM_LOGIC_AUDIT.md`
+- Production audit facts:
+  - `audit:homepage-currentness` and `audit:official-current` already exist and were used as audit inputs.
+  - Direct SQL found stored `current_frontier=15`.
+  - Stored `current_mainstream=26`.
+  - Stored `current_mainstream` rows all have `needs_pricing_review=true` and `with_pricing=0`.
+  - Pricing sources stale over 12h: 0.
+- Important architectural finding:
+  - Stored lifecycle tier is not the product-facing currentness decision today.
+  - Runtime enrichment from official-current catalog is what makes strict homepage Top8 safe.
+  - The legacy `freshness_status` field still exists and may confuse future frontend work.
+- Next best work:
+  - Alias-level dedupe for official catalog equivalents.
+  - Insert missing official-current models as price-pending candidates.
+  - Move official-current catalog from code to DB/admin governance.
+  - Deprecate ambiguous API fields.
+
 ## Latest handoff: official-current coverage + homepage Top8 currentness
 
 - Current round responds to `D:\Desktop\下一步.txt`: the website logic is still messy because homepage Top8 treats recently checked source data as if the model itself is current.

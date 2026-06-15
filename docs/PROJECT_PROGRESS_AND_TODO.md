@@ -877,3 +877,35 @@
   - No matches for `500`, `digest`, `relation does not exist`, `tsx not found`, `EACCES`, `password authentication failed`, `server-side exception`, or `rank(...).slice/map`.
 - Follow-up:
   - Do not fill homepage slots with old substitutes. Next discovery work should add missing official models to DB/review_queue and mark price pending when pricing is absent.
+
+---
+## 2026-06-15 System logic audit / architecture freeze
+
+- Scope requested by latest `D:\Desktop\下一步.txt`: pause all new feature development, price-source expansion, Chinese copy, SEO, HTTPS, DNS, and UI redesign. Produce a clear architecture/data-flow audit so future work does not keep patching the wrong layer.
+- Added docs:
+  - `docs/SYSTEM_INVARIANTS.md`
+  - `docs/SYSTEM_LOGIC_AUDIT.md`
+- Production audit inputs:
+  - Existing `npm run audit:homepage-currentness`
+  - Existing `npm run audit:official-current`
+  - Direct production SQL checks for stored lifecycle tiers, homepage named models, pricing source staleness, and current_mainstream distribution.
+- Key findings:
+  - Source freshness and model currentness are now split, but the legacy API field `freshness_status` still exists and can mislead future frontend work.
+  - Stored `models.lifecycle_tier` is not the same as runtime enriched currentness. Many strict homepage models are stored as `unknown` and become current through catalog enrichment.
+  - Stored `current_frontier` has 15 rows, many with `needs_pricing_review=true`.
+  - Stored `current_mainstream` has 26 rows; all 26 currently have `needs_pricing_review=true` and no current pricing rows.
+  - Pricing sources stale over 12h: 0.
+  - Homepage strict Top8 currently passes the official-current audit, but alias/canonical cleanup is still needed for Gemini and Grok.
+- Explicit architecture rules frozen:
+  - Third-party aggregators cannot decide homepage official-current status alone.
+  - Fallback catalog is candidate evidence, not live official truth.
+  - Price rankings require prices.
+  - Latest model discovery can show unpriced models as price pending.
+  - Domestic RMB rankings must prioritize native CNY and label USD estimates.
+  - Model owner, selling platform, and source provider must remain separate.
+  - Homepage must not force-fill eight uncertain models.
+- Recommended next engineering work:
+  1. Add alias-level dedupe for catalog-equivalent models.
+  2. Insert missing official-current models as price-pending candidates.
+  3. Move official-current catalog governance from code to DB/admin workflow.
+  4. Rename/deprecate ambiguous API fields such as `freshness_status`.
