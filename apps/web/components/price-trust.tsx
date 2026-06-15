@@ -1,6 +1,17 @@
 import { ExternalLink } from "lucide-react";
 import { formatCny, formatNativeCny, formatUsd, priceDisplay } from "@/lib/utils";
 
+const FLAG_LABELS: Record<string, string> = {
+  aggregator_only: "仅聚合源",
+  missing_price_source_url: "缺少价格来源",
+  domestic_price_missing: "国内价缺失",
+  preview_or_beta: "预览/测试",
+  suspicious_name: "名称待核对",
+  source_conflict: "来源冲突",
+  currency_estimated_only: "仅估算价",
+  needs_manual_review: "待人工复核",
+};
+
 export function PriceValue({
   usd,
   currencyNative,
@@ -48,23 +59,31 @@ export function PriceSourceBadges({
 }) {
   const normalizedFlags = flags ?? [];
   const confidenceLabel = confidence == null ? "置信度待确认" : `置信度 ${Math.round(confidence * 100)}%`;
+  const channelLabel = isOfficial
+    ? "官方价"
+    : isAggregator
+      ? "聚合平台价"
+      : channel === "cloud_platform"
+        ? "云平台价"
+        : "第三方价";
+
   return (
     <span className="inline-flex flex-wrap gap-1">
       <span className={`rounded px-1.5 py-0.5 text-[10px] ${isOfficial ? "bg-success/10 text-success" : isAggregator ? "bg-orange-500/10 text-orange-300" : "bg-cyan/10 text-cyan"}`}>
-        {isOfficial ? "官方价" : isAggregator ? "聚合价" : channel === "cloud_platform" ? "云平台价" : "第三方价"}
+        {channelLabel}
       </span>
       {isDomestic && <span className="rounded bg-cyan/10 px-1.5 py-0.5 text-[10px] text-cyan">国内可用</span>}
       {currencyNative === "CNY" ? (
-        <span className="rounded bg-success/10 px-1.5 py-0.5 text-[10px] text-success">原生 CNY</span>
+        <span className="rounded bg-success/10 px-1.5 py-0.5 text-[10px] text-success">原生人民币价</span>
       ) : estimatedCurrency ? (
-        <span className="rounded bg-warning/10 px-1.5 py-0.5 text-[10px] text-warning">USD 估算</span>
+        <span className="rounded bg-warning/10 px-1.5 py-0.5 text-[10px] text-warning">美元估算价</span>
       ) : (
-        <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary">USD</span>
+        <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary">美元价</span>
       )}
       <span className="rounded bg-white/5 px-1.5 py-0.5 text-[10px] text-slate-400">{confidenceLabel}</span>
       {normalizedFlags.slice(0, 3).map((flag) => (
         <span key={flag} className="rounded bg-warning/10 px-1.5 py-0.5 text-[10px] text-warning">
-          {flag}
+          {FLAG_LABELS[flag] ?? flag}
         </span>
       ))}
     </span>

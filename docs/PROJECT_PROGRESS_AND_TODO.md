@@ -982,3 +982,50 @@ Important operational note:
 - Host-level migration with guessed env failed because host env did not match compose DB auth/Docker DNS. Final successful path is compose-run container execution:
   - `docker compose -f docker-compose.prod.yml run --rm web npm run db:migrate`
   - `docker compose -f docker-compose.prod.yml run --rm worker npm run sync:official-current`
+
+---
+
+## 2026-06-15 public Chinese copy recovery - local validation
+
+Scope lock: no DNS/Nginx/HTTPS, no new price sources, no official-current architecture changes, no database schema changes, no commercial features, no UI redesign.
+
+Base commit before this round: `04a8a74`.
+
+Completed locally:
+- Restored public-facing Chinese copy and terminology on:
+  - `/`
+  - `/models`
+  - `/models/[slug]`
+  - `/models/new`
+  - `/providers`
+  - `/rankings`
+  - `/rankings/[type]`
+  - `/recommend`
+  - `/compare`
+- Restored shared component labels in:
+  - `model-card`
+  - `price-trust`
+- Reworded homepage to position the product as an AI model API price radar, not an AI tools directory.
+- Clarified price trust language:
+  - native CNY price
+  - USD-to-CNY estimate
+  - official API price
+  - cloud platform price
+  - aggregator price
+  - source URL / update time / confidence / data quality flags
+- Reworded recommendation UI as a model-selection advisor with reasons, scenario fit, limitations, stronger alternatives, cheaper alternatives, and price-pending alerts.
+- Reworded homepage/ranking copy so `source_freshness_status` is not confused with model recency; no public UI uses legacy `freshness_status` to judge current models.
+- SEO metadata/robots/sitemap were reviewed; existing page metadata remains in place and public sitemap/robots routes exist.
+
+Local validation:
+- Public-page mojibake/temporary-English scan: clean for targeted patterns.
+- `git diff --check`: passed.
+- `npm run typecheck`: passed.
+- `npm -w web run build`: passed.
+
+Pending before handoff complete:
+1. Commit and push.
+2. Pull on production and formally rebuild web image.
+3. Run production public/admin smoke tests.
+4. Run `audit:homepage-currentness`, `audit:official-current`, `audit:freshness-fields`.
+5. Check production logs for critical patterns.

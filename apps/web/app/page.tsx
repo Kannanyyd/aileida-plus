@@ -32,8 +32,9 @@ import { rank, RANKING_PRESETS } from "@/lib/rank/score";
 export const revalidate = 60;
 
 export const metadata: Metadata = {
-  title: "AI模型价格雷达 | 国内/海外 API 价格与模型选型情报",
-  description: "追踪 AI 模型 API 价格、官方价、聚合平台价、云平台价、原生人民币价格、最新模型发现和数据可信度。",
+  title: "AI 模型价格雷达 | 国内 / 海外 API 价格与成本选型",
+  description:
+    "追踪 AI 模型 API 价格、官方价、聚合平台价、云平台价、原生人民币价、美元估算价、最新模型发现和数据可信度。",
   alternates: { canonical: "/" },
 };
 
@@ -116,15 +117,15 @@ export default async function HomePage() {
     <div className="space-y-10">
       <section className="mx-auto max-w-4xl pt-8 pb-4 text-center">
         <div className="mb-5 inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary-soft px-3 py-1 text-xs text-primary">
-          <Radar className="h-3 w-3" /> 官方价 / 聚合价 / 云平台价 / 原生人民币价
+          <Radar className="h-3 w-3" /> 官方 API · 云平台 · 聚合平台 · 原生人民币价
         </div>
         <h1 className="text-4xl font-bold tracking-tight md:text-5xl">
-          面向 API 选型的
+          AI 模型价格雷达
           <br />
-          <span className="gradient-text">模型价格情报台</span>
+          <span className="gradient-text">看清国内 / 海外 API 调用成本</span>
         </h1>
         <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-slate-400 md:text-base">
-          持续核对国内与海外模型 API 成本、来源、更新时间和数据质量。用一张雷达图景判断 DeepSeek、通义千问、Kimi、豆包、OpenAI、Claude、Gemini 等模型的真实调用成本。
+          这里不是 AI 工具导航。本站追踪模型、价格、来源、更新时间和数据质量，帮助你判断 DeepSeek、通义千问、Kimi、豆包、OpenAI、Claude、Gemini 等模型的真实调用成本。
         </p>
         <div className="mt-8 flex justify-center">
           <HeroSearch />
@@ -134,14 +135,14 @@ export default async function HomePage() {
             <TrendingUp className="h-3.5 w-3.5" /> 国内人民币价格榜
           </Link>
           <Link href="/rankings/frontier-value" className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-4 text-sm font-semibold text-white transition hover:bg-white/10">
-            <Database className="h-3.5 w-3.5" /> 当前主力精选榜
+            <Database className="h-3.5 w-3.5" /> 官方当前主力榜
           </Link>
         </div>
 
         <div className="mx-auto mt-8 grid max-w-3xl gap-2 sm:grid-cols-3">
           {[
             { label: "模型发现检查", date: freshness.latest_model_discovery_checked_at, age: freshness.source_age_hours },
-            { label: "价格源检查", date: freshness.latest_pricing_checked_at, age: freshness.pricing_age_hours },
+            { label: "价格来源检查", date: freshness.latest_pricing_checked_at, age: freshness.pricing_age_hours },
             { label: "国内 CNY 更新", date: freshness.latest_cny_pricing_checked_at, age: freshness.cny_pricing_age_hours },
           ].map((item) => (
             <div key={item.label} className={`rounded-xl border bg-white/3 px-3 py-2 text-left ${freshnessTone(item.age)}`}>
@@ -157,7 +158,7 @@ export default async function HomePage() {
         {sourceStale && (
           <div className="mx-auto mt-3 flex max-w-2xl items-center justify-center gap-2 rounded-xl border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
             <AlertTriangle className="h-3.5 w-3.5" />
-            部分数据源超过 12 小时未完成检查，首页精选已自动降低 stale 数据权重。
+            部分数据源超过 12 小时未完成检查，首页精选已自动降低来源过期数据权重。
           </div>
         )}
 
@@ -211,7 +212,7 @@ export default async function HomePage() {
           <div className="mb-3 flex items-center justify-between">
             <div>
               <h2 className="text-lg font-semibold text-white">国内人民币价格榜</h2>
-              <p className="mt-1 text-xs text-slate-500">优先原生 CNY，隐藏 stale、旧模型和待人工确认数据。</p>
+              <p className="mt-1 text-xs text-slate-500">优先原生人民币价，隐藏来源过期、旧模型和待人工确认数据。</p>
             </div>
             <Link href="/rankings/domestic" className="text-xs text-primary hover:underline">Top 50</Link>
           </div>
@@ -226,8 +227,8 @@ export default async function HomePage() {
         <div>
           <RankingTable
             items={curatedValue.map(rankItemForTable)}
-            title="当前主力精选 Top 8"
-            subtitle="12 小时 freshness 优先，隐藏旧模型、unknown、stale 和同系列重复。"
+            title="官方当前主力 Top 8"
+            subtitle="只展示官方当前主力目录认可的模型，隐藏旧模型、待确认模型、来源过期模型与同系列重复项。"
           />
         </div>
       </section>
@@ -292,7 +293,7 @@ export default async function HomePage() {
 
       <section className="grid gap-4 md:grid-cols-3">
         {[
-          { title: "DeepSeek API 价格", href: "/models/deepseek-chat", desc: "查看官方价、国内渠道价和多渠道来源。" },
+          { title: "DeepSeek API 价格", href: "/models/deepseek-chat", desc: "查看官方价、国内渠道价和多渠道价格来源。" },
           { title: "Kimi API 价格", href: "/models/kimi-k2.6", desc: "查看 Moonshot / Kimi 模型人民币价格覆盖。" },
           { title: "通义千问 API 价格", href: "/rankings/domestic", desc: "从国内榜单对比 Qwen、百炼和其他平台价。" },
         ].map((item) => (

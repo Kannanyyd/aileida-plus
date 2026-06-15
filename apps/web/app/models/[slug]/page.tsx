@@ -20,12 +20,12 @@ import { PriceSourceBadges, PriceValue, SourceLink } from "@/components/price-tr
 export const revalidate = 300;
 
 const tierLabels: Record<string, string> = {
-  current_frontier: "current_frontier",
-  current_mainstream: "current_mainstream",
-  previous_generation: "previous_generation",
-  legacy: "legacy",
-  deprecated: "deprecated",
-  unknown: "unknown",
+  current_frontier: "当前前沿模型",
+  current_mainstream: "当前主流模型",
+  previous_generation: "上一代模型",
+  legacy: "旧模型",
+  deprecated: "已废弃",
+  unknown: "待确认",
 };
 
 function nativeFromTieredRules(rules: unknown, key: "input_per_1m" | "output_per_1m" | "cached_input_per_1m") {
@@ -38,14 +38,14 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const { slug } = await params;
   const decoded = decodeURIComponent(slug);
   const model = await getModelBySlug(decoded);
-  if (!model) return { title: "Model not found", description: "ModelPrice Radar has not indexed this model." };
+  if (!model) return { title: "模型未收录", description: "AI 模型价格雷达暂未收录该模型。" };
   return {
-    title: `${model.model_name} API price and channels`,
-    description: `${model.model_name} official API price, aggregator price, cloud price, native CNY price, USD price, source URL, update time, and data quality flags.`,
+    title: `${model.model_name} API 价格与多渠道价格表`,
+    description: `${model.model_name} 的官方 API 价格、聚合平台价、云平台价、原生人民币价、美元价、价格来源、更新时间和数据质量标记。`,
     alternates: { canonical: `/models/${encodeURIComponent(decoded)}` },
     openGraph: {
-      title: `${model.model_name} API price`,
-      description: `${model.provider_name_zh} ${model.model_name} multi-channel pricing and source metadata.`,
+      title: `${model.model_name} API 价格`,
+      description: `${model.provider_name_zh} ${model.model_name} 多渠道价格与来源信息。`,
       type: "article",
     },
   };
@@ -100,19 +100,19 @@ export default async function ModelDetailPage({ params }: { params: Promise<{ sl
         <div className="flex items-start justify-between flex-wrap gap-4">
           <div>
             <p className="text-xs text-slate-500 mb-1">
-              <Link href="/models" className="hover:text-primary">Models</Link> / {model.provider_name_zh}
+              <Link href="/models" className="hover:text-primary">模型库</Link> / {model.provider_name_zh}
             </p>
             <h1 className="text-2xl font-bold text-white flex items-center gap-2 flex-wrap">
               {model.model_name}
               <ConfidenceBadge variant={variant as never} />
             </h1>
             <p className="text-sm text-slate-400 mt-1">
-              {model.provider_name_zh} · {model.provider_region === "cn" ? "mainland provider" : "overseas provider"}
-              {model.context_length ? ` · context ${formatContext(model.context_length)}` : ""}
+              {model.provider_name_zh} · {model.provider_region === "cn" ? "国内厂商" : "海外厂商"}
+              {model.context_length ? ` · 上下文 ${formatContext(model.context_length)}` : ""}
             </p>
             <div className="mt-3 flex gap-1.5 flex-wrap">
               <Tag variant={recommendForNewProject ? "primary" : "warning"}>{tierLabels[tier] ?? tier}</Tag>
-              <Tag variant={recommendForNewProject ? "success" : "danger"}>{recommendForNewProject ? "good for new projects" : "not default for new projects"}</Tag>
+              <Tag variant={recommendForNewProject ? "success" : "danger"}>{recommendForNewProject ? "建议新项目关注" : "不建议作为默认新项目首选"}</Tag>
               {(model.capabilities ?? []).map((capability) => <Tag key={capability} variant="primary">{capability}</Tag>)}
               {(model.modality ?? []).map((modality) => <Tag key={modality} variant="cyan">{modality}</Tag>)}
               {(model.data_quality_flags ?? []).map((flag) => <Tag key={flag} variant="warning">{flag}</Tag>)}
@@ -126,26 +126,26 @@ export default async function ModelDetailPage({ params }: { params: Promise<{ sl
       <section className="glass p-5">
         <div className="flex items-center justify-between gap-3 mb-3">
           <div>
-            <h2 className="text-sm font-semibold text-white">Multi-channel pricing</h2>
-            <p className="text-[11px] text-slate-500 mt-1">Owner, selling platform, source provider, native CNY, USD, estimates, source URL, update time, and quality flags.</p>
+            <h2 className="text-sm font-semibold text-white">多渠道价格表</h2>
+            <p className="text-[11px] text-slate-500 mt-1">展示模型所有者、销售平台、采集来源、原生人民币价、美元价、估算价、来源链接、更新时间和质量标记。</p>
           </div>
-          <span className="text-[11px] text-slate-500">{pricingList.length} rows</span>
+          <span className="text-[11px] text-slate-500">{pricingList.length} 条价格</span>
         </div>
         {pricingList.length === 0 ? (
-          <p className="text-sm text-warning">Pricing pending. This model can appear in discovery but not in price rankings.</p>
+          <p className="text-sm text-warning">价格待确认。该模型可出现在最新模型发现中，但不会进入价格榜。</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
                 <tr className="border-b border-white/5 text-slate-500">
-                  <th className="py-2 text-left font-normal">Region</th>
-                  <th className="py-2 text-left font-normal">Channel</th>
-                  <th className="py-2 text-left font-normal">Provider relation</th>
-                  <th className="py-2 text-right font-normal">Input / 1M</th>
-                  <th className="py-2 text-right font-normal">Output / 1M</th>
-                  <th className="py-2 text-right font-normal">Cache / 1M</th>
-                  <th className="py-2 text-left font-normal">Source and quality</th>
-                  <th className="py-2 text-right font-normal">Updated</th>
+                  <th className="py-2 text-left font-normal">区域</th>
+                  <th className="py-2 text-left font-normal">渠道</th>
+                  <th className="py-2 text-left font-normal">平台关系</th>
+                  <th className="py-2 text-right font-normal">输入价 / 1M</th>
+                  <th className="py-2 text-right font-normal">输出价 / 1M</th>
+                  <th className="py-2 text-right font-normal">缓存价 / 1M</th>
+                  <th className="py-2 text-left font-normal">来源与质量</th>
+                  <th className="py-2 text-right font-normal">更新时间</th>
                 </tr>
               </thead>
               <tbody>
@@ -160,16 +160,16 @@ export default async function ModelDetailPage({ params }: { params: Promise<{ sl
                         <p className="mt-0.5 font-mono text-[10px] text-slate-500">{price.platform || price.primary_source_id}</p>
                       </td>
                       <td className="py-3 text-[10px] text-slate-500">
-                        <p>owner: <span className="font-mono text-slate-300">{model.model_owner_provider}</span></p>
-                        <p>selling: <span className="font-mono text-slate-300">{price.selling_platform_provider || model.model_selling_platform_provider || "-"}</span></p>
-                        <p>source: <span className="font-mono text-slate-300">{price.source_provider || price.primary_source_id}</span></p>
+                        <p>模型所有者：<span className="font-mono text-slate-300">{model.model_owner_provider}</span></p>
+                        <p>销售平台：<span className="font-mono text-slate-300">{price.selling_platform_provider || model.model_selling_platform_provider || "-"}</span></p>
+                        <p>采集来源：<span className="font-mono text-slate-300">{price.source_provider || price.primary_source_id}</span></p>
                       </td>
                       <td className="py-3 text-right"><PriceValue usd={price.input_per_1m_usd} nativeCny={nativeFromTieredRules(price.tiered_rules, "input_per_1m")} currencyNative={price.currency_native} estimatedCurrency={estimated} preferCny={preferCny} compact /></td>
                       <td className="py-3 text-right"><PriceValue usd={price.output_per_1m_usd} nativeCny={nativeFromTieredRules(price.tiered_rules, "output_per_1m")} currencyNative={price.currency_native} estimatedCurrency={estimated} preferCny={preferCny} compact /></td>
                       <td className="py-3 text-right"><PriceValue usd={price.input_cached_read_per_1m_usd} nativeCny={nativeFromTieredRules(price.tiered_rules, "cached_input_per_1m")} currencyNative={price.currency_native} estimatedCurrency={estimated} preferCny={preferCny} compact /></td>
                       <td className="py-3">
                         <PriceSourceBadges isOfficial={price.is_official} isAggregator={price.is_aggregator} channel={price.channel} isDomestic={preferCny} currencyNative={price.currency_native} estimatedCurrency={estimated} confidence={price.confidence_score} flags={price.data_quality_flags} />
-                        <div className="mt-1"><SourceLink href={price.source_url} label={price.primary_source_id || "source"} /></div>
+                        <div className="mt-1"><SourceLink href={price.source_url} label={price.primary_source_id || "来源"} /></div>
                       </td>
                       <td className="py-3 text-right text-slate-400">{relativeTime(price.updated_at)}</td>
                     </tr>
@@ -182,7 +182,7 @@ export default async function ModelDetailPage({ params }: { params: Promise<{ sl
       </section>
 
       <section className="glass p-5">
-        <h2 className="text-sm font-semibold text-white mb-4">Price history</h2>
+        <h2 className="text-sm font-semibold text-white mb-4">价格历史</h2>
         <PriceTrendChart data={[]} field="input" />
       </section>
 
@@ -190,14 +190,14 @@ export default async function ModelDetailPage({ params }: { params: Promise<{ sl
       <ReviewForm modelSlug={decoded} />
 
       <section>
-        <h2 className="text-sm font-semibold text-white mb-3">Alternatives</h2>
+        <h2 className="text-sm font-semibold text-white mb-3">替代模型</h2>
         <div className="grid md:grid-cols-2 lg:grid-cols-5 gap-3">
           {[
-            { title: "Stronger", items: stronger },
-            { title: "Cheaper", items: cheaper },
-            { title: "Same provider newer", items: sameProviderNewer },
-            { title: "Mainland usable", items: domesticAlt },
-            { title: "Overseas official", items: overseasOfficialAlt },
+            { title: "更强但更贵", items: stronger },
+            { title: "更便宜但能力较弱", items: cheaper },
+            { title: "同厂商新版", items: sameProviderNewer },
+            { title: "国内可用替代", items: domesticAlt },
+            { title: "海外官方替代", items: overseasOfficialAlt },
           ].map((group) => (
             <div key={group.title} className="glass p-3">
               <p className="text-xs font-semibold text-white mb-2">{group.title}</p>
@@ -207,7 +207,7 @@ export default async function ModelDetailPage({ params }: { params: Promise<{ sl
                     {item.model_name}
                     <span className="block text-[10px] text-slate-600">{item.provider_name_zh}</span>
                   </Link>
-                )) : <p className="text-[11px] text-slate-500">No candidate</p>}
+                )) : <p className="text-[11px] text-slate-500">暂无候选</p>}
               </div>
             </div>
           ))}
@@ -216,7 +216,7 @@ export default async function ModelDetailPage({ params }: { params: Promise<{ sl
 
       {similar.length > 0 && (
         <section>
-          <h2 className="text-sm font-semibold text-white mb-3">Similar models</h2>
+          <h2 className="text-sm font-semibold text-white mb-3">相似模型</h2>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {similar.map((item) => <ModelCard key={item.model_id} m={item} />)}
           </div>
@@ -224,31 +224,31 @@ export default async function ModelDetailPage({ params }: { params: Promise<{ sl
       )}
 
       <section className="glass p-5">
-        <h2 className="text-sm font-semibold text-white mb-3 flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-primary" /> Data trust</h2>
+        <h2 className="text-sm font-semibold text-white mb-3 flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-primary" /> 数据可信度</h2>
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-2 text-xs">
           {[
-            ["owner", model.model_owner_provider],
-            ["canonical provider", model.canonical_provider_slug],
-            ["selling platform", model.model_selling_platform_provider || model.selling_platform_provider],
-            ["source provider", model.model_source_provider || model.source_provider],
-            ["canonical model", model.canonical_model_slug],
-            ["model family", model.model_family],
-            ["variant", model.model_variant],
-            ["source model id", model.source_model_id],
+            ["模型所有者", model.model_owner_provider],
+            ["规范厂商", model.canonical_provider_slug],
+            ["销售平台", model.model_selling_platform_provider || model.selling_platform_provider],
+            ["采集来源", model.model_source_provider || model.source_provider],
+            ["规范模型", model.canonical_model_slug],
+            ["模型家族", model.model_family],
+            ["模型变体", model.model_variant],
+            ["来源模型 ID", model.source_model_id],
           ].map(([label, value]) => (
             <div key={label} className="rounded border border-white/10 bg-white/3 p-2">
               <p className="text-[10px] text-slate-500">{label}</p>
-              <p className="mt-0.5 font-mono text-[11px] text-white break-all">{value || "unknown"}</p>
+              <p className="mt-0.5 font-mono text-[11px] text-white break-all">{value || "待确认"}</p>
             </div>
           ))}
         </div>
         <p className="mt-3 flex items-center gap-2 text-xs text-slate-400">
           <Database className="w-3.5 h-3.5 text-primary" />
-          Main source:
+          主要来源：
           <a href={model.source_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline">
-            {model.primary_source_id || "source"} <ExternalLink className="w-3 h-3" />
+            {model.primary_source_id || "来源"} <ExternalLink className="w-3 h-3" />
           </a>
-          · updated {relativeTime(model.updated_at)}
+          · 更新于 {relativeTime(model.updated_at)}
         </p>
       </section>
 

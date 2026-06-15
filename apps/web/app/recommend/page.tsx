@@ -9,69 +9,69 @@ import { PriceSourceBadges, PriceValue } from "@/components/price-trust";
 type Step = "scenario" | "budget" | "tech" | "quality" | "results";
 
 const STEPS: { key: Step; label: string }[] = [
-  { key: "scenario", label: "Scenario" },
-  { key: "budget", label: "Budget" },
-  { key: "tech", label: "Filters" },
-  { key: "quality", label: "Quality" },
+  { key: "scenario", label: "场景" },
+  { key: "budget", label: "预算" },
+  { key: "tech", label: "约束" },
+  { key: "quality", label: "能力" },
 ];
 
 const SCENARIOS = [
-  { id: "writing", label: "Chinese writing and summarization" },
-  { id: "code-generation", label: "Coding" },
-  { id: "long-doc", label: "Long context summary" },
-  { id: "reasoning", label: "Complex reasoning" },
-  { id: "customer-service", label: "Customer support" },
-  { id: "data-analysis", label: "Data analysis" },
-  { id: "agent", label: "Agent workflow" },
-  { id: "translation", label: "Translation" },
+  { id: "writing", label: "中文写作与总结" },
+  { id: "code-generation", label: "编程与代码生成" },
+  { id: "long-doc", label: "长文本总结" },
+  { id: "reasoning", label: "复杂推理" },
+  { id: "customer-service", label: "客服问答" },
+  { id: "data-analysis", label: "数据分析" },
+  { id: "agent", label: "Agent 工作流" },
+  { id: "translation", label: "翻译与改写" },
 ];
 
 const BUDGETS = [
-  { id: "balanced", label: "Balanced value" },
-  { id: "quality", label: "Quality first" },
-  { id: "stability", label: "Stability first" },
-  { id: "cn-payment", label: "Mainland payment first" },
-  { id: "cheapest", label: "Lowest price" },
-  { id: "free-tier", label: "Free tier first" },
+  { id: "balanced", label: "综合性价比" },
+  { id: "quality", label: "能力优先" },
+  { id: "stability", label: "稳定性优先" },
+  { id: "cn-payment", label: "国内付款优先" },
+  { id: "cheapest", label: "极致低价" },
+  { id: "free-tier", label: "免费额度优先" },
 ];
 
 const REGION_OPTIONS = [
-  { id: "any", label: "Any region" },
-  { id: "domestic", label: "Mainland use" },
-  { id: "overseas", label: "Overseas use" },
+  { id: "any", label: "不限地区" },
+  { id: "domestic", label: "国内使用" },
+  { id: "overseas", label: "海外使用" },
 ];
 
 const CHANNEL_OPTIONS = [
-  { id: "any", label: "Any channel" },
-  { id: "official_api", label: "Official API" },
-  { id: "aggregator", label: "Aggregator" },
-  { id: "cloud_platform", label: "Cloud platform" },
+  { id: "any", label: "不限渠道" },
+  { id: "official_api", label: "官方 API" },
+  { id: "aggregator", label: "聚合平台" },
+  { id: "cloud_platform", label: "云平台" },
 ];
 
 const CURRENCY_OPTIONS = [
-  { id: "any", label: "Any currency" },
-  { id: "CNY", label: "CNY billing" },
-  { id: "USD", label: "USD billing" },
+  { id: "any", label: "不限币种" },
+  { id: "CNY", label: "人民币计费" },
+  { id: "USD", label: "美元计费" },
 ];
 
 const TECH_OPTIONS = [
-  { id: "api", label: "API access" },
-  { id: "cn-accessible", label: "Mainland accessible" },
-  { id: "cn-payment", label: "Mainland payment" },
-  { id: "function-call", label: "Function calling" },
-  { id: "json-mode", label: "JSON mode" },
-  { id: "long-context", label: "Long context" },
-  { id: "vision", label: "Vision" },
-  { id: "low-latency", label: "Low latency" },
+  { id: "api", label: "API 可调用" },
+  { id: "cn-accessible", label: "国内可用" },
+  { id: "cn-payment", label: "国内付款" },
+  { id: "function-call", label: "函数调用" },
+  { id: "json-mode", label: "JSON 输出" },
+  { id: "long-context", label: "长上下文" },
+  { id: "vision", label: "视觉理解" },
+  { id: "low-latency", label: "低延迟" },
 ];
 
 const QUALITIES = [
-  { id: "basic", label: "Basic task" },
-  { id: "good-chinese", label: "Good Chinese output" },
-  { id: "strong-reasoning", label: "Strong reasoning" },
-  { id: "strong-code", label: "Strong coding" },
-  { id: "stable-output", label: "Stable structured output" },
-  { id: "enterprise-stability", label: "Enterprise stability" },
+  { id: "basic", label: "基础任务" },
+  { id: "good-chinese", label: "中文表达好" },
+  { id: "strong-reasoning", label: "推理能力强" },
+  { id: "strong-code", label: "编程能力强" },
+  { id: "stable-output", label: "结构化输出稳定" },
+  { id: "enterprise-stability", label: "企业级稳定性" },
 ];
 
 interface RecommendEntry {
@@ -118,9 +118,9 @@ interface RecommendResult {
 
 function plans(result: RecommendResult) {
   return [
-    { key: "budget" as const, title: "Low cost", icon: <TrendingDown className="w-5 h-5 text-success" /> },
-    { key: "balanced" as const, title: "Balanced", icon: <Star className="w-5 h-5 text-warning" /> },
-    { key: "premium" as const, title: "Premium", icon: <Shield className="w-5 h-5 text-cyan" /> },
+    { key: "budget" as const, title: "成本优先方案", icon: <TrendingDown className="w-5 h-5 text-success" /> },
+    { key: "balanced" as const, title: "综合推荐方案", icon: <Star className="w-5 h-5 text-warning" /> },
+    { key: "premium" as const, title: "能力优先方案", icon: <Shield className="w-5 h-5 text-cyan" /> },
   ].map((plan) => ({ ...plan, entries: (result[plan.key] ?? []) as RecommendEntry[] }));
 }
 
@@ -188,18 +188,18 @@ export default function RecommendPage() {
       <div className="min-h-screen bg-main py-10 px-4">
         <div className="max-w-5xl mx-auto space-y-6">
           <header className="text-center space-y-2">
-            <h1 className="text-2xl font-bold text-white">Model selection advisor</h1>
-            <p className="text-sm text-slate-400">Default price weight stays around 10%-15%; only lowest-price modes raise it.</p>
-            <button onClick={() => { setStep("scenario"); setResult(null); }} className="text-xs text-primary hover:underline">Start over</button>
+            <h1 className="text-2xl font-bold text-white">AI 模型选型建议</h1>
+            <p className="text-sm text-slate-400">默认不会只按低价排序；只有选择“极致低价”或“免费额度优先”时，价格权重才会明显提高。</p>
+            <button onClick={() => { setStep("scenario"); setResult(null); }} className="text-xs text-primary hover:underline">重新选择</button>
           </header>
 
           {(result.relaxedFilters?.length ?? 0) > 0 && (
-            <div className="glass p-4 text-xs text-warning">Relaxed filters: {result.relaxedFilters?.join(", ")}.</div>
+            <div className="glass p-4 text-xs text-warning">部分约束已放宽：{result.relaxedFilters?.join(", ")}。建议复核价格来源和实际可用性。</div>
           )}
 
           {result.pricingGapAlerts && result.pricingGapAlerts.length > 0 && (
             <section className="glass p-4">
-              <h2 className="text-sm font-semibold text-white mb-2">Pricing gap alerts</h2>
+              <h2 className="text-sm font-semibold text-white mb-2">价格缺口提醒</h2>
               <div className="grid md:grid-cols-3 gap-2">
                 {result.pricingGapAlerts.slice(0, 6).map((alert) => (
                   <div key={alert.provider} className="rounded-lg border border-warning/20 bg-warning/5 p-3 text-xs">
@@ -235,11 +235,11 @@ export default function RecommendPage() {
                         </div>
                         <div className="grid grid-cols-2 gap-2">
                           <div className="rounded-lg bg-black/15 p-2">
-                            <p className="text-[10px] text-slate-500">Input / 1M</p>
+                            <p className="text-[10px] text-slate-500">输入价 / 1M</p>
                             <PriceValue usd={entry.model.inputUsd} nativeCny={entry.model.nativeInputPer1mCny} currencyNative={entry.model.currencyNative} estimatedCurrency={entry.model.estimatedCurrency} preferCny={preferCny} compact />
                           </div>
                           <div className="rounded-lg bg-black/15 p-2">
-                            <p className="text-[10px] text-slate-500">Output / 1M</p>
+                            <p className="text-[10px] text-slate-500">输出价 / 1M</p>
                             <PriceValue usd={entry.model.outputUsd} nativeCny={entry.model.nativeOutputPer1mCny} currencyNative={entry.model.currencyNative} estimatedCurrency={entry.model.estimatedCurrency} preferCny={preferCny} compact />
                           </div>
                         </div>
@@ -249,21 +249,21 @@ export default function RecommendPage() {
                         </div>
                         <div className="grid grid-cols-2 gap-2 text-[10px]">
                           <div className="rounded-lg border border-success/10 bg-success/5 p-2">
-                            <p className="text-success mb-1">Good for</p>
-                            <p className="text-slate-400">{entry.suitableFor.slice(0, 3).join(" / ") || "general tasks"}</p>
+                            <p className="text-success mb-1">适合场景</p>
+                            <p className="text-slate-400">{entry.suitableFor.slice(0, 3).join(" / ") || "通用任务"}</p>
                           </div>
                           <div className="rounded-lg border border-warning/10 bg-warning/5 p-2">
-                            <p className="text-warning mb-1">Not ideal for</p>
-                            <p className="text-slate-400">{entry.notSuitableFor.slice(0, 3).join(" / ") || "no clear gap"}</p>
+                            <p className="text-warning mb-1">不适合</p>
+                            <p className="text-slate-400">{entry.notSuitableFor.slice(0, 3).join(" / ") || "暂无明显短板"}</p>
                           </div>
                         </div>
                         <div className="space-y-1 text-[10px] text-slate-500">
-                          <p>Stronger option: {entry.strongerAlternative ? <Link className="text-primary hover:underline" href={`/models/${entry.strongerAlternative.slug}`}>{entry.strongerAlternative.name}</Link> : "none"}</p>
-                          <p>Cheaper option: {entry.cheaperAlternative ? <Link className="text-primary hover:underline" href={`/models/${entry.cheaperAlternative.slug}`}>{entry.cheaperAlternative.name}</Link> : "none"}</p>
-                          {entry.model.estimatedCurrency && <p className="text-warning">This is a USD-to-CNY estimate, not a native mainland CNY price.</p>}
-                          {entry.model.dataConfidenceIssue && <p className="text-warning">Data confidence needs attention.</p>}
+                          <p>更强但更贵：{entry.strongerAlternative ? <Link className="text-primary hover:underline" href={`/models/${entry.strongerAlternative.slug}`}>{entry.strongerAlternative.name}</Link> : "暂无合适替代"}</p>
+                          <p>更便宜但能力较弱：{entry.cheaperAlternative ? <Link className="text-primary hover:underline" href={`/models/${entry.cheaperAlternative.slug}`}>{entry.cheaperAlternative.name}</Link> : "暂无合适替代"}</p>
+                          {entry.model.estimatedCurrency && <p className="text-warning">当前为美元折算人民币估算，不是国内官方原生人民币价。</p>}
+                          {entry.model.dataConfidenceIssue && <p className="text-warning">数据置信度需要复核，建议查看来源后再用于生产决策。</p>}
                         </div>
-                        <Link href={`/models/${entry.model.slug}`} className="inline-flex items-center gap-1 text-[10px] text-primary hover:underline">Details <ExternalLink className="h-2.5 w-2.5" /></Link>
+                        <Link href={`/models/${entry.model.slug}`} className="inline-flex items-center gap-1 text-[10px] text-primary hover:underline">查看模型详情 <ExternalLink className="h-2.5 w-2.5" /></Link>
                       </article>
                     );
                   })}
@@ -274,7 +274,8 @@ export default function RecommendPage() {
 
           {result.latestModelAlerts && result.latestModelAlerts.length > 0 && (
             <section className="glass p-5">
-              <h2 className="text-sm font-semibold text-white mb-2">Newer models with pending price review</h2>
+              <h2 className="text-sm font-semibold text-white mb-2">已发现更新模型，价格待确认</h2>
+              <p className="mb-3 text-xs text-slate-500">这些模型来自官方当前主力或最新发现目录，但价格尚未通过复核，不会被旧模型冒充替代。</p>
               <div className="grid md:grid-cols-3 gap-2">
                 {result.latestModelAlerts.slice(0, 6).map((model) => (
                   <a key={`${model.provider_slug}-${model.model_slug}`} href={model.source_url} target="_blank" rel="noopener noreferrer" className="rounded-lg bg-white/3 p-3 hover:bg-white/5">
@@ -295,8 +296,8 @@ export default function RecommendPage() {
       <div className="max-w-2xl mx-auto">
         <header className="text-center space-y-3 mb-8">
           <Sparkles className="w-10 h-10 text-primary mx-auto" />
-          <h1 className="text-2xl font-bold text-white">AI model advisor</h1>
-          <p className="text-sm text-slate-400 max-w-md mx-auto">Choose scenario, budget, region, channel, currency, and quality needs. Results include reasons and alternatives.</p>
+          <h1 className="text-2xl font-bold text-white">AI 模型选型助手</h1>
+          <p className="text-sm text-slate-400 max-w-md mx-auto">按使用场景、预算、地区、渠道、币种和能力要求给出建议，并说明推荐理由、价格来源与可替代方案。</p>
         </header>
 
         <div className="flex items-center justify-center gap-1 mb-8">
@@ -313,7 +314,7 @@ export default function RecommendPage() {
         <section className="glass p-6">
           {step === "scenario" && (
             <div className="space-y-4">
-              <h2 className="text-lg font-bold text-white">Scenario</h2>
+              <h2 className="text-lg font-bold text-white">选择使用场景</h2>
               <div className="grid grid-cols-2 gap-2">
                 {SCENARIOS.map((item) => <button key={item.id} onClick={() => setScenario(item.id)} className={`rounded-xl border p-3 text-left text-xs transition ${scenario === item.id ? "border-primary/50 bg-primary/10 text-white" : "border-white/10 text-slate-400 hover:border-white/20"}`}>{item.label}</button>)}
               </div>
@@ -322,31 +323,31 @@ export default function RecommendPage() {
 
           {step === "budget" && (
             <div className="space-y-4">
-              <h2 className="text-lg font-bold text-white">Budget</h2>
+              <h2 className="text-lg font-bold text-white">预算偏好</h2>
               <div className="grid grid-cols-2 gap-2">
                 {BUDGETS.map((item) => <button key={item.id} onClick={() => setBudget(item.id)} className={`rounded-xl border p-3 text-left text-xs transition ${budget === item.id ? "border-primary/50 bg-primary/10 text-white" : "border-white/10 text-slate-400"}`}>{item.label}</button>)}
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <label className="text-[11px] text-slate-400">Monthly input tokens<input type="number" value={monthlyInput} onChange={(event) => setMonthlyInput(event.target.value)} className="mt-1 w-full rounded-lg border border-white/10 bg-white/5 p-2.5 font-mono text-sm text-white focus:border-primary/50 focus:outline-none" /></label>
-                <label className="text-[11px] text-slate-400">Monthly output tokens<input type="number" value={monthlyOutput} onChange={(event) => setMonthlyOutput(event.target.value)} className="mt-1 w-full rounded-lg border border-white/10 bg-white/5 p-2.5 font-mono text-sm text-white focus:border-primary/50 focus:outline-none" /></label>
+                <label className="text-[11px] text-slate-400">每月输入 tokens<input type="number" value={monthlyInput} onChange={(event) => setMonthlyInput(event.target.value)} className="mt-1 w-full rounded-lg border border-white/10 bg-white/5 p-2.5 font-mono text-sm text-white focus:border-primary/50 focus:outline-none" /></label>
+                <label className="text-[11px] text-slate-400">每月输出 tokens<input type="number" value={monthlyOutput} onChange={(event) => setMonthlyOutput(event.target.value)} className="mt-1 w-full rounded-lg border border-white/10 bg-white/5 p-2.5 font-mono text-sm text-white focus:border-primary/50 focus:outline-none" /></label>
               </div>
             </div>
           )}
 
           {step === "tech" && (
             <div className="space-y-4">
-              <h2 className="text-lg font-bold text-white">Filters</h2>
+              <h2 className="text-lg font-bold text-white">地区、渠道与技术约束</h2>
               <div className="grid grid-cols-3 gap-2">{REGION_OPTIONS.map((item) => <button key={item.id} onClick={() => setRegionPreference(item.id)} className={`rounded-lg border px-2.5 py-1.5 text-[11px] transition ${regionPreference === item.id ? "border-primary/50 bg-primary/10 text-primary" : "border-white/10 text-slate-400"}`}>{item.label}</button>)}</div>
               <div className="grid grid-cols-4 gap-2">{CHANNEL_OPTIONS.map((item) => <button key={item.id} onClick={() => setChannelPreference(item.id)} className={`rounded-lg border px-2.5 py-1.5 text-[11px] transition ${channelPreference === item.id ? "border-primary/50 bg-primary/10 text-primary" : "border-white/10 text-slate-400"}`}>{item.label}</button>)}</div>
               <div className="grid grid-cols-3 gap-2">{CURRENCY_OPTIONS.map((item) => <button key={item.id} onClick={() => setCurrencyPreference(item.id)} className={`rounded-lg border px-2.5 py-1.5 text-[11px] transition ${currencyPreference === item.id ? "border-primary/50 bg-primary/10 text-primary" : "border-white/10 text-slate-400"}`}>{item.label}</button>)}</div>
-              <label className="flex items-center gap-2 text-xs text-slate-400"><input type="checkbox" checked={requireDomesticPayment} onChange={(event) => setRequireDomesticPayment(event.target.checked)} className="accent-primary" />Need mainland payment</label>
+              <label className="flex items-center gap-2 text-xs text-slate-400"><input type="checkbox" checked={requireDomesticPayment} onChange={(event) => setRequireDomesticPayment(event.target.checked)} className="accent-primary" />必须支持国内付款</label>
               <div className="flex flex-wrap gap-1.5">{TECH_OPTIONS.map((item) => <button key={item.id} onClick={() => toggleTech(item.id)} className={`rounded-lg border px-2.5 py-1.5 text-[11px] transition ${techReqs.includes(item.id) ? "border-primary/50 bg-primary/10 text-primary" : "border-white/10 text-slate-400 hover:border-white/20"}`}>{item.label}</button>)}</div>
             </div>
           )}
 
           {step === "quality" && (
             <div className="space-y-4">
-              <h2 className="text-lg font-bold text-white">Quality</h2>
+              <h2 className="text-lg font-bold text-white">能力要求</h2>
               <div className="grid gap-2">{QUALITIES.map((item) => <button key={item.id} onClick={() => setQuality(item.id)} className={`rounded-xl border p-3 text-left text-xs transition ${quality === item.id ? "border-primary/50 bg-primary/10 text-white" : "border-white/10 text-slate-400"}`}>{item.label}</button>)}</div>
             </div>
           )}
@@ -354,13 +355,13 @@ export default function RecommendPage() {
           {error && <div className="mt-3 flex items-center gap-1.5 rounded-lg bg-danger/5 px-3 py-2 text-[11px] text-danger"><AlertTriangle className="h-3 w-3" /> {error}</div>}
 
           <div className="flex justify-between pt-6">
-            {step !== "scenario" ? <button onClick={prevStep} className="px-3 py-2 text-xs text-slate-400 hover:text-white">Back</button> : <div />}
+            {step !== "scenario" ? <button onClick={prevStep} className="px-3 py-2 text-xs text-slate-400 hover:text-white">上一步</button> : <div />}
             {step === "quality" ? (
               <button onClick={getResults} disabled={loading} className={`rounded-xl px-6 py-2.5 text-sm font-semibold text-white brand-glow ${loading ? "opacity-50" : ""}`}>
-                {loading ? <><Loader2 className="w-4 h-4 inline mr-1 animate-spin" />Loading...</> : <><Search className="w-4 h-4 inline mr-1" />Get recommendations</>}
+                {loading ? <><Loader2 className="w-4 h-4 inline mr-1 animate-spin" />生成中...</> : <><Search className="w-4 h-4 inline mr-1" />生成选型建议</>}
               </button>
             ) : (
-              <button onClick={nextStep} className="rounded-xl px-4 py-2 text-sm font-semibold text-white brand-glow">Next <ChevronRight className="w-4 h-4 inline" /></button>
+              <button onClick={nextStep} className="rounded-xl px-4 py-2 text-sm font-semibold text-white brand-glow">下一步 <ChevronRight className="w-4 h-4 inline" /></button>
             )}
           </div>
         </section>

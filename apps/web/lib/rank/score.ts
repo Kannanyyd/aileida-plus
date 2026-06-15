@@ -327,7 +327,7 @@ export function scoreModel(m: ModelWithPricing, others: ModelWithPricing[], w: S
 function rankReason(s: ScoreBreakdown, m: ModelWithPricing, preset: string): string {
   const reasons: string[] = [];
   const tier = getModelTier(m);
-  if (m.official_current_source_url) reasons.push("瀹樻柟 current/recommended 璇佹嵁");
+  if (m.official_current_source_url) reasons.push("官方 current/recommended 证据");
   if (m.model_recency_status === "previous" || m.model_recency_status === "stale") reasons.push("宸叉湁鏇存柊涓诲姏妯″瀷");
   if (preset === "cheapest" || preset === "low-cost" || preset === "legacy-low-cost") {
     if (s.price >= 90) reasons.push("价格极低");

@@ -7,8 +7,9 @@ import { ModelCard } from "@/components/model-card";
 export const revalidate = 120;
 
 export const metadata: Metadata = {
-  title: "AI模型库与API价格",
-  description: "浏览 AI 模型库，查看厂商、能力、生命周期、价格来源、更新时间、人民币原生价和美元估算价。",
+  title: "AI 模型库与 API 价格",
+  description:
+    "浏览 AI 模型库，查看厂商、能力、生命周期、价格来源、更新时间、原生人民币价和美元估算价。",
   alternates: { canonical: "/models" },
 };
 
@@ -51,7 +52,7 @@ export default async function ModelsPage({
             <Database className="w-5 h-5 text-primary" /> AI 模型库
           </h1>
           <p className="text-sm text-slate-400 mt-1">
-            共 {filtered.length} 个模型。卡片会显示价格来源、更新时间、质量标记，以及原生人民币价或美元估算价。
+            共 {filtered.length} 个模型。卡片展示价格来源、更新时间、数据质量标记，以及原生人民币价或美元估算价。
           </p>
         </div>
         <form className="flex items-center gap-2">

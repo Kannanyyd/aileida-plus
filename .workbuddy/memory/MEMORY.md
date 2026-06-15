@@ -410,3 +410,29 @@ ddd1e00 上线确认：
   - audit:homepage-currentness, audit:official-current, audit:freshness-fields passed.
   - logs clean for critical errors.
 - Operational note: run production migration/sync through compose containers, not host env guesses.
+
+## Latest local work: public Chinese copy recovery
+- User paused architecture/data work and requested final pre-launch public Chinese copy recovery plus regression validation.
+- Scope lock for this round:
+  - Do not touch DNS/Nginx/HTTPS.
+  - Do not expand price sources.
+  - Do not change official-current catalog architecture or DB schema.
+  - Do not change core ranking/recommendation logic unless an obvious bug is found.
+- Base commit before edits: 04a8a74.
+- Local copy fixes prepared:
+  - Homepage now clearly says this is an AI model API price radar, not an AI tools directory.
+  - Public pages/components restored to natural Chinese terminology for model owner, selling platform, source provider, official API, cloud platform, aggregator, native CNY price, USD estimate, price source, update time, confidence, and data quality flags.
+  - Recommend page now reads like a selection advisor: reasons, fit, limitations, stronger alternatives, cheaper alternatives, price-pending alerts, and estimate warnings.
+  - Compare page now clearly distinguishes native CNY prices from USD-to-CNY estimates.
+  - Homepage/ranking copy no longer exposes misleading `stale/unknown/official-current catalog` wording to end users.
+- Local validation already passed:
+  - targeted public-page mojibake/temporary-English scan
+  - `git diff --check`
+  - `npm run typecheck`
+  - `npm -w web run build`
+- Still pending:
+  1. Commit/push this copy recovery.
+  2. Production `git pull` and formal web rebuild/restart.
+  3. Public/admin smoke tests.
+  4. Production audits: `audit:homepage-currentness`, `audit:official-current`, `audit:freshness-fields`.
+  5. Production log critical-pattern check.

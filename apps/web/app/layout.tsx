@@ -9,11 +9,11 @@ const baseUrl = process.env.APP_BASE_URL ?? "http://175.178.213.71:3000";
 export const metadata: Metadata = {
   metadataBase: new URL(baseUrl),
   title: {
-    default: "AI模型价格雷达 | ModelPrice Radar",
+    default: "AI 模型价格雷达 | ModelPrice Radar",
     template: "%s | ModelPrice Radar",
   },
   description:
-    "对比国内和海外 AI API 价格，追踪官方价、聚合平台价、云平台价、人民币原生价、美元价和最新模型发现。",
+    "对比国内与海外 AI 模型 API 价格，区分官方 API、云平台、聚合平台、原生人民币价与美元估算价，跟踪官方当前主力模型和最新模型发现。",
   keywords: [
     "AI模型价格",
     "AI API价格",
@@ -30,8 +30,8 @@ export const metadata: Metadata = {
   ],
   alternates: { canonical: "/" },
   openGraph: {
-    title: "AI模型价格雷达",
-    description: "国内 / 海外 AI API 价格、多渠道来源、最新模型发现和推荐选型助手。",
+    title: "AI 模型价格雷达",
+    description: "国内 / 海外 AI API 价格、多渠道价格来源、最新模型发现和成本选型助手。",
     type: "website",
     url: baseUrl,
     siteName: "ModelPrice Radar",
@@ -39,8 +39,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "AI模型价格雷达",
-    description: "对比国内和海外 AI API 价格，区分官方价、聚合价、云平台价和估算价。",
+    title: "AI 模型价格雷达",
+    description: "对比国内与海外 AI API 价格，区分官方价、聚合价、云平台价、原生人民币价和估算价。",
   },
 };
 
@@ -56,7 +56,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <footer className="max-w-7xl mx-auto px-4 sm:px-6 py-12 mt-12 border-t border-white/5 text-xs text-slate-500">
               <div className="flex flex-wrap gap-4 justify-between">
                 <div>
-                  <p className="text-slate-300">AI模型价格雷达 · ModelPrice Radar</p>
+                  <p className="text-slate-300">AI 模型价格雷达 · ModelPrice Radar</p>
                   <p className="mt-1 text-slate-600">
                     价格来自公开官方文档、聚合平台、云平台和第三方数据源；估算价会明确标记，正式采购前请以来源页面为准。
                   </p>

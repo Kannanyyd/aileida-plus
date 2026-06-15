@@ -20,12 +20,9 @@ const CAP_LABEL: Record<string, string> = {
 };
 
 export function ModelCard({ m }: { m: ModelWithPricing }) {
-  const inUsd = m.input_per_1m_usd;
-  const outUsd = m.output_per_1m_usd;
   const preferCny = m.currency_native === "CNY" || m.is_domestic || m.pricing_region === "china_mainland" || m.provider_region === "cn";
   const estimatedCurrency = m.currency_native !== "CNY" && preferCny;
-  const conf = m.confidence_score;
-  const variant = m.need_manual_review ? "review" : conf >= 0.85 ? "official" : conf >= 0.7 ? "multi-source" : "third-party";
+  const variant = m.need_manual_review ? "review" : m.confidence_score >= 0.85 ? "official" : m.confidence_score >= 0.7 ? "multi-source" : "third-party";
 
   return (
     <Link
@@ -38,7 +35,7 @@ export function ModelCard({ m }: { m: ModelWithPricing }) {
             {m.model_name}
           </h3>
           <p className="text-xs text-slate-400 mt-0.5 truncate">
-            {m.provider_name_zh} · {m.model_owner_provider || "owner unknown"}
+            {m.provider_name_zh} · {m.model_owner_provider || "模型所有者待确认"}
           </p>
         </div>
         <ConfidenceBadge variant={variant as never} />
@@ -48,9 +45,9 @@ export function ModelCard({ m }: { m: ModelWithPricing }) {
         <div>
           <p className="text-[11px] text-slate-500 mb-0.5">输入 / 1M tokens</p>
           <PriceValue
-            usd={inUsd}
+            usd={m.input_per_1m_usd}
             currencyNative={m.currency_native}
-            nativeCny={m.currency_native === "CNY" && inUsd != null ? inUsd * 7.18 : null}
+            nativeCny={m.currency_native === "CNY" && m.input_per_1m_usd != null ? m.input_per_1m_usd * 7.18 : null}
             estimatedCurrency={estimatedCurrency}
             preferCny={preferCny}
           />
@@ -58,9 +55,9 @@ export function ModelCard({ m }: { m: ModelWithPricing }) {
         <div>
           <p className="text-[11px] text-slate-500 mb-0.5">输出 / 1M tokens</p>
           <PriceValue
-            usd={outUsd}
+            usd={m.output_per_1m_usd}
             currencyNative={m.currency_native}
-            nativeCny={m.currency_native === "CNY" && outUsd != null ? outUsd * 7.18 : null}
+            nativeCny={m.currency_native === "CNY" && m.output_per_1m_usd != null ? m.output_per_1m_usd * 7.18 : null}
             estimatedCurrency={estimatedCurrency}
             preferCny={preferCny}
           />
@@ -82,9 +79,9 @@ export function ModelCard({ m }: { m: ModelWithPricing }) {
         <span className="text-slate-500">
           上下文：<span className="font-mono text-slate-300">{formatContext(m.context_length)}</span>
         </span>
-        {m.capabilities?.slice(0, 3).map((c) => (
-          <Tag key={c} variant="primary">
-            {CAP_LABEL[c] ?? c}
+        {m.capabilities?.slice(0, 3).map((capability) => (
+          <Tag key={capability} variant="primary">
+            {CAP_LABEL[capability] ?? capability}
           </Tag>
         ))}
       </div>

@@ -7,7 +7,8 @@ export const revalidate = 600;
 
 export const metadata: Metadata = {
   title: "AI 模型价格排行榜 | 国内人民币价格榜与全球性价比榜",
-  description: "按价格、能力、新鲜度、来源置信度和数据质量综合排序，查看 AI API 价格、国内人民币价格、官方价、聚合平台价和云平台价。",
+  description:
+    "按价格、能力、新鲜度、来源置信度和数据质量综合排序，查看 AI API 价格、国内人民币价格、官方价、聚合平台价和云平台价。",
 };
 
 const ICONS: Record<string, React.ReactNode> = {
@@ -27,14 +28,14 @@ const ICONS: Record<string, React.ReactNode> = {
 };
 
 export default function RankingsIndex() {
-  const categories = Object.entries(RANKING_PRESETS).map(([key, p]) => ({
+  const categories = Object.entries(RANKING_PRESETS).map(([key, preset]) => ({
     key,
-    label: p.label,
+    label: preset.label,
     icon: ICONS[key] ?? null,
   }));
 
-  const featured = categories.filter((c) => ["frontier-value", "domestic", "coding", "long-context"].includes(c.key));
-  const rest = categories.filter((c) => !featured.some((f) => f.key === c.key));
+  const featured = categories.filter((category) => ["frontier-value", "domestic", "coding", "long-context"].includes(category.key));
+  const rest = categories.filter((category) => !featured.some((item) => item.key === category.key));
 
   return (
     <div className="space-y-6">
@@ -47,18 +48,22 @@ export default function RankingsIndex() {
         </p>
         <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
           <span className="rounded bg-success/10 px-2 py-1 text-success">国内榜优先原生 ¥</span>
-          <span className="rounded bg-warning/10 px-2 py-1 text-warning">USD 换算会标估算</span>
+          <span className="rounded bg-warning/10 px-2 py-1 text-warning">美元换算会标为估算</span>
           <span className="rounded bg-primary/10 px-2 py-1 text-primary">支持 Top 20 / 50 / 100</span>
           <span className="rounded bg-white/5 px-2 py-1 text-slate-400">精选榜限制刷屏</span>
         </div>
       </header>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {featured.map((c) => (
-          <Link key={c.key} href={`/rankings/${c.key}`} className="glass p-4 hover:border-primary/40 transition">
-            <div className="flex items-center gap-2 text-primary">{c.icon}<span className="text-sm font-semibold text-white">{c.label}</span></div>
+        {featured.map((category) => (
+          <Link key={category.key} href={`/rankings/${category.key}`} className="glass p-4 hover:border-primary/40 transition">
+            <div className="flex items-center gap-2 text-primary">{category.icon}<span className="text-sm font-semibold text-white">{category.label}</span></div>
             <p className="mt-2 text-[11px] text-slate-500">
-              {c.key === "domestic" ? "优先展示国内可用平台和原生人民币价格。" : c.key === "frontier-value" ? "当前主流/前沿模型的综合性价比。" : "按具体任务场景调整能力权重。"}
+              {category.key === "domestic"
+                ? "优先展示国内可用平台和原生人民币价格。"
+                : category.key === "frontier-value"
+                  ? "当前主流/前沿模型的综合性价比。"
+                  : "按具体任务场景调整能力权重。"}
             </p>
           </Link>
         ))}
@@ -67,9 +72,9 @@ export default function RankingsIndex() {
       <div className="glass p-4">
         <h2 className="mb-2 text-xs font-semibold text-slate-400">更多榜单</h2>
         <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
-          {rest.map((c) => (
-            <Link key={c.key} href={`/rankings/${c.key}`} className="rounded px-2 py-1.5 text-xs text-slate-300 hover:bg-white/5 hover:text-primary transition">
-              {c.label}
+          {rest.map((category) => (
+            <Link key={category.key} href={`/rankings/${category.key}`} className="rounded px-2 py-1.5 text-xs text-slate-300 hover:bg-white/5 hover:text-primary transition">
+              {category.label}
             </Link>
           ))}
         </div>

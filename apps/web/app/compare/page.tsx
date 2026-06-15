@@ -88,50 +88,50 @@ export default function ComparePage() {
   return (
     <div className="space-y-6">
       <section className="glass p-5">
-        <h1 className="text-xl font-bold text-white">Model price compare</h1>
+        <h1 className="text-xl font-bold text-white">模型价格对比</h1>
         <p className="text-sm text-slate-400 mt-1">
-          Compare official API, cloud platform, aggregator, native CNY, native USD, and estimated prices.
+          横向比较官方 API、云平台、聚合平台的输入价、输出价、缓存价，以及原生人民币价、海外美元价和美元折算人民币估算价。
         </p>
       </section>
 
       <section className="glass p-5">
-        <h2 className="text-sm font-semibold text-white mb-3">Select models</h2>
+        <h2 className="text-sm font-semibold text-white mb-3">选择模型</h2>
         <div className="flex flex-wrap gap-2 mb-3">
           {selected.map((slug) => (
             <span key={slug} className="inline-flex items-center gap-1 rounded-lg bg-primary/20 px-2 py-1 text-xs text-primary">
               {modelNames[slug] ?? slug}
-              <button onClick={() => removeModel(slug)} className="text-slate-400 hover:text-white" aria-label={`Remove ${slug}`}>x</button>
+              <button onClick={() => removeModel(slug)} className="text-slate-400 hover:text-white" aria-label={`移除 ${slug}`}>x</button>
             </span>
           ))}
         </div>
         <div className="flex gap-2">
           <select className="flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white" onChange={(event) => addModel(event.target.value)} value="">
-            <option value="">Add model...</option>
+            <option value="">添加模型...</option>
             {models.filter((model) => !selected.includes(model.model_slug)).map((model) => (
               <option key={model.model_id} value={model.model_slug}>{model.model_name} ({model.provider_name_zh})</option>
             ))}
           </select>
           <button onClick={compare} disabled={selected.length < 2 || loading} className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
-            {loading ? "Comparing..." : "Compare"}
+            {loading ? "对比中..." : "开始对比"}
           </button>
         </div>
       </section>
 
       {allPricing.length > 0 && (
         <section className="glass p-5">
-          <h2 className="text-sm font-semibold text-white mb-3">Pricing rows ({allPricing.length})</h2>
+          <h2 className="text-sm font-semibold text-white mb-3">多渠道价格记录（{allPricing.length} 条）</h2>
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
                 <tr className="border-b border-white/10 text-slate-500">
-                  <th className="py-2 text-left font-normal">Model</th>
-                  <th className="py-2 text-left font-normal">Channel</th>
-                  <th className="py-2 text-left font-normal">Region</th>
-                  <th className="py-2 text-right font-normal">Input / 1M</th>
-                  <th className="py-2 text-right font-normal">Output / 1M</th>
-                  <th className="py-2 text-right font-normal">Cache read / 1M</th>
-                  <th className="py-2 text-left font-normal">Source and quality</th>
-                  <th className="py-2 text-right font-normal">Updated</th>
+                  <th className="py-2 text-left font-normal">模型</th>
+                  <th className="py-2 text-left font-normal">渠道 / 平台</th>
+                  <th className="py-2 text-left font-normal">区域</th>
+                  <th className="py-2 text-right font-normal">输入价 / 1M</th>
+                  <th className="py-2 text-right font-normal">输出价 / 1M</th>
+                  <th className="py-2 text-right font-normal">缓存读 / 1M</th>
+                  <th className="py-2 text-left font-normal">来源与可信度</th>
+                  <th className="py-2 text-right font-normal">更新时间</th>
                 </tr>
               </thead>
               <tbody>
@@ -153,7 +153,7 @@ export default function ComparePage() {
                       <td className="py-3 text-right"><PriceValue usd={price.input_cached_read_per_1m_usd} nativeCny={nativeFromTieredRules(price.tiered_rules, "cached_input_per_1m")} currencyNative={price.currency_native} estimatedCurrency={estimated} preferCny={preferCny} compact /></td>
                       <td className="py-3">
                         <PriceSourceBadges isOfficial={price.is_official} isAggregator={price.is_aggregator} channel={price.channel} isDomestic={preferCny} currencyNative={price.currency_native} estimatedCurrency={estimated} confidence={price.confidence_score} flags={price.data_quality_flags} />
-                        <div className="mt-1"><SourceLink href={price.source_url} label={price.primary_source_id || "source"} /></div>
+                        <div className="mt-1"><SourceLink href={price.source_url} label={price.primary_source_id || "来源"} /></div>
                       </td>
                       <td className="py-3 text-right text-slate-400">{relativeTime(price.updated_at)}</td>
                     </tr>
@@ -167,8 +167,8 @@ export default function ComparePage() {
 
       <section className="glass p-5">
         <p className="text-xs text-slate-400 leading-relaxed">
-          Native CNY prices are shown with a yuan marker. USD-to-CNY estimates are explicitly marked as estimated and should not be treated as official mainland prices.
-          <Link href="/models" className="text-primary hover:underline ml-1">Browse all models</Link>
+          原生人民币价格会显示为 ¥；美元折算人民币会标记为“估算”，不能当作国内官方人民币价。价格仅用于选型参考，最终以来源页面为准。
+          <Link href="/models" className="text-primary hover:underline ml-1">查看模型库</Link>
         </p>
       </section>
     </div>

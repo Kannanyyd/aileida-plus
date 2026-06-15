@@ -26,7 +26,7 @@ export default async function NewModelsPage() {
           ["30 天发现", overview.recent30],
           ["已入库新模型", overview.inserted],
           ["价格待确认", overview.needsPricing],
-          ["可能废弃", overview.possibleDeprecated],
+          ["可能已废弃", overview.possibleDeprecated],
         ].map(([label, value]) => (
           <div key={label} className="glass p-4">
             <p className="text-[11px] text-slate-500">{label}</p>
@@ -49,30 +49,30 @@ export default async function NewModelsPage() {
             </tr>
           </thead>
           <tbody>
-            {candidates.map((c) => (
-              <tr key={c.id} className="border-b border-white/5 hover:bg-white/5">
+            {candidates.map((candidate) => (
+              <tr key={candidate.id} className="border-b border-white/5 hover:bg-white/5">
                 <td className="p-3">
-                  <Link href={`/models/${encodeURIComponent(c.model_slug)}`} className="text-white hover:text-primary font-medium">
-                    {c.model_name}
+                  <Link href={`/models/${encodeURIComponent(candidate.model_slug)}`} className="text-white hover:text-primary font-medium">
+                    {candidate.model_name}
                   </Link>
-                  <p className="text-[10px] text-slate-600">{c.model_slug}</p>
+                  <p className="text-[10px] text-slate-600">{candidate.model_slug}</p>
                 </td>
-                <td className="p-3 text-slate-300">{c.provider_slug}</td>
-                <td className="p-3 text-slate-300">{c.model_status}</td>
-                <td className="p-3 text-slate-300">{c.lifecycle_tier}</td>
+                <td className="p-3 text-slate-300">{candidate.provider_slug}</td>
+                <td className="p-3 text-slate-300">{candidate.model_status}</td>
+                <td className="p-3 text-slate-300">{candidate.lifecycle_tier}</td>
                 <td className="p-3">
-                  {c.has_pricing ? (
+                  {candidate.has_pricing ? (
                     <span className="text-success">已确认</span>
                   ) : (
                     <span className="text-warning">待确认</span>
                   )}
                 </td>
                 <td className="p-3">
-                  <a href={c.source_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
-                    {c.source_id}
+                  <a href={candidate.source_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                    {candidate.source_id}
                   </a>
                 </td>
-                <td className="p-3 text-right text-slate-500">{relativeTime(c.last_seen_at)}</td>
+                <td className="p-3 text-right text-slate-500">{relativeTime(candidate.last_seen_at)}</td>
               </tr>
             ))}
           </tbody>
