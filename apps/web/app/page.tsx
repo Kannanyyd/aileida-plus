@@ -68,9 +68,10 @@ function cleanPromotionText(text: string | null | undefined, maxLength = 90) {
 
 function isCrawlerLikePromotion(text: string | null | undefined) {
   const value = (text ?? "").replace(/\s+/g, " ").trim();
-  if (value.length > 420) return true;
+  if (value.length > 180) return true;
   const navHits = value.match(/首页|文档|登录|注册|控制台|产品|解决方案|联系我们|English|Console|Docs|Pricing/gi)?.length ?? 0;
-  return navHits >= 8;
+  if (navHits >= 3) return true;
+  return /查看详情|全场景产品矩阵|开箱即用|头脑风暴|逻辑推理|云市场|开发者客户支持|精选模板|产品简介|客户案例|免费体/i.test(value);
 }
 
 function familyKey(value: { model_family?: string | null; family?: string | null; model_slug?: string; model_name?: string }) {
@@ -150,7 +151,10 @@ export default async function HomePage() {
       ...promotion,
       description: cleanPromotionText(promotion.description),
     }))
-    .filter((promotion) => !isCrawlerLikePromotion(promotion.title) && !isCrawlerLikePromotion(promotion.description));
+    .filter((promotion, index) => {
+      const original = promotions[index];
+      return !isCrawlerLikePromotion(original.title) && !isCrawlerLikePromotion(original.description) && !isCrawlerLikePromotion(promotion.description);
+    });
 
   const sourceStale = (freshness.source_age_hours ?? 999) > 12 || (freshness.pricing_age_hours ?? 999) > 12;
 
@@ -333,7 +337,7 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section>
+      <section data-home-section="ranking-links">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-white">排行榜入口</h2>
           <Link href="/rankings" className="text-xs text-primary hover:text-primary-hover">全部榜单</Link>
@@ -348,7 +352,7 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section>
+      <section data-home-section="providers">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-white">已监控厂商</h2>
           <Link href="/providers" className="text-xs text-primary hover:text-primary-hover">全部厂商</Link>
@@ -363,7 +367,7 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section className="grid gap-4 md:grid-cols-3">
+      <section className="grid gap-4 md:grid-cols-3" data-home-section="seo-links">
         {[
           { title: "DeepSeek API 价格", href: "/models/deepseek-chat", desc: "查看官方价、国内渠道价和多渠道价格来源。" },
           { title: "Kimi API 价格", href: "/models/kimi-k2.6", desc: "查看 Moonshot / Kimi 模型人民币价格覆盖。" },
