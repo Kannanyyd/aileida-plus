@@ -291,3 +291,30 @@ AI订阅雷达/
 
 *文档更新时间: 2026-06-16*
 *Agent: MiMo Code*
+
+---
+
+## Codex follow-up: Homepage Real Render Fix (2026-06-16)
+
+This is a cross-agent handoff note so future agents do not rely only on internal audits.
+
+- Deployed commit: `939f118`.
+- Scope: production homepage rendered HTML cleanup only.
+- No changes to DNS, Nginx, HTTPS, schema, official-current architecture, or price-source expansion.
+- Fixed homepage sections:
+  - Official current models now render from `official_current_models` catalog instead of strict priced ranking filters.
+  - Domestic ranking homepage module renders enough CNY cards with diversity limits.
+  - Latest model discovery uses a wider candidate pool and provider/family caps.
+  - Unknown lifecycle is shown as pending review instead of raw `unknown` in the homepage highlight area.
+  - Dirty promotion crawler text is hidden from the homepage.
+- Added real HTML audit command: `npm run audit:homepage-render`.
+- Production audit result after deployment:
+  - official current: 8
+  - domestic ranking: 6
+  - latest discovery: 6
+  - promotions: 0 dirty cards
+- `audit:homepage-render`, `audit:homepage-currentness`, `audit:official-current`, `audit:freshness-fields`, `typecheck`, and `web build` all passed.
+- Public pages returned 200, admin pages unauthenticated returned 307, admin APIs unauthenticated returned 401.
+- Logs showed no critical runtime errors.
+
+Rule for future work: homepage QA must include fetching/rendering `https://skillstop.online/` HTML, because API/audit success alone previously missed visible homepage issues.

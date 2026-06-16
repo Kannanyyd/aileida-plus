@@ -1081,3 +1081,47 @@ Production validation:
   - `password authentication failed`
   - `server-side exception`
   - `rank(`
+
+---
+
+## Homepage Real Render Fix Handoff - 2026-06-16 16:20 UTC+8
+
+Scope: fixed production homepage rendered HTML issues only. No DNS, Nginx, HTTPS, schema, official-current architecture, or price-source expansion.
+
+Latest commit and deploy:
+- Commit: `939f118`
+- Branch: `main`
+- Production: `https://skillstop.online`
+- Server HEAD: `939f118`
+- Web image: formally rebuilt with `docker compose -f docker-compose.prod.yml build web --progress=plain`
+- Web container: recreated with `docker compose -f docker-compose.prod.yml up -d web`
+
+Root causes:
+- Official-current homepage section was using priced ranking with strict filters (`homepageStrict`, `requireOfficialCurrent`, `maxSourceAgeHours=12`), so official current catalog entries without fresh pricing were filtered out.
+- Domestic ranking inherited overly strict homepage filters and could render too few CNY cards.
+- Latest model discovery only read a narrow recent window and could be dominated by one platform batch.
+- Promotions rendered crawler/page-body text directly into the homepage.
+
+Changes:
+- Homepage official-current section now reads `official_current_models` catalog directly and shows price-pending entries clearly.
+- The heading is now "official current models" rather than claiming Top 8 when the strict list is smaller.
+- Domestic homepage ranking uses less brittle filters while keeping legacy/deprecated/unknown hiding and diversity limits.
+- Latest discovery reads a wider candidate pool and limits provider/family repetition; unknown is displayed as pending review, not as a primary homepage label.
+- Promotions are filtered if they look like crawler/nav/body text or are too long; dirty items are hidden from homepage.
+- Added `npm run audit:homepage-render` to validate real HTML from the production URL.
+
+Production validation:
+- `audit:homepage-render`: passed.
+- Rendered counts: official current = 8, domestic ranking = 6, latest discovery = 6, promotions = 0 dirty cards.
+- `audit:homepage-currentness`: passed.
+- `audit:official-current`: passed.
+- `audit:freshness-fields`: passed.
+- `npm run typecheck`: passed.
+- `npm -w web run build`: passed.
+- Public pages returned 200: `/`, `/models`, `/models/new`, `/providers`, `/rankings`, `/rankings/domestic`, `/rankings/frontier-value`, `/recommend`, `/compare`, `/robots.txt`, `/sitemap.xml`.
+- Admin pages unauthenticated returned 307: `/admin`, `/admin/official-current`, `/admin/model-aliases`, `/admin/review-queue`, `/admin/pricing-gaps`.
+- Admin APIs unauthenticated returned 401: `/api/admin/review-queue`, `/api/admin/pricing-gaps`.
+- Logs showed no 500 / 502 / 504 / digest / relation / tsx / EACCES / password / rank slice-map errors.
+
+Important next rule:
+- Homepage acceptance must use real rendered HTML from `https://skillstop.online/`, not only API responses or internal audit commands.

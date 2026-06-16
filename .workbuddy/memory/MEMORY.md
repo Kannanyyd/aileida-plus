@@ -498,3 +498,25 @@ ddd1e00 上线确认：
 - `apps/web/app/sitemap.ts` — all URLs
 - Server nginx: `/etc/nginx/sites-available/aileida`
 - Server nginx backup: `/etc/nginx/sites-available/aileida.backup`
+
+---
+
+## Latest Handoff: Homepage Real Render Fix - 2026-06-16 16:20 UTC+8
+
+- Latest deployed commit: `939f118`.
+- Production site: `https://skillstop.online`.
+- This round only fixed homepage real rendered HTML issues. It did not change DNS, Nginx, HTTPS, database schema, official-current architecture, or price-source coverage.
+- Root cause: homepage sections were relying on ranking/source-age filters that were correct for price ranking but too strict for official-current display, causing the real page to show too few cards. Latest discovery also used too narrow a candidate pool, and promotions could expose crawler body text.
+- Main files changed:
+  - `apps/web/app/page.tsx`
+  - `apps/web/scripts/audit-homepage-render.ts`
+  - `apps/web/lib/rank/score.ts`
+  - `package.json`
+  - `apps/web/package.json`
+- New command: `npm run audit:homepage-render`.
+- Production render audit passed with counts: official current 8, domestic ranking 6, latest discovery 6, promotions 0 dirty cards.
+- Other audits passed: `audit:homepage-currentness`, `audit:official-current`, `audit:freshness-fields`.
+- Local checks passed: `npm run typecheck`, `npm -w web run build`.
+- Public pages were 200; admin pages were unauthenticated 307; admin APIs were unauthenticated 401.
+- Logs had no 500 / 502 / 504 / digest / relation / tsx / EACCES / password / rank slice-map errors.
+- Future homepage acceptance must be based on real HTML from `https://skillstop.online/`, not API/audit output alone.
