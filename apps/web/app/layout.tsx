@@ -67,7 +67,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   <a href="/providers" className="hover:text-primary">厂商</a>
                   <a href="/rankings" className="hover:text-primary">排行榜</a>
                   <a href="/recommend" className="hover:text-primary">推荐助手</a>
-                  <a href="/admin" className="hover:text-primary">后台</a>
                 </div>
               </div>
             </footer>

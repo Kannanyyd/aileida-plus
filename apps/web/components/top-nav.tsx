@@ -45,14 +45,7 @@ export function TopNav() {
           })}
         </nav>
 
-        <div className="flex items-center gap-2">
-          <Link
-            href="/admin"
-            className="text-xs px-3 py-1.5 rounded-lg border border-white/10 text-slate-300 hover:text-white hover:border-white/20 transition"
-          >
-            后台
-          </Link>
-        </div>
+        <div className="hidden md:block w-8" aria-hidden="true" />
       </div>
     </header>
   );
