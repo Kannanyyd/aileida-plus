@@ -317,7 +317,6 @@ export default async function HomePage() {
         <div className="glass p-5">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-lg font-semibold text-white">价格变化 / 新增价格</h2>
-            <Link href="/admin/changelog" className="text-xs text-primary hover:text-primary-hover">全部</Link>
           </div>
           <PriceChangeList changes={changes} />
         </div>
