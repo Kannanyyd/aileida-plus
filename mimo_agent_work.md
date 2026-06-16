@@ -225,6 +225,50 @@ sudo certbot renew
 
 ---
 
+## 完成任务：SEO URL / canonical 最终核验 (2026-06-16)
+
+### 任务范围
+仅做 SEO URL / canonical / robots / sitemap / www canonical 核验与修复。不做新功能、中文文案、模型数据、数据库等。
+
+### 审计结果
+- 本地代码无旧 IP (`175.178.213.71`) 引用 ✅
+- `getSiteUrl()` 已被 `layout.tsx`、`robots.ts`、`sitemap.ts` 使用 ✅
+- 服务器 `APP_BASE_URL=https://skillstop.online` ✅
+
+### 修复内容
+**Nginx www 跳转**：修改服务器 `/etc/nginx/sites-available/aileida`
+- 添加 `https://www.skillstop.online` → `https://skillstop.online` 301 跳转
+- 简化 HTTP 全部跳转到 `https://skillstop.online`
+- 备份原配置到 `/etc/nginx/sites-available/aileida.backup`
+
+### 验收结果
+| 检查项 | 结果 |
+|---|---|
+| robots.txt Sitemap | `https://skillstop.online/sitemap.xml` ✅ |
+| sitemap.xml URL | 全部 `https://skillstop.online/...` ✅ |
+| 无旧 IP 残留 | ✅ |
+| metadataBase / canonical / openGraph | 全部 `https://skillstop.online` ✅ |
+| www → 裸域 301 | ✅ |
+| HTTP → HTTPS | ✅ |
+| 公开页面 (11个) | 全部 200 ✅ |
+| 后台页面 (5个) | 未登录 307 ✅ |
+| API (4个) | 401/200 正确 ✅ |
+| audit:homepage-currentness | ✅ |
+| audit:official-current | ✅ |
+| audit:freshness-fields | ✅ |
+| 日志 | 无关键错误 ✅ |
+| typecheck / web build | ✅ |
+| 服务器 git | clean, synced ✅ |
+
+### 关键文件
+- `apps/web/lib/site-url.ts` — 统一站点 URL 工具函数
+- `apps/web/app/layout.tsx` — metadataBase, openGraph
+- `apps/web/app/robots.ts` — Sitemap 字段
+- `apps/web/app/sitemap.ts` — 所有 URL
+- 服务器 nginx: `/etc/nginx/sites-available/aileida`
+
+---
+
 ## 项目架构概要
 
 ```
