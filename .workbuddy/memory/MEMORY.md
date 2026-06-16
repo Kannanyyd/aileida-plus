@@ -520,3 +520,41 @@ ddd1e00 上线确认：
 - Public pages were 200; admin pages were unauthenticated 307; admin APIs were unauthenticated 401.
 - Logs had no 500 / 502 / 504 / digest / relation / tsx / EACCES / password / rank slice-map errors.
 - Future homepage acceptance must be based on real HTML from `https://skillstop.online/`, not API/audit output alone.
+
+---
+
+## Latest Handoff: Full Site Pre-Launch Audit - 2026-06-16 17:25 UTC+8
+
+- Latest deployed commit: `5ea991a`.
+- Production site: `https://skillstop.online`.
+- This round performed a comprehensive pre-launch audit and minimal fix.
+- Scope: public page experience, data credibility, navigation consistency, real HTML rendering, basic SEO, error logs.
+- Not changed: DNS, Nginx, HTTPS, database schema, official-current architecture, price-source coverage.
+
+### Audit results
+- Public pages (14): all 200 ✅
+- Admin pages (5): unauthenticated 307 ✅
+- Admin APIs (2): unauthenticated 401 ✅
+- Homepage official current: 8 ✅
+- Homepage domestic CNY ranking: 6 ✅
+- Latest discovery: 4, no provider/family spam ✅
+- No raw "unknown" labels ✅
+- No crawler body/navigation text ✅
+- CNY/USD/estimated price labels correct ✅
+- robots.txt / sitemap.xml correct ✅
+- No old IP references ✅
+- typecheck / build passed ✅
+- audit:homepage-render passed ✅
+- audit:freshness-fields passed ✅
+- Logs clean ✅
+
+### Issue found and fixed
+1. **Admin changelog link exposed on public homepage**
+   - Location: `apps/web/app/page.tsx:320`
+   - Fix: removed the link
+   - Commit: `5ea991a`
+
+### Deployment
+- Server synced to `5ea991a`
+- Web container formally rebuilt and restarted
+- Verified: no `/admin` links in homepage HTML
