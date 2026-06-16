@@ -14,8 +14,8 @@
 ## 部署（生产）
 - 服务器：175.178.213.71（Ubuntu 24.04）
 - Docker Compose：aileida-web / aileida-worker / aileida-postgres
-- 端口：3000（HTTP only，无 Nginx/HTTPS）
-- 域名：skillstop.online DNS 已指向 175.178.213.71（dig @1.1.1.1 验证）
+- 域名：https://skillstop.online（正式上线）
+- Nginx：反向代理 + HTTPS（Let's Encrypt）+ www 301 到裸域
 - GitHub：Kannanyyd/aileida-plus（public）
 - SSH 私钥：`NewLeiDa.pem`（⚠️ 不提交 Git）
 
@@ -457,3 +457,44 @@ ddd1e00 上线确认：
   - no 500/digest/relation/tsx/EACCES/password/server-side exception/rank errors.
 - Note:
   - `nginx_aileida.conf` remains untracked locally and was intentionally not committed because this round explicitly excluded Nginx work.
+
+## Latest handoff: SEO URL / canonical final verification and fix
+
+- Update time: 2026-06-16 14:30 UTC+8
+- Latest commit: `d842abc`
+- GitHub: `origin/main = d842abc`
+- Server source: `~/aileida-plus = d842abc` (clean, synced)
+- Scope lock: only SEO URL / canonical / robots / sitemap / www canonical. No new features, no Chinese copy, no model data, no official-current, no DB changes.
+
+### Changes made
+1. **Code**: No changes needed — `getSiteUrl()` already in place from commit `b5c5853`
+2. **Nginx**: Updated `/etc/nginx/sites-available/aileida` on server to add www → bare domain 301 redirect
+3. **Server .env**: Confirmed `APP_BASE_URL=https://skillstop.online`
+
+### Verification results
+- `robots.txt` Sitemap: `https://skillstop.online/sitemap.xml` ✅
+- `sitemap.xml`: all URLs use `https://skillstop.online/...` ✅
+- No old IP (`175.178.213.71`) in sitemap ✅
+- `metadataBase`: `https://skillstop.online` ✅
+- `canonical`: based on `https://skillstop.online` ✅
+- `openGraph.url`: `https://skillstop.online` ✅
+- www canonical: `https://www.skillstop.online/` → 301 → `https://skillstop.online/` ✅
+- HTTP → HTTPS: all redirect correctly ✅
+- Public pages: all 200 ✅
+- Admin pages: unauthenticated 307 ✅
+- Admin APIs: unauthenticated 401 ✅
+- `audit:homepage-currentness`: passed ✅
+- `audit:official-current`: passed ✅
+- `audit:freshness-fields`: passed ✅
+- Logs: no 500/502/504/digest/relation/tsx/EACCES/password errors ✅
+- Server git: clean, synced with origin/main ✅
+- typecheck: passed ✅
+- web build: passed ✅
+
+### Key files
+- `apps/web/lib/site-url.ts` — unified site URL utility
+- `apps/web/app/layout.tsx` — metadataBase, openGraph
+- `apps/web/app/robots.ts` — Sitemap field
+- `apps/web/app/sitemap.ts` — all URLs
+- Server nginx: `/etc/nginx/sites-available/aileida`
+- Server nginx backup: `/etc/nginx/sites-available/aileida.backup`

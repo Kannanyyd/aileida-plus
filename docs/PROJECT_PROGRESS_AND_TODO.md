@@ -1,7 +1,8 @@
 # AI 模型价格雷达项目进度与待办报告
 
-> 最后更新：2026-06-14 01:00 UTC+8
+> 最后更新：2026-06-16 14:25 UTC+8
 > 服务器：175.178.213.71 | GitHub：Kannanyyd/aileida-plus
+> 域名：https://skillstop.online
 
 ---
 
@@ -17,14 +18,15 @@
 
 | 维度 | 状态 |
 |---|---|
-| 服务器 | ✅ 175.178.213.71:3000 |
+| 服务器 | ✅ 175.178.213.71 |
 | Docker | ✅ 3 容器 (web/worker/postgres) |
 | 数据库 | ✅ 19 张表，数据量见第 4 节 |
-| GitHub | ⚠️ HEAD=b585d1f，远程=fef4125，领先 10 commits |
-| 域名 DNS | ✅ skillstop.online → 175.178.213.71（dig @1.1.1.1 验证） |
-| 本地代理 Fake-IP | ⚠️ Clash/Mihomo TUN 返回 198.18.x.x，不影响公网 |
-| Nginx | ⚠️ 已安装，配置需完善 |
-| HTTPS | ❌ 未配置 |
+| GitHub | ✅ HEAD=d842abc，与 origin/main 同步 |
+| 域名 DNS | ✅ skillstop.online → 175.178.213.71 |
+| Nginx | ✅ 反向代理 + www 301 到裸域 |
+| HTTPS | ✅ Let's Encrypt 证书，自动续期 |
+| 域名访问 | ✅ https://skillstop.online 正式上线 |
+| SEO URL | ✅ robots.txt / sitemap / canonical / OpenGraph 全部使用正式域名 |
 | Playwright/Chromium | ❌ Docker Hub 国内不可达，无法构建含 Chromium 镜像 |
 
 ---
