@@ -98,6 +98,20 @@ export function freshnessScore(m: ModelWithPricing): number {
 
 type Preset = { weights: ScoreWeights; label: string; filter?: (m: ModelWithPricing) => boolean };
 
+function hasCurrentModelEvidence(m: ModelWithPricing): boolean {
+  if (m.is_current_default_pick) return true;
+  if (m.model_recency_status === "current" || m.model_recency_status === "recent") return true;
+  if (
+    m.official_current_catalog_match &&
+    (m.is_official_current || m.is_official_recommended) &&
+    !m.official_current_alias_needs_review
+  ) {
+    return true;
+  }
+  if (m.model_is_recommended_by_official || m.model_is_default_in_official_docs) return true;
+  return false;
+}
+
 export const RANKING_PRESETS: Record<string, Preset> = {
   "frontier-value": {
     weights: { price: 0.12, context: 0.18, capability: 0.3, freshness: 0.25, confidence: 0.15 },
@@ -197,7 +211,9 @@ function filterModels(models: ModelWithPricing[], opts: RankOptions): ModelWithP
   let result = models;
   if (opts.hideDeprecated ?? true) result = result.filter((m) => getModelTier(m) !== "deprecated");
   if (opts.hideLegacy ?? true) result = result.filter((m) => !["legacy", "previous_generation"].includes(getModelTier(m)));
-  if (opts.hideUnknown ?? true) result = result.filter((m) => getModelTier(m) !== "unknown");
+  if (opts.hideUnknown ?? true) {
+    result = result.filter((m) => getModelTier(m) !== "unknown" && hasCurrentModelEvidence(m));
+  }
   if (opts.hideSuperseded ?? true) result = result.filter((m) => !m.has_newer_family_model);
   if (opts.hideStale ?? true) {
     const maxAge = opts.maxSourceAgeHours ?? 24;
