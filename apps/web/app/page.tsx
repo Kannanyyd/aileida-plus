@@ -15,7 +15,6 @@ import { HeroSearch } from "@/components/hero-search";
 import { DataOverviewCards } from "@/components/data-overview-cards";
 import { PriceChangeList } from "@/components/price-change-list";
 import { PromotionCard } from "@/components/promotion-card";
-import { RankingTable } from "@/components/ranking-table";
 import { ModelCard } from "@/components/model-card";
 import { SiteDisclaimer } from "@/components/model-strengths";
 import {
@@ -23,6 +22,7 @@ import {
   dataFreshnessOverview,
   getRecentPriceChanges,
   listActivePromotions,
+  listOfficialCurrentCatalog,
   listLatestModelCandidates,
   listModels,
   listProviders,
@@ -55,61 +55,102 @@ function freshnessTone(age: number | null) {
   return "border-danger/40 text-danger";
 }
 
-function rankItemForTable(item: any) {
-  return {
-    rank: item.rank,
-    model_name: item.model_name,
-    model_slug: item.model_slug,
-    provider_name_zh: item.provider_name,
-    provider_slug: item.provider,
-    input_per_1m_usd: item.input_per_1m_usd,
-    output_per_1m_usd: item.output_per_1m_usd,
-    context_length: item.context_length,
-    score: item.score.total,
-  };
+function cleanPromotionText(text: string | null | undefined, maxLength = 90) {
+  if (!text) return "";
+  const cleaned = text
+    .replace(/<[^>]*>/g, " ")
+    .replace(/\s+/g, " ")
+    .replace(/(首页|文档|价格|登录|注册|控制台|产品|解决方案|联系我们|关于我们|English|Console|Docs|Pricing){4,}/gi, "")
+    .trim();
+  if (!cleaned) return "";
+  return cleaned.length > maxLength ? `${cleaned.slice(0, maxLength).trim()}...` : cleaned;
+}
+
+function isCrawlerLikePromotion(text: string | null | undefined) {
+  const value = (text ?? "").replace(/\s+/g, " ").trim();
+  if (value.length > 420) return true;
+  const navHits = value.match(/首页|文档|登录|注册|控制台|产品|解决方案|联系我们|English|Console|Docs|Pricing/gi)?.length ?? 0;
+  return navHits >= 8;
+}
+
+function familyKey(value: { model_family?: string | null; family?: string | null; model_slug?: string; model_name?: string }) {
+  return (value.model_family ?? value.family ?? value.model_slug ?? value.model_name ?? "")
+    .toLowerCase()
+    .replace(/-(latest|preview|beta|instruct|thinking|reasoning|non-reasoning|fast|turbo|mini|nano|chat|online)$/g, "")
+    .replace(/-\d{4,8}$/g, "");
+}
+
+function selectLatestHomepageCandidates<T extends {
+  provider_slug: string;
+  selling_platform_provider?: string | null;
+  source_provider?: string | null;
+  model_family?: string | null;
+  family?: string | null;
+  model_slug: string;
+  lifecycle_tier: string;
+  needs_alias_review?: boolean | null;
+  data_quality_flags?: string[] | null;
+}>(items: T[], limit = 6) {
+  const providerCount = new Map<string, number>();
+  const familyCount = new Map<string, number>();
+  const selected: T[] = [];
+  const candidates = [
+    ...items.filter((item) => item.lifecycle_tier !== "unknown" && !item.needs_alias_review),
+    ...items.filter((item) => item.lifecycle_tier === "unknown" && !item.needs_alias_review),
+  ];
+  for (const item of candidates) {
+    const flags = new Set(item.data_quality_flags ?? []);
+    if (flags.has("suspicious_name")) continue;
+    const provider = item.selling_platform_provider || item.source_provider || item.provider_slug;
+    const family = `${provider}/${familyKey(item)}`;
+    if ((providerCount.get(provider) ?? 0) >= 2) continue;
+    if ((familyCount.get(family) ?? 0) >= 1) continue;
+    providerCount.set(provider, (providerCount.get(provider) ?? 0) + 1);
+    familyCount.set(family, (familyCount.get(family) ?? 0) + 1);
+    selected.push(item);
+    if (selected.length >= limit) break;
+  }
+  return selected;
 }
 
 export default async function HomePage() {
-  const [overview, models, domesticModels, changes, promotions, providers, latestCandidates, freshness] = await Promise.all([
+  const [overview, models, domesticModels, changes, promotions, providers, latestCandidatesRaw, officialCatalog, freshness] = await Promise.all([
     dashboardOverview(),
-    listModels({ limit: 160 }),
-    listModels({ limit: 80, region: "china_mainland" }),
+    listModels({ limit: 600 }),
+    listModels({ limit: 300, region: "china_mainland" }),
     getRecentPriceChanges(8),
     listActivePromotions(6),
     listProviders(),
-    listLatestModelCandidates(6),
+    listLatestModelCandidates(30),
+    listOfficialCurrentCatalog(80),
     dataFreshnessOverview(),
   ]);
 
-  const curatedValue = rank(models, "frontier-value", {
-    limit: 8,
-    diversityMode: true,
-    homepageStrict: true,
-    maxSourceAgeHours: 12,
-    hideStale: true,
-    hideSuperseded: true,
-    hideLegacy: true,
-    hideDeprecated: true,
-    hideUnknown: true,
-    requireOfficialCurrent: true,
-    maxPerProvider: 2,
-    maxPerFamily: 1,
-  }).items;
+  const officialModels = officialCatalog
+    .filter((row) => row.homepage_eligible && row.official_source_url && !row.aliases_need_review)
+    .sort((a, b) => Number(b.has_pricing) - Number(a.has_pricing) || Number(b.confidence) - Number(a.confidence))
+    .slice(0, 8);
 
   const domesticValue = rank(domesticModels.length ? domesticModels : models, "domestic", {
-    limit: 6,
+    limit: 8,
     diversityMode: true,
-    homepageStrict: true,
-    maxSourceAgeHours: 12,
-    hideStale: true,
+    homepageStrict: false,
+    hideStale: false,
     hideSuperseded: true,
     hideLegacy: true,
     hideDeprecated: true,
     hideUnknown: true,
-    requireOfficialCurrent: true,
+    requireOfficialCurrent: false,
     maxPerProvider: 2,
     maxPerFamily: 1,
   }).items;
+  const latestCandidates = selectLatestHomepageCandidates(latestCandidatesRaw, 6);
+  const cleanPromotions = promotions
+    .map((promotion) => ({
+      ...promotion,
+      description: cleanPromotionText(promotion.description),
+    }))
+    .filter((promotion) => !isCrawlerLikePromotion(promotion.title) && !isCrawlerLikePromotion(promotion.description));
 
   const sourceStale = (freshness.source_age_hours ?? 999) > 12 || (freshness.pricing_age_hours ?? 999) > 12;
 
@@ -187,16 +228,18 @@ export default async function HomePage() {
             查看发现列表 <ArrowRight className="h-3 w-3" />
           </Link>
         </div>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" data-home-section="latest-models">
           {latestCandidates.length > 0 ? latestCandidates.map((candidate) => (
-            <Link key={candidate.id} href={`/models/${encodeURIComponent(candidate.model_slug)}`} className="glass p-4 transition hover:border-primary/40">
+            <Link key={candidate.id} href={`/models/${encodeURIComponent(candidate.model_slug)}`} className="glass p-4 transition hover:border-primary/40" data-home-card="latest-model">
               <div className="flex items-center justify-between gap-2">
                 <p className="truncate text-sm font-semibold text-white">{candidate.model_name}</p>
                 <span className={candidate.needs_pricing_review ? "text-[10px] text-warning" : "text-[10px] text-success"}>
                   {candidate.needs_pricing_review ? "价格待确认" : "已收录价格"}
                 </span>
               </div>
-              <p className="mt-1 text-[11px] text-slate-500">{candidate.provider_slug} / {candidate.lifecycle_tier} / {relativeTime(candidate.last_seen_at)}</p>
+              <p className="mt-1 text-[11px] text-slate-500">
+                {candidate.provider_slug} / {candidate.lifecycle_tier === "unknown" ? "待确认" : candidate.lifecycle_tier} / {relativeTime(candidate.last_seen_at)}
+              </p>
               {candidate.source_url && <p className="mt-2 truncate text-[10px] text-primary">来源：{candidate.source_url}</p>}
             </Link>
           )) : (
@@ -216,20 +259,47 @@ export default async function HomePage() {
             </div>
             <Link href="/rankings/domestic" className="text-xs text-primary hover:underline">Top 50</Link>
           </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {domesticValue.slice(0, 4).map((item) => {
+          <div className="grid gap-3 sm:grid-cols-2" data-home-section="domestic-ranking">
+            {domesticValue.slice(0, 6).map((item) => {
               const model = domesticModels.find((candidate) => candidate.model_id === item.model_id) ?? models.find((candidate) => candidate.model_id === item.model_id);
-              return model ? <ModelCard key={`${item.provider}-${item.model_slug}`} m={model} /> : null;
+              return model ? <div key={`${item.provider}-${item.model_slug}`} data-home-card="domestic-model"><ModelCard m={model} /></div> : null;
             })}
           </div>
         </div>
 
-        <div>
-          <RankingTable
-            items={curatedValue.map(rankItemForTable)}
-            title="官方当前主力 Top 8"
-            subtitle="只展示官方当前主力目录认可的模型，隐藏旧模型、待确认模型、来源过期模型与同系列重复项。"
-          />
+        <div className="glass p-5" data-home-section="official-current">
+          <div className="mb-4 flex items-start justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold text-white">官方当前主力模型</h2>
+              <p className="mt-0.5 text-xs text-slate-500">来自 official-current catalog；价格未确认的模型会明确标记，不参与性价比排序。</p>
+            </div>
+            <Link href="/models/new" className="text-xs text-primary hover:text-primary-hover">查看发现列表 →</Link>
+          </div>
+          <ul className="space-y-1.5">
+            {officialModels.map((item, index) => {
+              const priced = models.find((model) =>
+                model.official_current_model_slug === item.model_slug ||
+                model.model_slug === item.model_slug ||
+                model.canonical_model_slug?.endsWith(`/${item.model_slug}`),
+              );
+              return (
+                <li key={`${item.provider_slug}-${item.model_slug}`} className="flex items-center gap-3 rounded-xl border border-white/5 px-3 py-2.5 hover:bg-white/5" data-home-card="official-model">
+                  <span className="w-6 shrink-0 font-mono text-sm text-slate-500">{index + 1}</span>
+                  <div className="min-w-0 flex-1">
+                    <Link href={`/models/${encodeURIComponent(priced?.model_slug ?? item.model_slug)}`} className="block truncate text-sm font-medium text-white hover:text-primary">
+                      {priced?.model_name ?? item.official_name}
+                    </Link>
+                    <p className="truncate text-[11px] text-slate-500">{item.provider_slug} · {item.model_family}</p>
+                  </div>
+                  {priced ? (
+                    <span className="rounded bg-success/10 px-2 py-0.5 text-[10px] text-success">已收录价格</span>
+                  ) : (
+                    <span className="rounded bg-warning/10 px-2 py-0.5 text-[10px] text-warning">价格待确认</span>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
         </div>
       </section>
 
@@ -249,9 +319,11 @@ export default async function HomePage() {
             </h2>
             <Link href="/promotions" className="text-xs text-primary hover:text-primary-hover">全部</Link>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            {promotions.length > 0 ? promotions.slice(0, 4).map((promotion) => (
-              <PromotionCard key={promotion.id} p={promotion as never} />
+          <div className="grid gap-4 sm:grid-cols-2" data-home-section="promotions">
+            {cleanPromotions.length > 0 ? cleanPromotions.slice(0, 4).map((promotion) => (
+              <div key={promotion.id} data-home-card="promotion">
+                <PromotionCard p={promotion as never} />
+              </div>
             )) : (
               <div className="col-span-full rounded-lg border border-white/10 bg-white/3 p-5 text-center text-sm text-slate-500">
                 暂无活动价数据。

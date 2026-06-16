@@ -35,6 +35,7 @@
     "audit:official-current": "npm -w worker run audit:official-current",
     "audit:homepage-currentness": "npm -w worker run audit:homepage-currentness",
     "audit:freshness-fields": "npm -w web run audit:freshness-fields",
+    "audit:homepage-render": "npm -w web run audit:homepage-render",
     "sync:official-current": "npm -w worker run sync:official-current",
     "freshness:audit": "npm run audit:freshness"
   },
