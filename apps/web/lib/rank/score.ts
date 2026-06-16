@@ -116,6 +116,11 @@ function hasCurrentModelEvidence(m: ModelWithPricing): boolean {
   return false;
 }
 
+function isExplicitPreviousEraModel(m: ModelWithPricing): boolean {
+  const name = `${m.provider_slug} ${m.model_slug} ${m.model_name} ${m.family ?? ""}`;
+  return PREVIOUS_RE.test(name) || LEGACY_RE.test(name);
+}
+
 export const RANKING_PRESETS: Record<string, Preset> = {
   "frontier-value": {
     weights: { price: 0.12, context: 0.18, capability: 0.3, freshness: 0.25, confidence: 0.15 },
@@ -214,7 +219,9 @@ export interface RankOptions {
 function filterModels(models: ModelWithPricing[], opts: RankOptions): ModelWithPricing[] {
   let result = models;
   if (opts.hideDeprecated ?? true) result = result.filter((m) => getModelTier(m) !== "deprecated");
-  if (opts.hideLegacy ?? true) result = result.filter((m) => !["legacy", "previous_generation"].includes(getModelTier(m)));
+  if (opts.hideLegacy ?? true) {
+    result = result.filter((m) => !["legacy", "previous_generation"].includes(getModelTier(m)) && !isExplicitPreviousEraModel(m));
+  }
   if (opts.hideUnknown ?? true) {
     result = result.filter((m) => getModelTier(m) !== "unknown" && hasCurrentModelEvidence(m));
   }
