@@ -269,6 +269,39 @@ sudo certbot renew
 
 ---
 
+## 完成任务：全站上线前检修 (2026-06-16 17:25 UTC+8)
+
+### 审计结果
+| 检查项 | 结果 |
+|---|---|
+| 公开页面 (14个) | 全部 200 ✅ |
+| 后台页面 (5个) | 未登录 307 ✅ |
+| admin API (2个) | 未登录 401 ✅ |
+| 首页官方当前主力 | 8 个 ✅ |
+| 首页国内人民币榜 | 6 个 ✅ |
+| 最新模型发现 | 4 个，无刷屏 ✅ |
+| 无 raw unknown 标签 | ✅ |
+| 无爬虫正文/导航文本 | ✅ |
+| CNY/USD/估算价标识 | ✅ |
+| robots.txt / sitemap.xml | ✅ |
+| 无旧 IP 残留 | ✅ |
+| typecheck / build | ✅ |
+| audit:homepage-render | ✅ |
+| audit:freshness-fields | ✅ |
+| 日志 | 无关键错误 ✅ |
+
+### 发现并修复的问题
+1. **首页 `/admin/changelog` 链接暴露**
+   - 位置: `apps/web/app/page.tsx:320`
+   - 修复: 删除该链接
+   - commit: `5ea991a`
+
+### 部署
+- 服务器已同步到 `5ea991a`
+- web 容器已正式 rebuild 并重启
+
+---
+
 ## 项目架构概要
 
 ```
