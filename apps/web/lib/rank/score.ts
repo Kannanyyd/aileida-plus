@@ -25,7 +25,7 @@ export type ModelTier =
   | "deprecated"
   | "unknown";
 
-const PREVIOUS_RE = /\b(gpt-4\b|gpt-4-turbo|claude-3(?:-|$)|gemini-1\.5|gemini-2\.5|llama-3(?:-|$)|qwen2(?:\.5)?|deepseek-v2|doubao-1\.5)\b/i;
+const PREVIOUS_RE = /\b(gpt-4\b|gpt-4o|gpt-4-turbo|claude-3(?:-|$)|claude-(?:sonnet|opus)-4(?:\b|$)|gemini-1\.5|gemini-2\.5|llama-3(?:-|$)|qwen2(?:\.5)?|deepseek-v2|deepseek-r1|doubao-1\.5)\b/i;
 const LEGACY_RE = /\b(gpt-3\.5|text-davinci|davinci|babbage|curie|ada|claude-2|claude-instant|gemini-1\.0|llama-2|qwen1|chatglm2|chatglm3|v0|legacy|old)\b/i;
 
 function modelAgeMonths(m: ModelWithPricing): number | null {
@@ -100,7 +100,6 @@ type Preset = { weights: ScoreWeights; label: string; filter?: (m: ModelWithPric
 
 function hasCurrentModelEvidence(m: ModelWithPricing): boolean {
   if (m.is_current_default_pick) return true;
-  if (m.model_recency_status === "current" || m.model_recency_status === "recent") return true;
   if (
     m.official_current_catalog_match &&
     (m.is_official_current || m.is_official_recommended) &&
@@ -109,6 +108,11 @@ function hasCurrentModelEvidence(m: ModelWithPricing): boolean {
     return true;
   }
   if (m.model_is_recommended_by_official || m.model_is_default_in_official_docs) return true;
+  if (m.model_recency_status === "current" || m.model_recency_status === "recent") {
+    const ageMonths = modelAgeMonths(m);
+    if (ageMonths != null && ageMonths > 9) return false;
+    return true;
+  }
   return false;
 }
 
