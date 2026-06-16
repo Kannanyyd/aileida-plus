@@ -57,8 +57,8 @@ async function main() {
   const promotionCount = countCards(promotionsSection, "promotion");
   const hasTop8Title = /官方当前主力\s*Top\s*8/i.test(stripTags(officialSection));
 
-  const latestProviders = Array.from(latestSection.matchAll(/<p class="mt-1 text-\[11px\] text-slate-500">([^<]+)<\/p>/g))
-    .map((match) => match[1]?.split("/")[0]?.trim())
+  const latestProviders = Array.from(latestSection.matchAll(/data-home-provider="([^"]+)"/g))
+    .map((match) => match[1]?.trim())
     .filter(Boolean);
   const providerCounts = latestProviders.reduce<Record<string, number>>((acc, provider) => {
     acc[provider] = (acc[provider] ?? 0) + 1;

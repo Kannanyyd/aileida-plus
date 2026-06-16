@@ -122,7 +122,7 @@ export default async function HomePage() {
     getRecentPriceChanges(8),
     listActivePromotions(6),
     listProviders(),
-    listLatestModelCandidates(30),
+    listLatestModelCandidates(120),
     listOfficialCurrentCatalog(80),
     dataFreshnessOverview(),
   ]);
@@ -234,7 +234,13 @@ export default async function HomePage() {
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" data-home-section="latest-models">
           {latestCandidates.length > 0 ? latestCandidates.map((candidate) => (
-            <Link key={candidate.id} href={`/models/${encodeURIComponent(candidate.model_slug)}`} className="glass p-4 transition hover:border-primary/40" data-home-card="latest-model">
+            <Link
+              key={candidate.id}
+              href={`/models/${encodeURIComponent(candidate.model_slug)}`}
+              className="glass p-4 transition hover:border-primary/40"
+              data-home-card="latest-model"
+              data-home-provider={candidate.selling_platform_provider || candidate.source_provider || candidate.provider_slug}
+            >
               <div className="flex items-center justify-between gap-2">
                 <p className="truncate text-sm font-semibold text-white">{candidate.model_name}</p>
                 <span className={candidate.needs_pricing_review ? "text-[10px] text-warning" : "text-[10px] text-success"}>
