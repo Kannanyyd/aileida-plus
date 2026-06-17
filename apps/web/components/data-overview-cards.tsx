@@ -1,4 +1,4 @@
-import { Database, Building2, TrendingDown, Tag } from "lucide-react";
+import { Database, Building2, TrendingDown } from "lucide-react";
 
 interface Overview {
   providers: number;
@@ -12,9 +12,8 @@ const cards = [
   { key: "models", label: "已监控模型", icon: Database, accent: "text-primary" },
   { key: "providers", label: "已收录厂商", icon: Building2, accent: "text-cyan" },
   { key: "todayChanges", label: "今日价格变化", icon: TrendingDown, accent: "text-success" },
-  { key: "promotions", label: "进行中优惠", icon: Tag, accent: "text-warning" },
 ] as const satisfies ReadonlyArray<{
-  key: keyof Pick<Overview, "models" | "providers" | "todayChanges" | "promotions">;
+  key: keyof Pick<Overview, "models" | "providers" | "todayChanges">;
   label: string;
   icon: typeof Database;
   accent: string;
@@ -22,7 +21,7 @@ const cards = [
 
 export function DataOverviewCards({ data }: { data: Overview }) {
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
       {cards.map((c) => {
         const Icon = c.icon;
         const value = data[c.key] ?? 0;

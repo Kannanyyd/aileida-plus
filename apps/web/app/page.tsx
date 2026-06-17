@@ -8,20 +8,17 @@ import {
   Radar,
   Search,
   Sparkles,
-  Tag as TagIcon,
   TrendingUp,
 } from "lucide-react";
 import { HeroSearch } from "@/components/hero-search";
 import { DataOverviewCards } from "@/components/data-overview-cards";
 import { PriceChangeList } from "@/components/price-change-list";
-import { PromotionCard } from "@/components/promotion-card";
 import { ModelCard } from "@/components/model-card";
 import { SiteDisclaimer } from "@/components/model-strengths";
 import {
   dashboardOverview,
   dataFreshnessOverview,
   getRecentPriceChanges,
-  listActivePromotions,
   listOfficialCurrentCatalog,
   listLatestModelCandidates,
   listModels,
@@ -53,25 +50,6 @@ function freshnessTone(age: number | null) {
   if (age <= 12) return "border-success/30 text-success";
   if (age <= 24) return "border-warning/40 text-warning";
   return "border-danger/40 text-danger";
-}
-
-function cleanPromotionText(text: string | null | undefined, maxLength = 90) {
-  if (!text) return "";
-  const cleaned = text
-    .replace(/<[^>]*>/g, " ")
-    .replace(/\s+/g, " ")
-    .replace(/(首页|文档|价格|登录|注册|控制台|产品|解决方案|联系我们|关于我们|English|Console|Docs|Pricing){4,}/gi, "")
-    .trim();
-  if (!cleaned) return "";
-  return cleaned.length > maxLength ? `${cleaned.slice(0, maxLength).trim()}...` : cleaned;
-}
-
-function isCrawlerLikePromotion(text: string | null | undefined) {
-  const value = (text ?? "").replace(/\s+/g, " ").trim();
-  if (value.length > 180) return true;
-  const navHits = value.match(/首页|文档|登录|注册|控制台|产品|解决方案|联系我们|English|Console|Docs|Pricing/gi)?.length ?? 0;
-  if (navHits >= 3) return true;
-  return /查看详情|全场景产品矩阵|开箱即用|头脑风暴|逻辑推理|云市场|开发者客户支持|精选模板|产品简介|客户案例|免费体/i.test(value);
 }
 
 function familyKey(value: { model_family?: string | null; family?: string | null; model_slug?: string; model_name?: string }) {
@@ -121,12 +99,11 @@ function selectLatestHomepageCandidates<T extends {
 }
 
 export default async function HomePage() {
-  const [overview, models, domesticModels, changes, promotions, providers, latestCandidatesRaw, officialCatalog, freshness] = await Promise.all([
+  const [overview, models, domesticModels, changes, providers, latestCandidatesRaw, officialCatalog, freshness] = await Promise.all([
     dashboardOverview(),
     listModels({ limit: 600 }),
     listModels({ limit: 300, region: "china_mainland" }),
     getRecentPriceChanges(8),
-    listActivePromotions(6),
     listProviders(),
     listLatestModelCandidates(120),
     listOfficialCurrentCatalog(80),
@@ -152,15 +129,6 @@ export default async function HomePage() {
     maxPerFamily: 1,
   }).items;
   const latestCandidates = selectLatestHomepageCandidates(latestCandidatesRaw, 6);
-  const cleanPromotions = promotions
-    .map((promotion) => ({
-      ...promotion,
-      description: cleanPromotionText(promotion.description),
-    }))
-    .filter((promotion, index) => {
-      const original = promotions[index];
-      return !isCrawlerLikePromotion(original.title) && !isCrawlerLikePromotion(original.description) && !isCrawlerLikePromotion(promotion.description);
-    });
 
   const sourceStale = (freshness.source_age_hours ?? 999) > 12 || (freshness.pricing_age_hours ?? 999) > 12;
 
@@ -319,32 +287,12 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section className="grid gap-6 lg:grid-cols-2">
+      <section>
         <div className="glass p-5">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-lg font-semibold text-white">价格变化 / 新增价格</h2>
           </div>
           <PriceChangeList changes={changes} />
-        </div>
-
-        <div className="glass p-5">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="flex items-center gap-2 text-lg font-semibold text-white">
-              <TagIcon className="h-4 w-4 text-warning" /> 活动价与优惠
-            </h2>
-            <Link href="/promotions" className="text-xs text-primary hover:text-primary-hover">全部</Link>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2" data-home-section="promotions">
-            {cleanPromotions.length > 0 ? cleanPromotions.slice(0, 4).map((promotion) => (
-              <div key={promotion.id} data-home-card="promotion">
-                <PromotionCard p={promotion as never} />
-              </div>
-            )) : (
-              <div className="col-span-full rounded-lg border border-white/10 bg-white/3 p-5 text-center text-sm text-slate-500">
-                暂无活动价数据。
-              </div>
-            )}
-          </div>
         </div>
       </section>
 

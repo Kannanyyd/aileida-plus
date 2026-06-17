@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ShieldCheck, FileClock, Database, Tag, MessageSquare, AlertTriangle, Settings, Building2 } from "lucide-react";
+import { ShieldCheck, FileClock, Database, MessageSquare, Settings, Building2 } from "lucide-react";
 
 const cards = [
   { href: "/admin/review", title: "数据复核台", desc: "处理低置信度 / 多源冲突 / 字段异常的数据", icon: ShieldCheck },
@@ -7,7 +7,6 @@ const cards = [
   { href: "/admin/providers", title: "厂商管理", desc: "管理 AI 厂商资料、数据源、Logo、背景介绍", icon: Building2 },
   { href: "/admin/sources", title: "抓取源管理", desc: "查看各源健康度、调度、失败次数", icon: Database },
   { href: "/admin/changelog", title: "价格变更历史", desc: "所有自动 / 人工应用的价格变更记录", icon: FileClock },
-  { href: "/promotions", title: "优惠管理", desc: "查看、编辑、抓取自各厂商的优惠活动", icon: Tag },
 ];
 
 export default function AdminIndex() {

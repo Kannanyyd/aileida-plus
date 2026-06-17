@@ -1,14 +1,12 @@
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { Radar, Calculator, Trophy, Tag, Database, Sparkles, Newspaper, Gem } from "lucide-react";
+import { Radar, Calculator, Trophy, Database, Sparkles, Newspaper } from "lucide-react";
 
 const items = [
   { href: "/models", label: "模型库", icon: Database },
   { href: "/recommend", label: "推荐", icon: Sparkles },
   { href: "/calculator", label: "计算器", icon: Calculator },
   { href: "/rankings", label: "排行榜", icon: Trophy },
-  { href: "/promotions", label: "优惠", icon: Tag },
-  { href: "/plans", label: "会员", icon: Gem },
   { href: "/ai-news", label: "动态", icon: Newspaper },
   { href: "/providers", label: "厂商", icon: Radar },
 ];

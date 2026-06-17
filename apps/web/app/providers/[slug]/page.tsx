@@ -1,16 +1,12 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getProviderBySlug, listModels } from "@/lib/db/queries";
-import { db } from "@/lib/db/client";
-import { subscriptionPlans, promotions } from "@/lib/db/schema";
-import { eq, and } from "drizzle-orm";
 import { ConfidenceBadge } from "@/components/confidence-badge";
 import { ModelCard } from "@/components/model-card";
-import { PromotionCard } from "@/components/promotion-card";
 import { SiteDisclaimer } from "@/components/model-strengths";
 import {
   Building2, Globe, FileText, CreditCard, Users, Shield, Sparkles, Newspaper,
-  Database, AlertTriangle, Info, MapPin, Calendar, ExternalLink, Tag, Layers,
+  Database, AlertTriangle, Info, MapPin, Calendar, ExternalLink, Layers,
 } from "lucide-react";
 
 export const revalidate = 300;
@@ -53,8 +49,6 @@ export default async function ProviderDetailPage({
   if (!p) return notFound();
 
   const models = await listModels({ providerSlug: slug, limit: 50 });
-  const plans = await db.select().from(subscriptionPlans).where(and(eq(subscriptionPlans.provider_id, p.id), eq(subscriptionPlans.is_active, true)));
-  const promos = await db.select().from(promotions).where(and(eq(promotions.provider_id, p.id), eq(promotions.is_active, true))).limit(6);
   const conf = fmtConfidence(p.profile_confidence_score);
 
   return (
@@ -213,53 +207,6 @@ export default async function ProviderDetailPage({
           <div className="glass p-6 text-center text-xs text-slate-500">暂未收录该厂商的模型数据</div>
         )}
       </div>
-
-      {/* ===== 会员/Plan ===== */}
-      {plans.length > 0 && (
-        <div>
-          <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-            <Users className="w-4 h-4 text-cyan" /> 会员 / Plan
-          </h2>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            {plans.map((plan) => (
-              <div key={plan.id} className="glass p-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-white">{plan.name}</h3>
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">{plan.tier}</span>
-                </div>
-                <div className="mt-2">
-                  {plan.monthly_price != null ? (
-                    <p className="text-xl font-bold text-white">
-                      {Number(plan.monthly_price) === 0 ? "免费" : `${plan.currency === "CNY" ? "¥" : "$"}${plan.monthly_price}/月`}
-                    </p>
-                  ) : (
-                    <p className="text-sm text-slate-400">询价</p>
-                  )}
-                </div>
-                <div className="mt-1.5 text-[10px] text-slate-500">
-                  {plan.features.slice(0, 3).map((f, i) => <p key={i}>✓ {f}</p>)}
-                </div>
-              </div>
-            ))}
-          </div>
-          <p className="mt-2 text-[10px] text-slate-600">
-            💡 会员/Plan 价格与 API token 价格不同，请在
-            <Link href="/plans" className="text-primary hover:underline mx-1">会员对比页</Link>查看完整对比。
-          </p>
-        </div>
-      )}
-
-      {/* ===== 优惠 ===== */}
-      {promos.length > 0 && (
-        <div>
-          <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-            <Tag className="w-4 h-4 text-warning" /> 优惠活动
-          </h2>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {promos.map((pr) => <PromotionCard key={pr.id} p={pr as never} />)}
-          </div>
-        </div>
-      )}
 
       {/* ===== 最新动态 ===== */}
       <div className="glass p-4 flex items-center justify-between">
