@@ -197,7 +197,7 @@ export function ReviewForm({ modelSlug, onSubmitted }: { modelSlug: string; onSu
       <button
         onClick={handleSubmit}
         disabled={submitting}
-        className="w-full brand-glow py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50"
+        className="w-full rounded-md brand-glow py-2.5 text-sm font-semibold text-white disabled:opacity-50"
       >
         {submitting ? "提交中..." : "提交点评"}
       </button>

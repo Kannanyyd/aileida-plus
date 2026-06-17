@@ -222,7 +222,7 @@ export default function RecommendPage() {
                   {plan.entries.map((entry) => {
                     const preferCny = entry.model.currencyNative === "CNY" || entry.model.isDomestic || currencyPreference === "CNY";
                     return (
-                      <article key={entry.model.slug} className="rounded-xl border border-white/10 bg-white/3 p-4 space-y-3">
+                      <article key={entry.model.slug} className="space-y-3 rounded-md border border-white/10 bg-white/[0.03] p-4">
                         <div className="flex items-start justify-between gap-3">
                           <div>
                             <p className="font-semibold text-sm text-white">{entry.model.modelName}</p>
@@ -278,7 +278,7 @@ export default function RecommendPage() {
               <p className="mb-3 text-xs text-slate-500">这些模型来自官方当前主力或最新发现目录，但价格尚未通过复核，不会被旧模型冒充替代。</p>
               <div className="grid md:grid-cols-3 gap-2">
                 {result.latestModelAlerts.slice(0, 6).map((model) => (
-                  <a key={`${model.provider_slug}-${model.model_slug}`} href={model.source_url} target="_blank" rel="noopener noreferrer" className="rounded-lg bg-white/3 p-3 hover:bg-white/5">
+                  <a key={`${model.provider_slug}-${model.model_slug}`} href={model.source_url} target="_blank" rel="noopener noreferrer" className="rounded-md bg-white/[0.03] p-3 hover:bg-white/5">
                     <p className="text-xs text-white truncate">{model.model_name}</p>
                     <p className="mt-1 text-[10px] text-slate-500">{model.provider_slug} · {model.lifecycle_tier}</p>
                   </a>
@@ -316,7 +316,7 @@ export default function RecommendPage() {
             <div className="space-y-4">
               <h2 className="text-lg font-bold text-white">选择使用场景</h2>
               <div className="grid grid-cols-2 gap-2">
-                {SCENARIOS.map((item) => <button key={item.id} onClick={() => setScenario(item.id)} className={`rounded-xl border p-3 text-left text-xs transition ${scenario === item.id ? "border-primary/50 bg-primary/10 text-white" : "border-white/10 text-slate-400 hover:border-white/20"}`}>{item.label}</button>)}
+                {SCENARIOS.map((item) => <button key={item.id} onClick={() => setScenario(item.id)} className={`rounded-md border p-3 text-left text-xs transition ${scenario === item.id ? "border-primary/50 bg-primary/10 text-white" : "border-white/10 text-slate-400 hover:border-white/20"}`}>{item.label}</button>)}
               </div>
             </div>
           )}
@@ -325,7 +325,7 @@ export default function RecommendPage() {
             <div className="space-y-4">
               <h2 className="text-lg font-bold text-white">预算偏好</h2>
               <div className="grid grid-cols-2 gap-2">
-                {BUDGETS.map((item) => <button key={item.id} onClick={() => setBudget(item.id)} className={`rounded-xl border p-3 text-left text-xs transition ${budget === item.id ? "border-primary/50 bg-primary/10 text-white" : "border-white/10 text-slate-400"}`}>{item.label}</button>)}
+                {BUDGETS.map((item) => <button key={item.id} onClick={() => setBudget(item.id)} className={`rounded-md border p-3 text-left text-xs transition ${budget === item.id ? "border-primary/50 bg-primary/10 text-white" : "border-white/10 text-slate-400"}`}>{item.label}</button>)}
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <label className="text-[11px] text-slate-400">每月输入 tokens<input type="number" value={monthlyInput} onChange={(event) => setMonthlyInput(event.target.value)} className="mt-1 w-full rounded-lg border border-white/10 bg-white/5 p-2.5 font-mono text-sm text-white focus:border-primary/50 focus:outline-none" /></label>
@@ -348,7 +348,7 @@ export default function RecommendPage() {
           {step === "quality" && (
             <div className="space-y-4">
               <h2 className="text-lg font-bold text-white">能力要求</h2>
-              <div className="grid gap-2">{QUALITIES.map((item) => <button key={item.id} onClick={() => setQuality(item.id)} className={`rounded-xl border p-3 text-left text-xs transition ${quality === item.id ? "border-primary/50 bg-primary/10 text-white" : "border-white/10 text-slate-400"}`}>{item.label}</button>)}</div>
+              <div className="grid gap-2">{QUALITIES.map((item) => <button key={item.id} onClick={() => setQuality(item.id)} className={`rounded-md border p-3 text-left text-xs transition ${quality === item.id ? "border-primary/50 bg-primary/10 text-white" : "border-white/10 text-slate-400"}`}>{item.label}</button>)}</div>
             </div>
           )}
 
@@ -357,11 +357,11 @@ export default function RecommendPage() {
           <div className="flex justify-between pt-6">
             {step !== "scenario" ? <button onClick={prevStep} className="px-3 py-2 text-xs text-slate-400 hover:text-white">上一步</button> : <div />}
             {step === "quality" ? (
-              <button onClick={getResults} disabled={loading} className={`rounded-xl px-6 py-2.5 text-sm font-semibold text-white brand-glow ${loading ? "opacity-50" : ""}`}>
+              <button onClick={getResults} disabled={loading} className={`rounded-md px-6 py-2.5 text-sm font-semibold text-white brand-glow ${loading ? "opacity-50" : ""}`}>
                 {loading ? <><Loader2 className="w-4 h-4 inline mr-1 animate-spin" />生成中...</> : <><Search className="w-4 h-4 inline mr-1" />生成选型建议</>}
               </button>
             ) : (
-              <button onClick={nextStep} className="rounded-xl px-4 py-2 text-sm font-semibold text-white brand-glow">下一步 <ChevronRight className="w-4 h-4 inline" /></button>
+              <button onClick={nextStep} className="rounded-md px-4 py-2 text-sm font-semibold text-white brand-glow">下一步 <ChevronRight className="w-4 h-4 inline" /></button>
             )}
           </div>
         </section>

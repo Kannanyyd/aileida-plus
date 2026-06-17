@@ -133,12 +133,12 @@ export default async function HomePage() {
   const sourceStale = (freshness.source_age_hours ?? 999) > 12 || (freshness.pricing_age_hours ?? 999) > 12;
 
   return (
-    <div className="space-y-10">
-      <section className="mx-auto max-w-4xl pt-8 pb-4 text-center">
+    <div className="space-y-8">
+      <section className="glass mx-auto max-w-6xl p-5 text-center sm:p-7 lg:p-8">
         <div className="mb-5 inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary-soft px-3 py-1 text-xs text-primary">
           <Radar className="h-3 w-3" /> 官方 API · 云平台 · 聚合平台 · 国内价
         </div>
-        <h1 className="text-4xl font-bold tracking-tight md:text-5xl">
+        <h1 className="mx-auto max-w-4xl text-3xl font-bold leading-tight tracking-tight text-white md:text-5xl">
           AI 模型价格雷达
           <br />
           <span className="gradient-text">看清国内 / 海外 API 调用成本</span>
@@ -146,25 +146,25 @@ export default async function HomePage() {
         <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-slate-400 md:text-base">
           这里不是 AI 工具导航。本站追踪模型、价格、来源、更新时间和数据质量，帮助你判断 DeepSeek、通义千问、Kimi、豆包、OpenAI、Claude、Gemini 等模型的真实调用成本。
         </p>
-        <div className="mt-8 flex justify-center">
+        <div className="mt-7 flex justify-center">
           <HeroSearch />
         </div>
-        <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
-          <Link href="/rankings/domestic" className="inline-flex h-10 items-center gap-1.5 rounded-xl brand-gradient px-4 text-sm font-semibold text-white transition hover:shadow-glow">
+        <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+          <Link href="/rankings/domestic" className="inline-flex h-10 items-center gap-1.5 rounded-md brand-gradient px-4 text-sm font-semibold text-white transition hover:shadow-glow">
             <TrendingUp className="h-3.5 w-3.5" /> 国内人民币价格榜
           </Link>
-          <Link href="/rankings/frontier-value" className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-4 text-sm font-semibold text-white transition hover:bg-white/10">
+          <Link href="/rankings/frontier-value" className="inline-flex h-10 items-center gap-1.5 rounded-md border border-white/10 bg-white/5 px-4 text-sm font-semibold text-white transition hover:bg-white/10">
             <Database className="h-3.5 w-3.5" /> 官方当前主力榜
           </Link>
         </div>
 
-        <div className="mx-auto mt-8 grid max-w-3xl gap-2 sm:grid-cols-3">
+        <div className="mx-auto mt-7 grid max-w-4xl gap-2 sm:grid-cols-3">
           {[
             { label: "模型发现检查", date: freshness.latest_model_discovery_checked_at, age: freshness.source_age_hours },
             { label: "价格来源检查", date: freshness.latest_pricing_checked_at, age: freshness.pricing_age_hours },
             { label: "国内价更新", date: freshness.latest_cny_pricing_checked_at, age: freshness.cny_pricing_age_hours },
           ].map((item) => (
-            <div key={item.label} className={`rounded-xl border bg-white/3 px-3 py-2 text-left ${freshnessTone(item.age)}`}>
+            <div key={item.label} className={`rounded-md border bg-white/[0.03] px-3 py-2 text-left ${freshnessTone(item.age)}`}>
               <div className="flex items-center gap-1.5 text-[11px]">
                 <Clock3 className="h-3 w-3" />
                 <span>{item.label}</span>
@@ -175,18 +175,18 @@ export default async function HomePage() {
         </div>
 
         {sourceStale && (
-          <div className="mx-auto mt-3 flex max-w-2xl items-center justify-center gap-2 rounded-xl border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
+          <div className="mx-auto mt-3 flex max-w-2xl items-center justify-center gap-2 rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
             <AlertTriangle className="h-3.5 w-3.5" />
             部分数据源超过 12 小时未完成检查，首页精选已自动降低来源过期数据权重。
           </div>
         )}
 
-        <div className="mx-auto mt-8 max-w-xl rounded-2xl border border-white/10 bg-white/5 p-4 text-left">
+        <div className="surface mx-auto mt-5 max-w-2xl p-4 text-left">
           <div className="mb-2 flex items-center gap-2">
             <Sparkles className="h-4 w-4 text-primary" />
             <p className="text-xs font-medium text-slate-300">不知道该选哪个模型？</p>
           </div>
-          <Link href="/recommend" className="group flex items-center justify-between rounded-lg bg-white/3 px-3 py-2.5 transition hover:bg-white/5">
+          <Link href="/recommend" className="group flex items-center justify-between rounded-md bg-white/[0.03] px-3 py-2.5 transition hover:bg-white/5">
             <span className="text-xs text-slate-400">
               输入场景、预算、国内/海外、官方/聚合和币种偏好，获取带理由与替代方案的选型建议。
             </span>
@@ -267,7 +267,7 @@ export default async function HomePage() {
                 model.canonical_model_slug?.endsWith(`/${item.model_slug}`),
               );
               return (
-                <li key={`${item.provider_slug}-${item.model_slug}`} className="flex items-center gap-3 rounded-xl border border-white/5 px-3 py-2.5 hover:bg-white/5" data-home-card="official-model">
+                <li key={`${item.provider_slug}-${item.model_slug}`} className="flex items-center gap-3 rounded-md border border-white/10 px-3 py-2.5 hover:bg-white/5" data-home-card="official-model">
                   <span className="w-6 shrink-0 font-mono text-sm text-slate-500">{index + 1}</span>
                   <div className="min-w-0 flex-1">
                     <Link href={`/models/${encodeURIComponent(priced?.model_slug ?? item.model_slug)}`} className="block truncate text-sm font-medium text-white hover:text-primary">

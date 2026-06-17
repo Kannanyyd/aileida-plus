@@ -38,7 +38,7 @@ export default function RankingsIndex() {
 
   return (
     <div className="space-y-6">
-      <header className="glass p-5">
+      <header className="glass p-5 sm:p-6">
         <h1 className="flex items-center gap-2 text-2xl font-bold text-white">
           <Trophy className="h-5 w-5 text-primary" /> AI 模型价格排行榜
         </h1>
@@ -46,16 +46,16 @@ export default function RankingsIndex() {
           这里不是简单低价榜。默认榜单会隐藏旧模型和废弃模型，启用同厂商/同系列去重，并把价格、能力、新鲜度、来源置信度和数据质量一起纳入排序。
         </p>
         <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
-          <span className="rounded bg-success/10 px-2 py-1 text-success">国内榜优先原生 ¥</span>
-          <span className="rounded bg-warning/10 px-2 py-1 text-warning">按美元折算会标为“仅供参考”</span>
-          <span className="rounded bg-primary/10 px-2 py-1 text-primary">支持 Top 20 / 50 / 100</span>
-          <span className="rounded bg-white/5 px-2 py-1 text-slate-400">精选榜限制刷屏</span>
+          <span className="rounded-md bg-success/10 px-2 py-1 text-success">国内榜优先原生 ¥</span>
+          <span className="rounded-md bg-warning/10 px-2 py-1 text-warning">按美元折算会标为“仅供参考”</span>
+          <span className="rounded-md bg-primary/10 px-2 py-1 text-primary">支持 Top 20 / 50 / 100</span>
+          <span className="rounded-md bg-white/5 px-2 py-1 text-slate-400">精选榜限制刷屏</span>
         </div>
       </header>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {featured.map((category) => (
-          <Link key={category.key} href={`/rankings/${category.key}`} className="glass p-4 hover:border-primary/40 transition">
+          <Link key={category.key} href={`/rankings/${category.key}`} className="glass p-4 transition hover:-translate-y-0.5 hover:border-primary/40">
             <div className="flex items-center gap-2 text-primary">{category.icon}<span className="text-sm font-semibold text-white">{category.label}</span></div>
             <p className="mt-2 text-[11px] text-slate-500">
               {category.key === "domestic"
@@ -72,7 +72,7 @@ export default function RankingsIndex() {
         <h2 className="mb-2 text-xs font-semibold text-slate-400">更多榜单</h2>
         <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
           {rest.map((category) => (
-            <Link key={category.key} href={`/rankings/${category.key}`} className="rounded px-2 py-1.5 text-xs text-slate-300 hover:bg-white/5 hover:text-primary transition">
+            <Link key={category.key} href={`/rankings/${category.key}`} className="rounded-md px-2 py-1.5 text-xs text-slate-300 transition hover:bg-white/5 hover:text-primary">
               {category.label}
             </Link>
           ))}

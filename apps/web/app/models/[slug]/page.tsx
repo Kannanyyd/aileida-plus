@@ -243,7 +243,7 @@ export default async function ModelDetailPage({ params }: { params: Promise<{ sl
             ["模型变体", model.model_variant],
             ["来源模型 ID", model.source_model_id],
           ].map(([label, value]) => (
-            <div key={label} className="rounded border border-white/10 bg-white/3 p-2">
+            <div key={label} className="rounded-md border border-white/10 bg-white/[0.03] p-2">
               <p className="text-[10px] text-slate-500">{label}</p>
               <p className="mt-0.5 font-mono text-[11px] text-white break-all">{value || "待确认"}</p>
             </div>

@@ -57,9 +57,9 @@ export default async function ProviderDetailPage({
       <div className="glass p-6">
         <div className="flex flex-wrap items-start gap-5">
           {p.logo_url ? (
-            <img src={p.logo_url} alt={p.name_zh} className="w-20 h-20 rounded-2xl bg-white/5 object-contain p-2" />
+            <img src={p.logo_url} alt={p.name_zh} className="h-20 w-20 rounded-lg bg-white/5 object-contain p-2" />
           ) : (
-            <div className="w-20 h-20 rounded-2xl brand-gradient flex items-center justify-center shrink-0">
+            <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-lg brand-gradient">
               <Building2 className="w-8 h-8 text-white" />
             </div>
           )}

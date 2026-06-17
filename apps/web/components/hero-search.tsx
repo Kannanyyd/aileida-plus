@@ -8,7 +8,7 @@ export function HeroSearch({ placeholder = "搜索模型、厂商或场景，例
   const router = useRouter();
 
   return (
-    <div className="relative max-w-2xl">
+    <div className="relative w-full max-w-2xl">
       <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none text-slate-400">
         <Search className="w-4 h-4" />
       </div>
@@ -20,11 +20,11 @@ export function HeroSearch({ placeholder = "搜索模型、厂商或场景，例
           if (e.key === "Enter" && q.trim()) router.push(`/models?q=${encodeURIComponent(q)}`);
         }}
         placeholder={placeholder}
-        className="w-full h-14 pl-12 pr-32 rounded-2xl bg-white/5 border border-white/10 text-white placeholder:text-slate-500 focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/20 transition"
+        className="h-[52px] w-full rounded-lg border border-white/[0.12] bg-white/[0.04] pl-11 pr-28 text-sm text-white shadow-inner shadow-black/20 transition placeholder:text-slate-500 focus:border-primary/60 focus:outline-none focus:ring-2 focus:ring-primary/20 sm:h-14 sm:pr-32"
       />
       <button
         onClick={() => q.trim() && router.push(`/models?q=${encodeURIComponent(q)}`)}
-        className="absolute right-2 top-2 h-10 px-4 rounded-xl brand-gradient text-white text-sm font-semibold flex items-center gap-1.5 hover:shadow-glow transition"
+        className="absolute right-1.5 top-1.5 flex h-10 items-center gap-1.5 rounded-md brand-gradient px-3 text-sm font-semibold text-white transition hover:shadow-glow sm:right-2 sm:top-2 sm:px-4"
       >
         搜索
         <ArrowRight className="w-3.5 h-3.5" />

@@ -49,12 +49,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="zh-CN" className="dark">
       <body className="min-h-screen bg-bg-main text-slate-200 antialiased">
-        <div className="relative">
-          <div className="absolute inset-0 bg-dark-radial pointer-events-none" />
+        <div className="relative min-h-screen overflow-x-hidden">
+          <div className="absolute inset-0 bg-dark-radial pointer-events-none opacity-80" />
           <div className="relative">
             <TopNav />
-            <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8">{children}</main>
-            <footer className="max-w-7xl mx-auto px-4 sm:px-6 py-12 mt-12 border-t border-white/5 text-xs text-slate-500">
+            <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:py-8">{children}</main>
+            <footer className="mx-auto mt-12 max-w-7xl border-t border-white/10 px-4 py-8 text-xs text-slate-500 sm:px-6">
               <div className="flex flex-wrap gap-4 justify-between">
                 <div>
                   <p className="text-slate-300">AI 模型价格雷达 · ModelPrice Radar</p>
@@ -62,7 +62,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                     价格来自公开官方文档、聚合平台、云平台和第三方数据源；参考价会明确标记，正式采购前请以来源页面为准。
                   </p>
                 </div>
-                <div className="flex gap-4">
+                <div className="flex flex-wrap gap-3">
                   <a href="/models" className="hover:text-primary">模型库</a>
                   <a href="/providers" className="hover:text-primary">厂商</a>
                   <a href="/rankings" className="hover:text-primary">排行榜</a>

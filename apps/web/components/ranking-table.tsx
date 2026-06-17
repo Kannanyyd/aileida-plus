@@ -51,7 +51,7 @@ export function RankingTable({ items, title, subtitle }: { items: any[]; title: 
           return (
             <li
               key={`${r.provider_slug}-${r.model_slug}`}
-              className={`flex items-center gap-4 px-3 py-2.5 rounded-xl border transition ${
+              className={`flex items-center gap-4 rounded-md border px-3 py-2.5 transition ${
                 top3 ? RANK_STYLES[r.rank - 1] : "border-white/5 hover:bg-white/5"
               }`}
             >

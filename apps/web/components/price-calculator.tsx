@@ -98,7 +98,7 @@ export function PriceCalculator({ models }: { models: ModelWithPricing[] }) {
                 className={`min-w-0 text-xs py-2 rounded-lg border transition ${
                   scenario === s.key
                     ? "bg-primary-soft border-primary/40 text-white"
-                    : "bg-white/3 border-white/10 text-slate-400 hover:border-white/20"
+                    : "bg-white/[0.03] border-white/10 text-slate-400 hover:border-white/20"
                 }`}
               >
                 {s.label}

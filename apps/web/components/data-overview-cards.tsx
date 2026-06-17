@@ -21,18 +21,22 @@ const cards = [
 
 export function DataOverviewCards({ data }: { data: Overview }) {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
       {cards.map((c) => {
         const Icon = c.icon;
         const value = data[c.key] ?? 0;
         return (
-          <div key={c.key} className="glass p-5 flex flex-col gap-3">
+          <div key={c.key} className="glass flex min-h-28 flex-col gap-3 p-4">
             <div className="flex items-center justify-between">
               <span className="text-xs text-slate-400">{c.label}</span>
-              <Icon className={`w-4 h-4 ${c.accent}`} />
+              <span className="rounded-md bg-white/[0.04] p-2">
+                <Icon className={`w-4 h-4 ${c.accent}`} />
+              </span>
             </div>
-            <p className="font-mono text-3xl font-semibold text-white">{value}</p>
-            <p className="text-[11px] text-slate-500">实时</p>
+            <div className="mt-auto flex items-end justify-between gap-3">
+              <p className="font-mono text-3xl font-semibold leading-none text-white">{value}</p>
+              <p className="pb-0.5 text-[11px] text-slate-500">实时</p>
+            </div>
           </div>
         );
       })}

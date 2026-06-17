@@ -54,7 +54,7 @@ export default async function ModelsPage({
 
   return (
     <div className="space-y-6">
-      <header className="flex items-end justify-between flex-wrap gap-4">
+      <header className="glass flex flex-wrap items-end justify-between gap-4 p-5">
         <div>
           <h1 className="text-2xl font-bold text-white flex items-center gap-2">
             <Database className="w-5 h-5 text-primary" /> AI 模型库
@@ -68,16 +68,16 @@ export default async function ModelsPage({
             name="q"
             defaultValue={sp.q}
             placeholder="搜索模型名 / 厂商"
-            className="h-9 min-w-0 flex-1 rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-white sm:w-56 sm:flex-none"
+            className="h-9 min-w-0 flex-1 rounded-md border border-white/10 bg-white/[0.04] px-3 text-sm text-white outline-none transition focus:border-primary/60 focus:ring-2 focus:ring-primary/20 sm:w-56 sm:flex-none"
           />
-          <button type="submit" className="h-9 rounded-lg brand-gradient px-4 text-sm font-semibold text-white">
+          <button type="submit" className="h-9 rounded-md brand-gradient px-4 text-sm font-semibold text-white">
             搜索
           </button>
         </form>
       </header>
 
       <div className="grid min-w-0 gap-6 lg:grid-cols-[220px_minmax(0,1fr)]">
-        <aside className="glass min-w-0 p-4 space-y-4 overflow-hidden">
+        <aside className="glass min-w-0 space-y-4 overflow-hidden p-4 lg:sticky lg:top-24 lg:self-start">
           <h2 className="text-sm font-semibold text-white flex items-center gap-1.5">
             <Filter className="w-3.5 h-3.5" /> 筛选
           </h2>

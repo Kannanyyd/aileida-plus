@@ -21,7 +21,7 @@ export function TopNav() {
             key={it.href}
             href={it.href}
             className={cn(
-              "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-slate-300 hover:text-white hover:bg-white/5 transition",
+              "flex h-9 items-center gap-1.5 rounded-md px-3 text-sm text-slate-300 transition hover:bg-white/[0.07] hover:text-white",
             )}
           >
             <Icon className="w-3.5 h-3.5" />
@@ -33,10 +33,10 @@ export function TopNav() {
   );
 
   return (
-    <header className="sticky top-0 z-50 backdrop-blur-xl bg-bg-main/70 border-b border-white/5">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+    <header className="sticky top-0 z-50 border-b border-white/10 bg-bg-main/88 backdrop-blur-xl">
+      <div className="mx-auto flex h-[60px] max-w-7xl items-center justify-between px-4 sm:px-6">
         <Link href="/" className="flex items-center gap-2 group">
-          <div className="w-8 h-8 rounded-lg brand-gradient flex items-center justify-center shadow-glow">
+          <div className="flex h-8 w-8 items-center justify-center rounded-md brand-gradient shadow-glow">
             <Radar className="w-4 h-4 text-white" />
           </div>
           <div className="flex flex-col leading-tight">
@@ -45,14 +45,14 @@ export function TopNav() {
           </div>
         </Link>
 
-        <nav className="hidden md:flex items-center gap-1">
+        <nav className="hidden items-center gap-0.5 rounded-lg border border-white/10 bg-white/[0.03] p-1 md:flex">
           {nav}
         </nav>
 
         <div className="hidden md:block w-8" aria-hidden="true" />
       </div>
-      <nav className="md:hidden border-t border-white/5 overflow-x-auto px-4 py-2">
-        <div className="flex min-w-max items-center gap-1">
+      <nav className="overflow-x-auto border-t border-white/10 px-3 py-2 md:hidden">
+        <div className="flex min-w-max items-center gap-1 rounded-lg bg-white/[0.03] p-1">
           {nav}
         </div>
       </nav>
