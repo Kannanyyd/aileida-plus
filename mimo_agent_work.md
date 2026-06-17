@@ -382,6 +382,8 @@ Rule for future work: homepage QA must include fetching/rendering `https://skill
 - Decision: long-outdated models should not appear in homepage current/default surfaces. Keep them only for historical/detail/old-model contexts.
 - Changed `deepseek-reasoner` / `deepseek-r1` in the official-current catalog from recommended/homepage eligible to previous/homepage ineligible.
 - Added homepage defensive filtering for previous/deprecated and obvious old-era slugs, so stale DB catalog rows cannot leak into the homepage official-current module.
+- Model library default browsing now filters previous-generation / legacy / deprecated / obvious old-era slugs.
+- Model detail alternative blocks only use current public alternatives.
 - Updated `sync:official-current` so previous/deprecated entries stay `previous_generation` / `deprecated` in latest candidates and models instead of being promoted as current-mainstream.
 - Local validation passed:
   - `npm run typecheck`

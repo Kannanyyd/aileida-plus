@@ -34,6 +34,13 @@ function nativeFromTieredRules(rules: unknown, key: "input_per_1m" | "output_per
   return typeof value === "number" ? value : null;
 }
 
+function isCurrentPublicAlternative(item: Awaited<ReturnType<typeof listModels>>[number]) {
+  const tier = getModelTier(item);
+  if (!["current_frontier", "current_mainstream"].includes(tier)) return false;
+  const text = `${item.provider_slug} ${item.model_slug} ${item.model_name} ${item.family ?? ""} ${item.model_family ?? ""}`.toLowerCase();
+  return !/\b(deepseek-r1|deepseek-reasoner|gpt-4o|gpt-4-turbo|gpt-4\b|claude-3(?:-|$)|gemini-2\.5|gemini-1\.5|llama-3(?:-|$)|qwen2(?:\.5)?|doubao-1\.5)\b/i.test(text);
+}
+
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
   const decoded = decodeURIComponent(slug);
@@ -76,22 +83,22 @@ export default async function ModelDetailPage({ params }: { params: Promise<{ sl
 
   const currentScore = scoreModel(model, allModels).total;
   const stronger = allModels
-    .filter((item) => item.model_id !== model.model_id && scoreModel(item, allModels).total > currentScore)
+    .filter((item) => item.model_id !== model.model_id && isCurrentPublicAlternative(item) && scoreModel(item, allModels).total > currentScore)
     .slice(0, 2);
   const cheaper = allModels
-    .filter((item) => item.model_id !== model.model_id && (item.input_per_1m_usd ?? 999) < (model.input_per_1m_usd ?? 999) && !["legacy", "deprecated"].includes(getModelTier(item)))
+    .filter((item) => item.model_id !== model.model_id && isCurrentPublicAlternative(item) && (item.input_per_1m_usd ?? 999) < (model.input_per_1m_usd ?? 999))
     .slice(0, 2);
   const sameProviderNewer = allModels
-    .filter((item) => item.model_id !== model.model_id && item.provider_id === model.provider_id && ["current_frontier", "current_mainstream"].includes(getModelTier(item)))
+    .filter((item) => item.model_id !== model.model_id && item.provider_id === model.provider_id && isCurrentPublicAlternative(item))
     .slice(0, 2);
   const domesticAlt = allModels
-    .filter((item) => item.model_id !== model.model_id && (item.provider_region === "cn" || item.is_domestic || item.pricing_region === "china_mainland"))
+    .filter((item) => item.model_id !== model.model_id && isCurrentPublicAlternative(item) && (item.provider_region === "cn" || item.is_domestic || item.pricing_region === "china_mainland"))
     .slice(0, 2);
   const overseasOfficialAlt = allModels
-    .filter((item) => item.model_id !== model.model_id && item.provider_region !== "cn" && item.is_official)
+    .filter((item) => item.model_id !== model.model_id && isCurrentPublicAlternative(item) && item.provider_region !== "cn" && item.is_official)
     .slice(0, 2);
   const similar = allModels
-    .filter((item) => item.model_id !== model.model_id && (item.provider_id === model.provider_id || item.model_family === model.model_family || item.family === model.family))
+    .filter((item) => item.model_id !== model.model_id && isCurrentPublicAlternative(item) && (item.provider_id === model.provider_id || item.model_family === model.model_family || item.family === model.family))
     .slice(0, 4);
 
   return (

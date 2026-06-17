@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Database, Filter } from "lucide-react";
 import { listModels, listProviders } from "@/lib/db/queries";
 import { ModelCard } from "@/components/model-card";
+import { getModelTier } from "@/lib/rank/score";
 
 export const revalidate = 120;
 
@@ -22,6 +23,13 @@ const capabilityFilters = [
   { key: "reasoning", label: "推理" },
 ];
 
+function isObsoletePublicModel(model: Awaited<ReturnType<typeof listModels>>[number]) {
+  const tier = getModelTier(model);
+  if (tier === "previous_generation" || tier === "legacy" || tier === "deprecated") return true;
+  const text = `${model.provider_slug} ${model.model_slug} ${model.model_name} ${model.family ?? ""} ${model.model_family ?? ""}`.toLowerCase();
+  return /\b(deepseek-r1|deepseek-reasoner|gpt-4o|gpt-4-turbo|gpt-4\b|claude-3(?:-|$)|gemini-2\.5|gemini-1\.5|llama-3(?:-|$)|qwen2(?:\.5)?|doubao-1\.5)\b/i.test(text);
+}
+
 export default async function ModelsPage({
   searchParams,
 }: {
@@ -29,7 +37,7 @@ export default async function ModelsPage({
 }) {
   const sp = await searchParams;
   const [models, providers] = await Promise.all([listModels({ limit: 300 }), listProviders()]);
-  let filtered = models;
+  let filtered = models.filter((model) => !isObsoletePublicModel(model));
 
   if (sp.q) {
     const q = sp.q.toLowerCase();

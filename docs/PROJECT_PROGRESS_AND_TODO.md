@@ -1174,6 +1174,10 @@ Changes:
   - Added notes that DeepSeek R1/Reasoner is retained only for historical pricing and reasoning reference, not homepage current-main display.
 - `apps/web/app/page.tsx`
   - Added a homepage guard so `previous`, `deprecated`, and obvious old-era slugs such as DeepSeek R1, GPT-4o, Gemini 2.5, older Claude/GPT/Llama/Qwen/Doubao variants cannot appear in the official-current homepage module even if stale DB catalog rows still exist.
+- `apps/web/app/models/page.tsx`
+  - Model library default list now filters out previous-generation, legacy, deprecated, and obvious old-era model slugs. Historical data stays in the database, but is not injected into the default public model library.
+- `apps/web/app/models/[slug]/page.tsx`
+  - Alternative model blocks now only use current/frontier or current/mainstream public alternatives; old models are not suggested as stronger/cheaper/similar defaults.
 - `apps/worker/src/cli/sync-official-current.ts`
   - Sync now writes `previous` catalog entries as `previous_generation` and `deprecated` entries as `deprecated` in latest candidates / models.
   - Previous/deprecated catalog entries now require capability review and will not be silently promoted as `current_mainstream`.

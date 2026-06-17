@@ -591,6 +591,8 @@ ddd1e00 上线确认：
 - Code changes:
   - `deepseek-reasoner` / `deepseek-r1` is now `officialStatus: previous` and `homepageEligible: false` in `packages/pricing-core/src/official-current/index.ts`.
   - Homepage official-current list has a defensive obsolete-model guard for previous/deprecated and obvious old-era slugs.
+  - Model library default list filters previous-generation / legacy / deprecated / obvious old-era slugs instead of injecting them into public browsing.
+  - Model detail alternatives only use current public alternatives, so old models are not recommended as stronger/cheaper/similar defaults.
   - `sync:official-current` now preserves `previous_generation` / `deprecated` lifecycle status instead of turning non-homepage entries into current-mainstream candidates.
 - Checks passed:
   - `npm run typecheck`
