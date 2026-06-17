@@ -22,15 +22,16 @@ import {
 import { CN_PROVIDERS } from "./sources/cn-registry.js";
 import { fetchOfficialModelSource } from "./sources/official-model-discovery.js";
 import { OFFICIAL_MODEL_SOURCES } from "./sources/official-model-registry.js";
+import { fetchVendorAnnouncements, type VendorAnnouncementCandidate } from "./sources/vendor-announcements.js";
 import { config } from "./config.js";
 import { upsertProvider } from "./storage/provider-store.js";
 import { upsertModel, findModelByExternalId } from "./storage/model-store.js";
 import { upsertPricing } from "./storage/pricing-store.js";
 import { db } from "./storage/client.js";
-import { providers, promotions as promotionTable } from "./storage/schema.js";
+import { newsItems, newsSources, providers, promotions as promotionTable } from "./storage/schema.js";
 import { logFetchStart, logFetchSuccess, logFetchError, saveSnapshot } from "./storage/fetch-log.js";
 import { ingestOfficialDiscovery, logDiscoveryRun } from "./storage/discovery-store.js";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import type { NormalizedModel, NormalizedPricing, NormalizedPromotion } from "./types.js";
 
 const PROVIDER_META: Record<string, { name_zh: string; region: "cn" | "global"; homepage?: string }> = {
@@ -178,6 +179,87 @@ async function ingestPromotions(promos: NormalizedPromotion[], sourceId: string)
     }
   }
   if (inserted > 0) console.log(`[${sourceId}] promotions ingested=${inserted}`);
+}
+
+async function ensureNewsSource(item: VendorAnnouncementCandidate, providerId: string) {
+  const [row] = await db
+    .insert(newsSources)
+    .values({
+      slug: item.source.slug,
+      name_zh: item.source.name_zh,
+      name_en: item.source.name_en,
+      source_type: item.source.source_type,
+      region: item.source.region,
+      provider_id: providerId,
+      urls: item.source.urls,
+      fetch_schedule: "0 * * * *",
+      parser_type: item.source.parser_type,
+      is_active: true,
+      priority: item.source.priority,
+    })
+    .onConflictDoUpdate({
+      target: newsSources.slug,
+      set: {
+        name_zh: item.source.name_zh,
+        name_en: item.source.name_en,
+        source_type: item.source.source_type,
+        region: item.source.region,
+        provider_id: providerId,
+        urls: item.source.urls,
+        fetch_schedule: "0 * * * *",
+        parser_type: item.source.parser_type,
+        is_active: true,
+        priority: item.source.priority,
+        updated_at: sql`now()`,
+      },
+    })
+    .returning({ id: newsSources.id });
+
+  return row.id;
+}
+
+async function ingestVendorAnnouncements(items: VendorAnnouncementCandidate[]) {
+  let inserted = 0;
+  const publishedAt = new Date();
+
+  for (const item of items) {
+    try {
+      if (!item.source.provider_slug) continue;
+      const providerId = await ensureProvider(item.source.provider_slug);
+      const sourceId = await ensureNewsSource(item, providerId);
+      const result = await db
+        .insert(newsItems)
+        .values({
+          source_id: sourceId,
+          external_id: item.externalId,
+          title: item.title,
+          summary: item.summary,
+          body_text: item.bodyText,
+          url: item.url,
+          published_at: publishedAt,
+          fetched_at: publishedAt,
+          category: item.category,
+          tags: item.tags,
+          related_provider_ids: [providerId],
+          related_model_ids: [],
+          impact_summary: item.affectsPricing ? "厂商官方公告包含价格、计费或优惠相关信息。" : null,
+          affects_pricing: item.affectsPricing,
+          affects_recommendation: item.category === "new-model" || item.affectsPricing,
+          importance: item.importance,
+          confidence_score: "0.90",
+          need_manual_review: false,
+          is_published: true,
+        })
+        .onConflictDoNothing()
+        .returning({ id: newsItems.id });
+      if (result.length > 0) inserted++;
+    } catch (err: any) {
+      console.error(`[news:${item.source.slug}] ingest failed:`, err?.message ?? err);
+    }
+  }
+
+  console.log(`[vendor-announcements] candidates=${items.length} inserted=${inserted}`);
+  return { candidates: items.length, inserted };
 }
 
 /** 包装：记录抓取日志 + 快照 */
@@ -374,6 +456,23 @@ export async function auditLatestModels() {
   return runOfficialModels();
 }
 
+export async function runVendorAnnouncements() {
+  const start = Date.now();
+  const logId = await logFetchStart("vendor-announcements", "official-announcements", "registry");
+  try {
+    const result = await fetchVendorAnnouncements();
+    await saveSnapshot("vendor-announcements", "registry", "application/json", result.rawText);
+    const stats = await ingestVendorAnnouncements(result.items);
+    const duration = Date.now() - start;
+    await logFetchSuccess(logId, stats.inserted, stats.candidates, duration);
+    console.log(`[vendor-announcements] done (${duration}ms)`);
+  } catch (err: any) {
+    const duration = Date.now() - start;
+    await logFetchError(logId, err?.message ?? String(err), duration);
+    throw err;
+  }
+}
+
 export async function runAll() {
   console.log("[worker] 开始抓取国际数据源...");
   await runOfficialModels();
@@ -383,5 +482,6 @@ export async function runAll() {
   await runGenaiPrices();
   console.log("[worker] 开始抓取国内数据源...");
   await runAllCn();
+  await runVendorAnnouncements();
   console.log("[worker] 全量抓取完成！");
 }

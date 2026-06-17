@@ -1080,6 +1080,33 @@ export async function listNewsItems(filter?: {
     .limit(filter?.limit ?? 30);
 }
 
+export async function listVendorAnnouncements(limit = 50) {
+  const { newsItems, newsSources, providers } = await import("./schema");
+
+  return db
+    .select({
+      id: newsItems.id,
+      title: newsItems.title,
+      summary: newsItems.summary,
+      category: newsItems.category,
+      importance: newsItems.importance,
+      url: newsItems.url,
+      published_at: newsItems.published_at,
+      fetched_at: newsItems.fetched_at,
+      affects_pricing: newsItems.affects_pricing,
+      source_name: newsSources.name_zh,
+      provider_id: providers.id,
+      provider_slug: providers.slug,
+      provider_name_zh: providers.name_zh,
+    })
+    .from(newsItems)
+    .innerJoin(newsSources, eq(newsSources.id, newsItems.source_id))
+    .innerJoin(providers, eq(providers.id, newsSources.provider_id))
+    .where(and(eq(newsItems.is_published, true), eq(newsSources.priority, 10), eq(newsSources.is_active, true)))
+    .orderBy(desc(newsItems.published_at))
+    .limit(limit);
+}
+
 export async function listSubscriptionPlans(providerId?: string) {
   const { subscriptionPlans, providers } = await import("./schema");
   const conditions = [eq(subscriptionPlans.is_active, true)];
