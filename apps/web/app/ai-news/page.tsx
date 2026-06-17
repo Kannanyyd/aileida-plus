@@ -9,7 +9,10 @@ const HIDDEN_CATEGORIES = new Set(["promotion", "plan-update"]);
 
 function cleanSummary(summary: string | null) {
   if (!summary) return "";
-  const cleaned = summary.replace(/\bPlease wait\.{0,3}\b/gi, "").trim();
+  const cleaned = summary
+    .replace(/please\s*wait\.{0,3}/gi, "")
+    .replace(/^[\s.。…-]+$/g, "")
+    .trim();
   return cleaned;
 }
 
