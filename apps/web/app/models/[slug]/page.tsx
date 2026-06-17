@@ -41,7 +41,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   if (!model) return { title: "模型未收录", description: "AI 模型价格雷达暂未收录该模型。" };
   return {
     title: `${model.model_name} API 价格与多渠道价格表`,
-    description: `${model.model_name} 的官方 API 价格、聚合平台价、云平台价、原生人民币价、美元价、价格来源、更新时间和数据质量标记。`,
+    description: `${model.model_name} 的官方 API 价格、聚合平台价、云平台价、国内价、海外价、价格来源、更新时间和数据质量标记。`,
     alternates: { canonical: `/models/${encodeURIComponent(decoded)}` },
     openGraph: {
       title: `${model.model_name} API 价格`,
@@ -127,7 +127,7 @@ export default async function ModelDetailPage({ params }: { params: Promise<{ sl
         <div className="flex items-center justify-between gap-3 mb-3">
           <div>
             <h2 className="text-sm font-semibold text-white">多渠道价格表</h2>
-            <p className="text-[11px] text-slate-500 mt-1">展示模型所有者、销售平台、采集来源、原生人民币价、美元价、估算价、来源链接、更新时间和质量标记。</p>
+            <p className="text-[11px] text-slate-500 mt-1">展示模型所有者、销售平台、采集来源、国内价、海外价、参考价、来源链接、更新时间和质量标记。</p>
           </div>
           <span className="text-[11px] text-slate-500">{pricingList.length} 条价格</span>
         </div>

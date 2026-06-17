@@ -90,7 +90,7 @@ export default function ComparePage() {
       <section className="glass p-5">
         <h1 className="text-xl font-bold text-white">模型价格对比</h1>
         <p className="text-sm text-slate-400 mt-1">
-          横向比较官方 API、云平台、聚合平台的输入价、输出价、缓存价，以及原生人民币价、海外美元价和美元折算人民币估算价。
+          横向比较官方 API、云平台、聚合平台的输入价、输出价、缓存价，以及国内价、海外价和按美元折算。
         </p>
       </section>
 
@@ -167,7 +167,7 @@ export default function ComparePage() {
 
       <section className="glass p-5">
         <p className="text-xs text-slate-400 leading-relaxed">
-          原生人民币价格会显示为 ¥；美元折算人民币会标记为“估算”，不能当作国内官方人民币价。价格仅用于选型参考，最终以来源页面为准。
+          国内价会显示为 ¥；按美元折算会标记为“仅供参考”，不能当作国内官方报价。价格仅用于选型参考，最终以来源页面为准。
           <Link href="/models" className="text-primary hover:underline ml-1">查看模型库</Link>
         </p>
       </section>

@@ -48,7 +48,7 @@ export default function RankingsIndex() {
         </p>
         <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
           <span className="rounded bg-success/10 px-2 py-1 text-success">国内榜优先原生 ¥</span>
-          <span className="rounded bg-warning/10 px-2 py-1 text-warning">美元换算会标为估算</span>
+          <span className="rounded bg-warning/10 px-2 py-1 text-warning">按美元折算会标为“仅供参考”</span>
           <span className="rounded bg-primary/10 px-2 py-1 text-primary">支持 Top 20 / 50 / 100</span>
           <span className="rounded bg-white/5 px-2 py-1 text-slate-400">精选榜限制刷屏</span>
         </div>
@@ -60,7 +60,7 @@ export default function RankingsIndex() {
             <div className="flex items-center gap-2 text-primary">{category.icon}<span className="text-sm font-semibold text-white">{category.label}</span></div>
             <p className="mt-2 text-[11px] text-slate-500">
               {category.key === "domestic"
-                ? "优先展示国内可用平台和原生人民币价格。"
+                ? "优先展示国内可用平台和国内价。"
                 : category.key === "frontier-value"
                   ? "当前主流/前沿模型的综合性价比。"
                   : "按具体任务场景调整能力权重。"}

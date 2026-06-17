@@ -132,7 +132,7 @@ function reasons(input: RecommendBody, m: Awaited<ReturnType<typeof listModels>>
   if (m.confidence_score >= 0.85) out.push("高置信度价格来源");
   if (input.regionPreference === "domestic" || input.techRequirements?.includes("cn-accessible")) {
     if (m.provider_region === "cn" || m.is_domestic) out.push("更适合国内使用");
-    if (m.currency_native !== "CNY" && (m.provider_region === "cn" || m.is_domestic || m.pricing_region === "china_mainland")) out.push("使用美元价估算人民币成本");
+    if (m.currency_native !== "CNY" && (m.provider_region === "cn" || m.is_domestic || m.pricing_region === "china_mainland")) out.push("使用海外价估算人民币成本");
   }
   if (input.budget === "cheapest" && avgPrice(m) <= 0.5) out.push("成本较低");
   return out.slice(0, 5);

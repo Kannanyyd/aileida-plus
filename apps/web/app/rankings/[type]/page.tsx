@@ -132,7 +132,7 @@ export default function RankingTypePage() {
       <div className="glass p-4 text-xs text-slate-400 space-y-1">
         <p>排序逻辑：综合价格、能力、新鲜度、上下文、来源置信度和数据质量扣分；默认不是简单按低价排序。</p>
         <p>精选榜会限制同一厂商 / 同一模型系列刷榜；全量榜保留完整候选。</p>
-        <p>{isDomestic ? "国内榜优先展示原生人民币 ¥ 价格；美元换算会明确标记为估算。" : "全球榜保留 USD 原生价；国内渠道会显示 ¥ 与来源。"} {isLegacyList ? "本榜专门用于旧模型/上一代模型低价参考。" : ""}</p>
+        <p>{isDomestic ? "国内榜优先展示人民币计费的国内价；按美元折算会标明“仅供参考”。" : "全球榜优先展示海外价；国内渠道会显示 ¥ 与来源。"} {isLegacyList ? "本榜专门用于旧模型/上一代模型低价参考。" : ""}</p>
       </div>
 
       <div className="flex items-center gap-2 text-xs text-slate-400">

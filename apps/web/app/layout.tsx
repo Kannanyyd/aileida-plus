@@ -14,7 +14,7 @@ export const metadata: Metadata = {
     template: "%s | ModelPrice Radar",
   },
   description:
-    "对比国内与海外 AI 模型 API 价格，区分官方 API、云平台、聚合平台、原生人民币价与美元估算价，跟踪官方当前主力模型和最新模型发现。",
+    "对比国内与海外 AI 模型 API 价格，区分官方 API、云平台、聚合平台、国内价与按美元折算，跟踪官方当前主力模型和最新模型发现。",
   keywords: [
     "AI模型价格",
     "AI API价格",
@@ -41,7 +41,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "AI 模型价格雷达",
-    description: "对比国内与海外 AI API 价格，区分官方价、聚合价、云平台价、原生人民币价和估算价。",
+    description: "对比国内与海外 AI API 价格，区分官方价、聚合价、云平台价、国内价和参考价。",
   },
 };
 
@@ -59,7 +59,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <div>
                   <p className="text-slate-300">AI 模型价格雷达 · ModelPrice Radar</p>
                   <p className="mt-1 text-slate-600">
-                    价格来自公开官方文档、聚合平台、云平台和第三方数据源；估算价会明确标记，正式采购前请以来源页面为准。
+                    价格来自公开官方文档、聚合平台、云平台和第三方数据源；参考价会明确标记，正式采购前请以来源页面为准。
                   </p>
                 </div>
                 <div className="flex gap-4">

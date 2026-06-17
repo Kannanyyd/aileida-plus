@@ -34,7 +34,7 @@ export const revalidate = 60;
 export const metadata: Metadata = {
   title: "AI 模型价格雷达 | 国内 / 海外 API 价格与成本选型",
   description:
-    "追踪 AI 模型 API 价格、官方价、聚合平台价、云平台价、原生人民币价、美元估算价、最新模型发现和数据可信度。",
+    "追踪 AI 模型 API 价格、官方价、聚合平台价、云平台价、国内价、按美元折算、最新模型发现和数据可信度。",
   alternates: { canonical: "/" },
 };
 
@@ -162,7 +162,7 @@ export default async function HomePage() {
     <div className="space-y-10">
       <section className="mx-auto max-w-4xl pt-8 pb-4 text-center">
         <div className="mb-5 inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary-soft px-3 py-1 text-xs text-primary">
-          <Radar className="h-3 w-3" /> 官方 API · 云平台 · 聚合平台 · 原生人民币价
+          <Radar className="h-3 w-3" /> 官方 API · 云平台 · 聚合平台 · 国内价
         </div>
         <h1 className="text-4xl font-bold tracking-tight md:text-5xl">
           AI 模型价格雷达
@@ -188,7 +188,7 @@ export default async function HomePage() {
           {[
             { label: "模型发现检查", date: freshness.latest_model_discovery_checked_at, age: freshness.source_age_hours },
             { label: "价格来源检查", date: freshness.latest_pricing_checked_at, age: freshness.pricing_age_hours },
-            { label: "国内 CNY 更新", date: freshness.latest_cny_pricing_checked_at, age: freshness.cny_pricing_age_hours },
+            { label: "国内价更新", date: freshness.latest_cny_pricing_checked_at, age: freshness.cny_pricing_age_hours },
           ].map((item) => (
             <div key={item.label} className={`rounded-xl border bg-white/3 px-3 py-2 text-left ${freshnessTone(item.age)}`}>
               <div className="flex items-center gap-1.5 text-[11px]">
@@ -265,7 +265,7 @@ export default async function HomePage() {
           <div className="mb-3 flex items-center justify-between">
             <div>
               <h2 className="text-lg font-semibold text-white">国内人民币价格榜</h2>
-              <p className="mt-1 text-xs text-slate-500">优先原生人民币价，隐藏来源过期、旧模型和待人工确认数据。</p>
+              <p className="mt-1 text-xs text-slate-500">优先展示国内价，隐藏来源过期、旧模型和待人工确认数据。</p>
             </div>
             <Link href="/rankings/domestic" className="text-xs text-primary hover:underline">Top 50</Link>
           </div>

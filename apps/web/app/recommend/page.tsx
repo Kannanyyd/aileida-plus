@@ -260,7 +260,7 @@ export default function RecommendPage() {
                         <div className="space-y-1 text-[10px] text-slate-500">
                           <p>更强但更贵：{entry.strongerAlternative ? <Link className="text-primary hover:underline" href={`/models/${entry.strongerAlternative.slug}`}>{entry.strongerAlternative.name}</Link> : "暂无合适替代"}</p>
                           <p>更便宜但能力较弱：{entry.cheaperAlternative ? <Link className="text-primary hover:underline" href={`/models/${entry.cheaperAlternative.slug}`}>{entry.cheaperAlternative.name}</Link> : "暂无合适替代"}</p>
-                          {entry.model.estimatedCurrency && <p className="text-warning">当前为美元折算人民币估算，不是国内官方原生人民币价。</p>}
+                          {entry.model.estimatedCurrency && <p className="text-warning">当前价格由海外价按汇率折算，仅供参考，不代表国内官方报价。</p>}
                           {entry.model.dataConfidenceIssue && <p className="text-warning">数据置信度需要复核，建议查看来源后再用于生产决策。</p>}
                         </div>
                         <Link href={`/models/${entry.model.slug}`} className="inline-flex items-center gap-1 text-[10px] text-primary hover:underline">查看模型详情 <ExternalLink className="h-2.5 w-2.5" /></Link>

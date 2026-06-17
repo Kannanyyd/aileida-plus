@@ -2,13 +2,13 @@ import { ExternalLink } from "lucide-react";
 import { formatCny, formatNativeCny, formatUsd, priceDisplay } from "@/lib/utils";
 
 const FLAG_LABELS: Record<string, string> = {
-  aggregator_only: "仅聚合源",
-  missing_price_source_url: "缺少价格来源",
-  domestic_price_missing: "国内价缺失",
+  aggregator_only: "聚合平台价",
+  missing_price_source_url: "缺少来源",
+  domestic_price_missing: "暂无国内价",
   preview_or_beta: "预览/测试",
   suspicious_name: "名称待核对",
   source_conflict: "来源冲突",
-  currency_estimated_only: "仅估算价",
+  currency_estimated_only: "按汇率折算",
   needs_manual_review: "待人工复核",
 };
 
@@ -32,7 +32,7 @@ export function PriceValue({
     <span className="inline-flex flex-col items-end leading-tight">
       <span className="font-mono text-white">{display.primary}</span>
       {!compact && <span className="mt-0.5 text-[10px] text-slate-500">{display.label}</span>}
-      {display.estimated && <span className="mt-0.5 text-[10px] text-warning">估算</span>}
+      {display.estimated && <span className="mt-0.5 text-[10px] text-warning">仅供参考</span>}
       {!compact && display.secondary !== "-" && <span className="mt-0.5 font-mono text-[10px] text-slate-500">{display.secondary}</span>}
     </span>
   );
@@ -74,11 +74,11 @@ export function PriceSourceBadges({
       </span>
       {isDomestic && <span className="rounded bg-cyan/10 px-1.5 py-0.5 text-[10px] text-cyan">国内可用</span>}
       {currencyNative === "CNY" ? (
-        <span className="rounded bg-success/10 px-1.5 py-0.5 text-[10px] text-success">原生人民币价</span>
+        <span className="rounded bg-success/10 px-1.5 py-0.5 text-[10px] text-success">国内价</span>
       ) : estimatedCurrency ? (
-        <span className="rounded bg-warning/10 px-1.5 py-0.5 text-[10px] text-warning">美元估算价</span>
+        <span className="rounded bg-warning/10 px-1.5 py-0.5 text-[10px] text-warning">按美元折算</span>
       ) : (
-        <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary">美元价</span>
+        <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary">海外价</span>
       )}
       <span className="rounded bg-white/5 px-1.5 py-0.5 text-[10px] text-slate-400">{confidenceLabel}</span>
       {normalizedFlags.slice(0, 3).map((flag) => (
@@ -107,6 +107,6 @@ export function formatNativeOrUsd(args: {
   preferCny?: boolean;
 }) {
   if (args.currencyNative === "CNY" && args.nativeCny != null) return formatNativeCny(args.nativeCny);
-  if (args.preferCny) return `${formatCny(args.usd)} 估算`;
+  if (args.preferCny) return `约 ${formatCny(args.usd)}`;
   return formatUsd(args.usd);
 }

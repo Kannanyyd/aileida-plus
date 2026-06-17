@@ -35,7 +35,7 @@ export function priceDisplay(input: {
     return {
       primary: formatNativeCny(input.nativeCny),
       secondary: formatUsd(input.usd),
-      label: "原生人民币价",
+      label: "国内价",
       estimated: false,
     };
   }
@@ -43,14 +43,14 @@ export function priceDisplay(input: {
     return {
       primary: formatCny(input.usd),
       secondary: formatUsd(input.usd),
-      label: "美元估算人民币价",
+      label: "按美元折算",
       estimated: true,
     };
   }
   return {
     primary: formatUsd(input.usd),
     secondary: input.usd == null ? "-" : formatCny(input.usd),
-    label: "美元原生价",
+    label: "海外价",
     estimated: false,
   };
 }
