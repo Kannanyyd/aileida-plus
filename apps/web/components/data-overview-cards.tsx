@@ -11,7 +11,7 @@ interface Overview {
 const cards = [
   { key: "models", label: "已监控模型", icon: Database, accent: "text-primary" },
   { key: "providers", label: "已收录厂商", icon: Building2, accent: "text-cyan" },
-  { key: "todayChanges", label: "今日价格变化", icon: TrendingDown, accent: "text-success" },
+  { key: "todayChanges", label: "价格记录变化", icon: TrendingDown, accent: "text-success" },
 ] as const satisfies ReadonlyArray<{
   key: keyof Pick<Overview, "models" | "providers" | "todayChanges">;
   label: string;

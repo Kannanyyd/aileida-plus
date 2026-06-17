@@ -98,26 +98,28 @@ export default async function ComparePage({
             <p className="text-xs text-slate-500">{m.provider_name_zh}</p>
             <h2 className="text-lg font-semibold text-white">{m.model_name}</h2>
             <p className="text-[11px] text-slate-500 mt-1">上下文 {formatContext(m.context_length)}</p>
-            <table className="w-full text-sm mt-4">
-              <tbody>
-                <tr className="border-b border-white/5">
-                  <td className="py-1.5 text-slate-400">输入 / 1M</td>
-                  <td className="py-1.5 text-right font-mono">{formatUsd(Number(m.input_per_1m_usd))}</td>
-                  <td className="py-1.5 text-right text-slate-500 font-mono">{formatCny(Number(m.input_per_1m_usd))}</td>
-                </tr>
-                <tr className="border-b border-white/5">
-                  <td className="py-1.5 text-slate-400">输出 / 1M</td>
-                  <td className="py-1.5 text-right font-mono">{formatUsd(Number(m.output_per_1m_usd))}</td>
-                  <td className="py-1.5 text-right text-slate-500 font-mono">{formatCny(Number(m.output_per_1m_usd))}</td>
-                </tr>
-                <tr>
-                  <td className="py-1.5 text-slate-400">百万 token 估算</td>
-                  <td colSpan={2} className="py-1.5 text-right font-mono text-white">
-                    {formatUsd(i === 0 ? cA.total_usd : cB.total_usd)}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+            <div className="mt-4 overflow-x-auto">
+              <table className="min-w-[520px] w-full text-sm">
+                <tbody>
+                  <tr className="border-b border-white/5">
+                    <td className="py-1.5 text-slate-400">输入 / 1M</td>
+                    <td className="py-1.5 text-right font-mono">{formatUsd(Number(m.input_per_1m_usd))}</td>
+                    <td className="py-1.5 text-right text-slate-500 font-mono">{formatCny(Number(m.input_per_1m_usd))}</td>
+                  </tr>
+                  <tr className="border-b border-white/5">
+                    <td className="py-1.5 text-slate-400">输出 / 1M</td>
+                    <td className="py-1.5 text-right font-mono">{formatUsd(Number(m.output_per_1m_usd))}</td>
+                    <td className="py-1.5 text-right text-slate-500 font-mono">{formatCny(Number(m.output_per_1m_usd))}</td>
+                  </tr>
+                  <tr>
+                    <td className="py-1.5 text-slate-400">百万 token 估算</td>
+                    <td colSpan={2} className="py-1.5 text-right font-mono text-white">
+                      {formatUsd(i === 0 ? cA.total_usd : cB.total_usd)}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
             <div className="mt-3 text-[11px] text-slate-500 flex items-center justify-between">
               <span>来源：{m.primary_source_id}</span>
               <a href={m.source_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline flex items-center gap-1">

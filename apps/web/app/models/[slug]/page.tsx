@@ -142,7 +142,7 @@ export default async function ModelDetailPage({ params }: { params: Promise<{ sl
           <p className="text-sm text-warning">价格待确认。该模型可出现在最新模型发现中，但不会进入价格榜。</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-xs">
+            <table className="min-w-[760px] w-full text-xs">
               <thead>
                 <tr className="border-b border-white/5 text-slate-500">
                   <th className="py-2 text-left font-normal">区域</th>

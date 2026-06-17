@@ -175,11 +175,6 @@ export const RANKING_PRESETS: Record<string, Preset> = {
     label: "极致低价榜",
     filter: (m) => m.status === "active",
   },
-  "free-tier": {
-    weights: { price: 0, context: 0.25, capability: 0.3, freshness: 0.3, confidence: 0.15 },
-    label: "免费/优惠榜",
-    filter: (m) => m.status === "active" && (m.input_per_1m_usd ?? 0) === 0,
-  },
   "old-models": {
     weights: { price: 0.65, context: 0.1, capability: 0.1, freshness: 0.05, confidence: 0.1 },
     label: "旧模型低价榜",

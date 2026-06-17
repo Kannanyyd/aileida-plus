@@ -109,7 +109,7 @@ export default function RankingTypePage() {
           <Link href="/rankings" className="text-xs text-slate-500 hover:text-primary">← 所有榜单</Link>
           <h1 className="text-xl font-bold text-white">{preset.label}</h1>
           <p className="text-xs text-slate-400 mt-1">
-            共 {total} 个模型。默认隐藏 unknown、legacy、deprecated；低价旧模型只进入旧模型低价榜。
+            {loading ? "正在加载榜单数据..." : `共 ${total} 个模型。`}默认隐藏 unknown、legacy、deprecated；低价旧模型只进入旧模型低价榜。
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -157,7 +157,7 @@ export default function RankingTypePage() {
         <div className="glass p-8 text-center text-slate-500">暂无数据</div>
       ) : (
         <div className="glass overflow-x-auto">
-          <table className="w-full text-xs">
+          <table className="min-w-[760px] w-full text-xs">
             <thead>
               <tr className="border-b border-white/5 text-slate-500">
                 <th className="w-10 px-3 py-2 text-left font-normal">#</th>

@@ -3,8 +3,6 @@ export const CATEGORY_LABELS: Record<string, { zh: string; icon: string }> = {
   all:             { zh: "全部动态", icon: "📋" },
   "new-model":     { zh: "新模型发布", icon: "🆕" },
   "price-change":  { zh: "价格变化", icon: "📊" },
-  "promotion":     { zh: "优惠活动", icon: "🎁" },
-  "plan-update":   { zh: "会员/Plan 更新", icon: "💎" },
   "policy":        { zh: "政策监管", icon: "🏛️" },
   "capability":    { zh: "能力升级", icon: "⚡" },
   "benchmark":     { zh: "评测榜单", icon: "🏆" },
@@ -15,11 +13,9 @@ export const CATEGORY_LABELS: Record<string, { zh: string; icon: string }> = {
 };
 
 export const CATEGORY_PAGES: Record<string, { title: string; description: string }> = {
-  all:             { title: "每日 AI 动态", description: "最新 AI 模型发布、价格变化、优惠活动和行业动态" },
+  all:             { title: "每日 AI 动态", description: "最新 AI 模型发布、价格变化和行业动态" },
   "new-model":     { title: "新模型发布", description: "国内外 AI 厂商最新发布的模型和版本更新" },
   "price-change":  { title: "价格变化", description: "AI API 价格调整、取消和新增计费项" },
-  "promotion":     { title: "优惠活动", description: "免费额度、限时折扣、新用户赠送等优惠动态" },
-  "plan-update":   { title: "会员/Plan 更新", description: "各平台会员方案、订阅计划的调整和新增" },
   "policy":        { title: "政策监管", description: "国内 AI 相关政策、法规和监管动态" },
   "capability":    { title: "能力升级", description: "模型能力、上下文长度、模态支持的更新" },
   "benchmark":     { title: "评测榜单", description: "主流评测基准的排名变化和测试结果" },

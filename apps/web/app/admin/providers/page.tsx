@@ -147,7 +147,7 @@ export default async function AdminProvidersPage() {
         </p>
         <div className="text-[10px] text-slate-500 space-y-1">
           <p>每个厂商可配置多个数据源类型：</p>
-          <p>官方价格页 · 模型列表页 · API 文档 · 公告页 · 博客 · 优惠活动页 · 更新日志 · RSS/Sitemap · GitHub/Gitee/ModelScope</p>
+          <p>官方价格页 · 模型列表页 · API 文档 · 公告页 · 博客 · 更新日志 · RSS/Sitemap · GitHub/Gitee/ModelScope</p>
           <p>新增厂商后，抓取系统会自动创建对应的抓取任务。</p>
         </div>
       </div>

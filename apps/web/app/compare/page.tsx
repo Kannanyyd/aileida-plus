@@ -121,7 +121,7 @@ export default function ComparePage() {
         <section className="glass p-5">
           <h2 className="text-sm font-semibold text-white mb-3">多渠道价格记录（{allPricing.length} 条）</h2>
           <div className="overflow-x-auto">
-            <table className="w-full text-xs">
+            <table className="min-w-[760px] w-full text-xs">
               <thead>
                 <tr className="border-b border-white/10 text-slate-500">
                   <th className="py-2 text-left font-normal">模型</th>

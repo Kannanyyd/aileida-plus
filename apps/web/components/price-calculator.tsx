@@ -75,9 +75,9 @@ export function PriceCalculator({ models }: { models: ModelWithPricing[] }) {
   }
 
   return (
-    <div className="grid lg:grid-cols-[420px_1fr] gap-6">
+    <div className="grid min-w-0 gap-6 lg:grid-cols-[420px_minmax(0,1fr)]">
       {/* 表单 */}
-      <div className="glass p-5 space-y-5">
+      <div className="glass min-w-0 p-5 space-y-5 overflow-hidden">
         <div>
           <h2 className="text-lg font-semibold text-white flex items-center gap-2">
             <Calculator className="w-4 h-4 text-primary" /> 输入参数
@@ -87,7 +87,7 @@ export function PriceCalculator({ models }: { models: ModelWithPricing[] }) {
 
         <div>
           <label className="text-xs text-slate-400 mb-1.5 block">使用场景</label>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             {scenarios.map((s) => (
               <button
                 key={s.key}
@@ -95,7 +95,7 @@ export function PriceCalculator({ models }: { models: ModelWithPricing[] }) {
                   setScenario(s.key);
                   applyScenario();
                 }}
-                className={`text-xs py-2 rounded-lg border transition ${
+                className={`min-w-0 text-xs py-2 rounded-lg border transition ${
                   scenario === s.key
                     ? "bg-primary-soft border-primary/40 text-white"
                     : "bg-white/3 border-white/10 text-slate-400 hover:border-white/20"
@@ -159,7 +159,7 @@ export function PriceCalculator({ models }: { models: ModelWithPricing[] }) {
       </div>
 
       {/* 结果 */}
-      <div className="space-y-4">
+      <div className="min-w-0 space-y-4">
         {[
           { key: "A", title: "最省钱", rec: cheapest, accent: "border-success/40 bg-success/5", icon: TrendingDown, color: "text-success" },
           { key: "B", title: "综合最优", rec: balanced, accent: "border-primary/40 bg-primary/5", icon: Sparkles, color: "text-primary" },
@@ -167,8 +167,8 @@ export function PriceCalculator({ models }: { models: ModelWithPricing[] }) {
         ].map((row) => {
           const Icon = row.icon;
           return (
-            <div key={row.key} className={`glass p-5 border ${row.accent}`}>
-              <div className="flex items-center justify-between mb-3">
+            <div key={row.key} className={`glass min-w-0 p-5 border ${row.accent}`}>
+              <div className="flex items-center justify-between gap-3 mb-3">
                 <div className="flex items-center gap-2">
                   <span className="font-mono text-xs px-2 py-0.5 rounded-md bg-white/10">方案 {row.key}</span>
                   <span className="text-sm font-semibold text-white">{row.title}</span>
@@ -178,7 +178,7 @@ export function PriceCalculator({ models }: { models: ModelWithPricing[] }) {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <p className="text-[11px] text-slate-500">推荐模型</p>
-                  <p className="text-base font-semibold text-white">{row.rec.model.model_name}</p>
+                  <p className="break-words text-base font-semibold text-white">{row.rec.model.model_name}</p>
                   <p className="text-[11px] text-slate-500 mt-0.5">{row.rec.model.provider_name_zh}</p>
                 </div>
                 <div>
@@ -215,7 +215,7 @@ export function PriceCalculator({ models }: { models: ModelWithPricing[] }) {
             {ranked.slice(0, 12).map((r, i) => (
               <li
                 key={`${r.model.provider_slug}-${r.model.model_slug}`}
-                className="flex items-center gap-3 px-2 py-1.5 rounded-md hover:bg-white/5"
+                className="flex min-w-0 items-center gap-3 px-2 py-1.5 rounded-md hover:bg-white/5"
               >
                 <span className="font-mono text-slate-500 w-6">{i + 1}</span>
                 <span className="flex-1 text-white truncate">{r.model.model_name}</span>

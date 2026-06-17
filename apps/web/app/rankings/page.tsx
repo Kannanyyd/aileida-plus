@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Brain, Code, FileText, Gift, Globe, Image, Pen, Sparkles, Trophy, Zap } from "lucide-react";
+import { Brain, Code, FileText, Globe, Image, Pen, Sparkles, Trophy, Zap } from "lucide-react";
 import { RANKING_PRESETS } from "@/lib/rank/score";
 
 export const revalidate = 600;
@@ -24,11 +24,10 @@ const ICONS: Record<string, React.ReactNode> = {
   cheapest: <Zap className="h-4 w-4" />,
   "low-cost": <Zap className="h-4 w-4" />,
   "legacy-low-cost": <Zap className="h-4 w-4" />,
-  "free-tier": <Gift className="h-4 w-4" />,
 };
 
 export default function RankingsIndex() {
-  const categories = Object.entries(RANKING_PRESETS).map(([key, preset]) => ({
+  const categories = Object.entries(RANKING_PRESETS).filter(([key]) => key !== "free-tier").map(([key, preset]) => ({
     key,
     label: preset.label,
     icon: ICONS[key] ?? null,

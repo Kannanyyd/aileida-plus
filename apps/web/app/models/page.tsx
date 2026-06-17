@@ -63,12 +63,12 @@ export default async function ModelsPage({
             共 {filtered.length} 个模型。卡片展示价格来源、更新时间、数据质量标记，以及国内价或按美元折算。
           </p>
         </div>
-        <form className="flex items-center gap-2">
+        <form className="flex w-full min-w-0 items-center gap-2 sm:w-auto">
           <input
             name="q"
             defaultValue={sp.q}
             placeholder="搜索模型名 / 厂商"
-            className="h-9 w-56 rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-white"
+            className="h-9 min-w-0 flex-1 rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-white sm:w-56 sm:flex-none"
           />
           <button type="submit" className="h-9 rounded-lg brand-gradient px-4 text-sm font-semibold text-white">
             搜索
@@ -76,8 +76,8 @@ export default async function ModelsPage({
         </form>
       </header>
 
-      <div className="grid lg:grid-cols-[220px_1fr] gap-6">
-        <aside className="glass p-4 space-y-4">
+      <div className="grid min-w-0 gap-6 lg:grid-cols-[220px_minmax(0,1fr)]">
+        <aside className="glass min-w-0 p-4 space-y-4 overflow-hidden">
           <h2 className="text-sm font-semibold text-white flex items-center gap-1.5">
             <Filter className="w-3.5 h-3.5" /> 筛选
           </h2>
@@ -94,7 +94,7 @@ export default async function ModelsPage({
                 <li key={provider.slug}>
                   <Link
                     href={`/models?provider=${provider.slug}`}
-                    className={`block rounded px-2 py-1 text-xs ${sp.provider === provider.slug ? "bg-primary-soft text-white" : "text-slate-400 hover:text-white"}`}
+                    className={`block truncate rounded px-2 py-1 text-xs ${sp.provider === provider.slug ? "bg-primary-soft text-white" : "text-slate-400 hover:text-white"}`}
                   >
                     {provider.name_zh} <span className="text-[10px] text-slate-600">({provider.model_count})</span>
                   </Link>
@@ -120,7 +120,7 @@ export default async function ModelsPage({
           </div>
         </aside>
 
-        <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
+        <div className="grid min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {filtered.length > 0 ? (
             filtered.map((model) => <ModelCard key={model.model_id} m={model} />)
           ) : (

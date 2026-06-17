@@ -36,7 +36,7 @@ export default async function NewModelsPage() {
       </div>
 
       <div className="glass overflow-x-auto">
-        <table className="w-full text-xs">
+        <table className="min-w-[760px] w-full text-xs">
           <thead>
             <tr className="text-slate-500 border-b border-white/5">
               <th className="text-left p-3 font-normal">模型</th>
