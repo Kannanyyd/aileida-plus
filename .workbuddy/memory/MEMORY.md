@@ -582,3 +582,19 @@ ddd1e00 上线确认：
   - `audit:homepage-render` passed against `https://skillstop.online`.
   - Public pages returned 200; admin pages 307 unauthenticated; admin APIs 401 unauthenticated.
   - Logs clean for 500 / 502 / 504 / digest / relation / tsx / EACCES / password / rank slice-map errors.
+
+---
+
+## Latest Handoff: Obsolete Model Exclusion - 2026-06-17
+
+- User decision: models that are long outdated should not be kept in homepage current/default recommendation surfaces just because they have pricing.
+- Code changes:
+  - `deepseek-reasoner` / `deepseek-r1` is now `officialStatus: previous` and `homepageEligible: false` in `packages/pricing-core/src/official-current/index.ts`.
+  - Homepage official-current list has a defensive obsolete-model guard for previous/deprecated and obvious old-era slugs.
+  - `sync:official-current` now preserves `previous_generation` / `deprecated` lifecycle status instead of turning non-homepage entries into current-mainstream candidates.
+- Checks passed:
+  - `npm run typecheck`
+  - `npm -w web run build`
+- Production follow-up required after commit/push/deploy:
+  - Run `npm run sync:official-current` in production/worker so DB catalog reflects the code catalog change.
+  - Verify `https://skillstop.online/` no longer shows DeepSeek Reasoner / deepseek-r1 in the official-current homepage module.

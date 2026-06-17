@@ -81,6 +81,12 @@ function familyKey(value: { model_family?: string | null; family?: string | null
     .replace(/-\d{4,8}$/g, "");
 }
 
+function isObsoleteHomepageModel(value: { model_slug?: string | null; model_family?: string | null; official_name?: string | null; official_status?: string | null }) {
+  const text = `${value.model_slug ?? ""} ${value.model_family ?? ""} ${value.official_name ?? ""}`.toLowerCase();
+  if (value.official_status === "previous" || value.official_status === "deprecated") return true;
+  return /\b(deepseek-r1|deepseek-reasoner|gpt-4o|gpt-4-turbo|gpt-4\b|claude-3(?:-|$)|gemini-2\.5|gemini-1\.5|llama-3(?:-|$)|qwen2(?:\.5)?|doubao-1\.5)\b/i.test(text);
+}
+
 function selectLatestHomepageCandidates<T extends {
   provider_slug: string;
   selling_platform_provider?: string | null;
@@ -128,7 +134,7 @@ export default async function HomePage() {
   ]);
 
   const officialModels = officialCatalog
-    .filter((row) => row.homepage_eligible && row.official_source_url && !row.aliases_need_review)
+    .filter((row) => row.homepage_eligible && row.official_source_url && !row.aliases_need_review && !isObsoleteHomepageModel(row))
     .sort((a, b) => Number(b.has_pricing) - Number(a.has_pricing) || Number(b.confidence) - Number(a.confidence))
     .slice(0, 8);
 

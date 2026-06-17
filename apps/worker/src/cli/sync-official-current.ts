@@ -289,6 +289,14 @@ async function upsertAlias(args: {
 }
 
 async function upsertLatestCandidate(entry: OfficialCurrentModel, modelExists: boolean, pricingExists: boolean) {
+  const lifecycleTier =
+    entry.officialStatus === "deprecated"
+      ? "deprecated"
+      : entry.officialStatus === "previous"
+        ? "previous_generation"
+        : entry.homepageEligible
+          ? "current_mainstream"
+          : "unknown";
   await pool.query(
     `
       insert into latest_model_candidates (
@@ -336,7 +344,7 @@ async function upsertLatestCandidate(entry: OfficialCurrentModel, modelExists: b
       entry.officialSourceUrl,
       modelExists ? "matched" : "inserted",
       entry.officialStatus === "deprecated" ? "deprecated" : entry.officialStatus === "previous" ? "active" : "active",
-      entry.officialStatus === "previous" ? "previous_generation" : entry.homepageEligible ? "current_mainstream" : "unknown",
+      lifecycleTier,
       entry.confidence,
       pricingExists,
       Boolean(entry.needsPricingReview || !pricingExists),
@@ -368,11 +376,11 @@ async function ensureModel(entry: OfficialCurrentModel) {
     family: entry.modelFamily,
     status: entry.officialStatus === "deprecated" ? "deprecated" : "active",
     official_source_url: entry.officialSourceUrl,
-    lifecycle_tier: entry.officialStatus === "previous" ? "previous_generation" : "current_mainstream",
+    lifecycle_tier: entry.officialStatus === "deprecated" ? "deprecated" : entry.officialStatus === "previous" ? "previous_generation" : "current_mainstream",
     discovered_from: "official",
     source_confidence: entry.confidence,
     needs_pricing_review: true,
-    needs_capability_review: !entry.homepageEligible,
+    needs_capability_review: !entry.homepageEligible || entry.officialStatus === "previous" || entry.officialStatus === "deprecated",
     is_recommended_by_official: entry.officialStatus === "recommended",
     is_default_in_official_docs: entry.officialStatus === "recommended" || entry.officialStatus === "latest",
     is_latest_alias: entry.officialStatus === "latest" || (entry.aliases ?? []).some((alias) => alias.includes("latest")),

@@ -374,3 +374,19 @@ Rule for future work: homepage QA must include fetching/rendering `https://skill
   - production `audit:homepage-render` passed.
   - public pages returned 200, admin pages returned 307 unauthenticated, admin APIs returned 401 unauthenticated.
   - logs clean.
+
+---
+
+## Codex follow-up: Obsolete Model Exclusion (2026-06-17)
+
+- Decision: long-outdated models should not appear in homepage current/default surfaces. Keep them only for historical/detail/old-model contexts.
+- Changed `deepseek-reasoner` / `deepseek-r1` in the official-current catalog from recommended/homepage eligible to previous/homepage ineligible.
+- Added homepage defensive filtering for previous/deprecated and obvious old-era slugs, so stale DB catalog rows cannot leak into the homepage official-current module.
+- Updated `sync:official-current` so previous/deprecated entries stay `previous_generation` / `deprecated` in latest candidates and models instead of being promoted as current-mainstream.
+- Local validation passed:
+  - `npm run typecheck`
+  - `npm -w web run build`
+- Deployment follow-up:
+  - Commit/push/deploy.
+  - Run production `npm run sync:official-current` or worker container equivalent.
+  - Verify homepage official-current no longer includes DeepSeek Reasoner / deepseek-r1.

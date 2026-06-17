@@ -1161,3 +1161,27 @@ Validation:
 - Production pages checked: `/`, `/models`, `/rankings`, `/rankings/domestic`, `/rankings/frontier-value`, `/recommend`, `/compare`, `/models/kimi-k2.6`, `/robots.txt`, `/sitemap.xml` all 200.
 - Admin pages unauthenticated returned 307; admin APIs unauthenticated returned 401.
 - Logs showed no 500 / 502 / 504 / digest / relation / tsx / EACCES / password / rank slice-map errors.
+
+---
+
+## Obsolete Model Exclusion Follow-up - 2026-06-17
+
+Scope: keep long-outdated models out of public current/default surfaces. No schema, DNS, Nginx, HTTPS, or new price-source work.
+
+Changes:
+- `packages/pricing-core/src/official-current/index.ts`
+  - Changed `deepseek-reasoner` / `deepseek-r1` from `recommended` + homepage eligible to `previous` + homepage ineligible.
+  - Added notes that DeepSeek R1/Reasoner is retained only for historical pricing and reasoning reference, not homepage current-main display.
+- `apps/web/app/page.tsx`
+  - Added a homepage guard so `previous`, `deprecated`, and obvious old-era slugs such as DeepSeek R1, GPT-4o, Gemini 2.5, older Claude/GPT/Llama/Qwen/Doubao variants cannot appear in the official-current homepage module even if stale DB catalog rows still exist.
+- `apps/worker/src/cli/sync-official-current.ts`
+  - Sync now writes `previous` catalog entries as `previous_generation` and `deprecated` entries as `deprecated` in latest candidates / models.
+  - Previous/deprecated catalog entries now require capability review and will not be silently promoted as `current_mainstream`.
+
+Validation:
+- `npm run typecheck`: passed.
+- `npm -w web run build`: passed.
+
+Deployment note:
+- After deploy, run `npm run sync:official-current` (or worker container equivalent) so production DB catalog updates `deepseek-reasoner` to `previous` and `homepage_eligible=false`.
+- Re-run homepage/render and ranking checks after sync. Expected: homepage official-current must not include DeepSeek Reasoner / deepseek-r1.
