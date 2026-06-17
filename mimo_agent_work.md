@@ -351,3 +351,26 @@ This is a cross-agent handoff note so future agents do not rely only on internal
 - Logs showed no critical runtime errors.
 
 Rule for future work: homepage QA must include fetching/rendering `https://skillstop.online/` HTML, because API/audit success alone previously missed visible homepage issues.
+
+---
+
+## Codex follow-up: Ranking Trust + Price Label Fix (2026-06-17)
+
+- Deployed commit: `87fb6fd`.
+- Scope: default ranking trust and user-facing price label wording. No schema, DNS, Nginx, HTTPS, or source expansion.
+- Ranking fixes:
+  - Default rankings now require current/recent/official-current/default-pick evidence.
+  - Explicit previous-era model names are filtered from normal default rankings.
+  - DeepSeek R1 distill, GPT-4o, and qwen-flash were verified absent from domestic/frontier default Top20.
+  - Old models remain available through low-cost / legacy-low-cost lists.
+- Price wording:
+  - CNY/RMB billed price: `国内价`.
+  - USD/overseas billed price: `海外价`.
+  - USD converted to RMB: `按美元折算`.
+  - Converted price caveat: `仅供参考`.
+  - Missing domestic price: `暂无国内价`.
+- Validation:
+  - typecheck and web build passed.
+  - production `audit:homepage-render` passed.
+  - public pages returned 200, admin pages returned 307 unauthenticated, admin APIs returned 401 unauthenticated.
+  - logs clean.

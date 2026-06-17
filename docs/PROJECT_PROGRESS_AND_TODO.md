@@ -1125,3 +1125,39 @@ Production validation:
 
 Important next rule:
 - Homepage acceptance must use real rendered HTML from `https://skillstop.online/`, not only API responses or internal audit commands.
+
+---
+
+## Ranking Trust + Price Label Fix - 2026-06-17
+
+Scope: tightened default ranking quality and renamed confusing price labels for China-focused users. No database schema, DNS, Nginx, HTTPS, or price-source expansion.
+
+Commits:
+- `b270e11` - require current-model evidence for default rankings.
+- `886da08` - demote stale flagship-era models.
+- `93053ff` - exclude explicit previous-era model names from default ranks.
+- `87fb6fd` - clarify price currency labels.
+
+Ranking changes:
+- Default rankings now require current/recent/official-current/default-pick evidence when `hide_unknown=true`.
+- Obvious previous-era names such as DeepSeek R1 distill, GPT-4o, Gemini 2.5, older Claude/GPT/Llama/Qwen families are excluded from normal default rankings.
+- These models can still appear in low-cost or legacy-low-cost lists where old/cheap models are expected.
+- Production API check after deploy:
+  - `/api/v1/rankings/domestic?limit=20`: no DeepSeek R1 distill / qwen-flash matches.
+  - `/api/v1/rankings/frontier-value?limit=20`: no DeepSeek R1 / GPT-4o / qwen-flash matches.
+
+Price label changes:
+- `原生人民币价` / `人民币原生价` -> `国内价`
+- `美元估算价` / `美元估算人民币价` -> `按美元折算`
+- `美元价` / `美元原生价` -> `海外价`
+- `估算` -> `仅供参考`
+- `仅估算价` data-quality flag -> `按汇率折算`
+- `domestic_price_missing` user label -> `暂无国内价`
+
+Validation:
+- `npm run typecheck`: passed.
+- `npm -w web run build`: passed.
+- `npm run audit:homepage-render`: passed on production URL.
+- Production pages checked: `/`, `/models`, `/rankings`, `/rankings/domestic`, `/rankings/frontier-value`, `/recommend`, `/compare`, `/models/kimi-k2.6`, `/robots.txt`, `/sitemap.xml` all 200.
+- Admin pages unauthenticated returned 307; admin APIs unauthenticated returned 401.
+- Logs showed no 500 / 502 / 504 / digest / relation / tsx / EACCES / password / rank slice-map errors.

@@ -558,3 +558,27 @@ ddd1e00 上线确认：
 - Server synced to `5ea991a`
 - Web container formally rebuilt and restarted
 - Verified: no `/admin` links in homepage HTML
+
+---
+
+## Latest Handoff: Ranking Trust + Price Label Fix - 2026-06-17
+
+- Latest deployed commit: `87fb6fd`.
+- Server HEAD: `87fb6fd`.
+- Ranking trust fixes:
+  - Default rankings require current/recent/official-current/default-pick evidence when hiding unknown models.
+  - Explicit previous-era names are filtered out of default rankings even if old DB lifecycle data says current.
+  - DeepSeek R1 distill, GPT-4o, qwen-flash no longer appear in default domestic/frontier Top20.
+  - Old/cheap models remain available in `low-cost` / `legacy-low-cost` contexts.
+- User-facing price labels:
+  - `国内价` = RMB/CNY billed price.
+  - `海外价` = USD/overseas billed price.
+  - `按美元折算` = converted from USD into RMB for reference.
+  - `仅供参考` marks converted prices.
+  - `暂无国内价` replaces confusing domestic missing labels.
+- Validation:
+  - `npm run typecheck` passed.
+  - `npm -w web run build` passed.
+  - `audit:homepage-render` passed against `https://skillstop.online`.
+  - Public pages returned 200; admin pages 307 unauthenticated; admin APIs 401 unauthenticated.
+  - Logs clean for 500 / 502 / 504 / digest / relation / tsx / EACCES / password / rank slice-map errors.
