@@ -27,10 +27,10 @@ export function ModelCard({ m }: { m: ModelWithPricing }) {
   return (
     <Link
       href={`/models/${encodeURIComponent(m.model_slug)}`}
-      className="glass p-5 flex flex-col gap-4 hover:border-primary/40 transition group"
+      className="glass flex min-w-0 flex-col gap-4 overflow-hidden p-5 transition hover:border-primary/40 group"
     >
       <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <h3 className="font-semibold text-base text-white truncate group-hover:text-primary transition">
             {m.model_name}
           </h3>
@@ -38,11 +38,13 @@ export function ModelCard({ m }: { m: ModelWithPricing }) {
             {m.provider_name_zh} · {m.model_owner_provider || "模型所有者待确认"}
           </p>
         </div>
-        <ConfidenceBadge variant={variant as never} />
+        <div className="shrink-0">
+          <ConfidenceBadge variant={variant as never} />
+        </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div>
+      <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="min-w-0">
           <p className="text-[11px] text-slate-500 mb-0.5">输入 / 1M tokens</p>
           <PriceValue
             usd={m.input_per_1m_usd}
@@ -52,7 +54,7 @@ export function ModelCard({ m }: { m: ModelWithPricing }) {
             preferCny={preferCny}
           />
         </div>
-        <div>
+        <div className="min-w-0">
           <p className="text-[11px] text-slate-500 mb-0.5">输出 / 1M tokens</p>
           <PriceValue
             usd={m.output_per_1m_usd}
@@ -86,9 +88,11 @@ export function ModelCard({ m }: { m: ModelWithPricing }) {
         ))}
       </div>
 
-      <div className="flex items-center justify-between gap-3 text-[11px] text-slate-500 pt-2 border-t border-white/5">
-        <span>更新 {relativeTime(m.updated_at)}</span>
-        <SourceLink href={m.source_url} label={m.primary_source_id || "来源"} />
+      <div className="flex min-w-0 items-center justify-between gap-3 border-t border-white/5 pt-2 text-[11px] text-slate-500">
+        <span className="shrink-0">更新 {relativeTime(m.updated_at)}</span>
+        <span className="min-w-0 truncate">
+          <SourceLink href={m.source_url} label={m.primary_source_id || "来源"} />
+        </span>
       </div>
     </Link>
   );
