@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { Radar, Calculator, Trophy, Database, Sparkles, Newspaper, Layers } from "lucide-react";
+import { Radar, Calculator, Trophy, Database, Sparkles, Layers } from "lucide-react";
 
 const items = [
   { href: "/models", label: "模型库", icon: Database },
@@ -8,7 +8,6 @@ const items = [
   { href: "/recommend", label: "推荐", icon: Sparkles },
   { href: "/calculator", label: "计算器", icon: Calculator },
   { href: "/rankings", label: "排行榜", icon: Trophy },
-  { href: "/ai-news", label: "动态", icon: Newspaper },
   { href: "/providers", label: "厂商", icon: Radar },
 ];
 

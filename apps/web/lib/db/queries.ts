@@ -1004,11 +1004,11 @@ export async function listPlatformComparison(limit = 30): Promise<PlatformPriceR
         AND pr.is_current = true
         AND pr.pricing_type = 'api_token'
         AND pr.input_per_1m_usd IS NOT NULL
-        AND pr.updated_at > now() - interval '90 days'
+        AND pr.updated_at > now() - interval '180 days'
         AND (pr.effective_end_at IS NULL OR pr.effective_end_at > now())
         AND pr.need_manual_review = false
-        AND pr.confidence_score >= 0.5
-        AND m.lifecycle_tier IN ('current_frontier', 'current_mainstream')
+        AND pr.confidence_score >= 0.4
+        AND m.lifecycle_tier IN ('current_frontier', 'current_mainstream', 'previous_generation', 'unknown')
         AND (
           m.slug ~* '(gpt-4o|gpt-5|o1|o3|claude-sonnet|claude-opus|claude-3-5|gemini-2|gemini-1\.5|deepseek|qwen|glm-4|kimi|moonshot|doubao|ernie|llama-4|mistral-large|minimax)'
           OR m.name ~* '(GPT-4o|GPT-5|Claude|Gemini|DeepSeek|Qwen|GLM-4|Kimi|Moonshot|豆包|Doubao|ERNIE|Llama 4|Mistral Large|MiniMax)'
@@ -1017,7 +1017,7 @@ export async function listPlatformComparison(limit = 30): Promise<PlatformPriceR
     eligible_models AS (
       SELECT model_id, min(model_slug) AS model_slug
       FROM comparable_prices
-      WHERE price_count > 1
+      WHERE price_count >= 1
       GROUP BY model_id
       ORDER BY model_slug
       LIMIT ${limit}
