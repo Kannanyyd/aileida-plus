@@ -998,35 +998,42 @@ export async function listPlatformComparison(limit = 30): Promise<PlatformPriceR
         AND pr.is_current = true
         AND pr.pricing_type = 'api_token'
         AND pr.input_per_1m_usd IS NOT NULL
+    ),
+    eligible_models AS (
+      SELECT model_id, min(model_slug) AS model_slug
+      FROM comparable_prices
+      WHERE price_count > 1
+      GROUP BY model_id
+      ORDER BY model_slug
+      LIMIT ${limit}
     )
     SELECT
-      model_id,
-      model_slug,
-      model_name,
-      provider_slug,
-      provider_name_zh,
-      provider_region,
-      model_lifecycle_tier,
-      context_length,
-      pricing_id,
-      input_per_1m_usd,
-      output_per_1m_usd,
-      currency_native,
-      region,
-      channel,
-      platform,
-      selling_platform_provider,
-      is_official,
-      is_aggregator,
-      is_domestic,
-      confidence_score,
-      source_url,
-      primary_source_id,
-      updated_at
-    FROM comparable_prices
-    WHERE price_count > 1
-    ORDER BY model_slug, input_per_1m_usd ASC
-    LIMIT ${limit * 8}
+      cp.model_id,
+      cp.model_slug,
+      cp.model_name,
+      cp.provider_slug,
+      cp.provider_name_zh,
+      cp.provider_region,
+      cp.model_lifecycle_tier,
+      cp.context_length,
+      cp.pricing_id,
+      cp.input_per_1m_usd,
+      cp.output_per_1m_usd,
+      cp.currency_native,
+      cp.region,
+      cp.channel,
+      cp.platform,
+      cp.selling_platform_provider,
+      cp.is_official,
+      cp.is_aggregator,
+      cp.is_domestic,
+      cp.confidence_score,
+      cp.source_url,
+      cp.primary_source_id,
+      cp.updated_at
+    FROM comparable_prices cp
+    INNER JOIN eligible_models em ON em.model_id = cp.model_id
+    ORDER BY cp.model_slug, cp.input_per_1m_usd ASC
   `);
   return (rows.rows as unknown as PlatformPriceRow[]).map((r) => ({
     ...r,
