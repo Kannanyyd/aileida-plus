@@ -965,39 +965,67 @@ export interface PlatformPriceRow {
  */
 export async function listPlatformComparison(limit = 30): Promise<PlatformPriceRow[]> {
   const rows = await db.execute(sql<PlatformPriceRow>`
+    WITH comparable_prices AS (
+      SELECT
+        m.id AS model_id,
+        m.slug AS model_slug,
+        m.name AS model_name,
+        p.slug AS provider_slug,
+        p.name_zh AS provider_name_zh,
+        p.region AS provider_region,
+        m.lifecycle_tier AS model_lifecycle_tier,
+        m.context_length,
+        pr.id AS pricing_id,
+        pr.input_per_1m_usd,
+        pr.output_per_1m_usd,
+        pr.currency_native,
+        pr.region,
+        pr.channel,
+        pr.platform,
+        pr.selling_platform_provider,
+        pr.is_official,
+        pr.is_aggregator,
+        pr.is_domestic,
+        pr.confidence_score,
+        pr.source_url,
+        pr.primary_source_id,
+        pr.updated_at,
+        count(*) OVER (PARTITION BY m.id) AS price_count
+      FROM models m
+      INNER JOIN providers p ON p.id = m.provider_id
+      INNER JOIN pricing pr ON pr.model_id = m.id
+      WHERE m.status = 'active'
+        AND pr.is_current = true
+        AND pr.pricing_type = 'api_token'
+        AND pr.input_per_1m_usd IS NOT NULL
+    )
     SELECT
-      m.id AS model_id,
-      m.slug AS model_slug,
-      m.name AS model_name,
-      p.slug AS provider_slug,
-      p.name_zh AS provider_name_zh,
-      p.region AS provider_region,
-      m.lifecycle_tier AS model_lifecycle_tier,
-      m.context_length,
-      pr.id AS pricing_id,
-      pr.input_per_1m_usd,
-      pr.output_per_1m_usd,
-      pr.currency_native,
-      pr.region,
-      pr.channel,
-      pr.platform,
-      pr.selling_platform_provider,
-      pr.is_official,
-      pr.is_aggregator,
-      pr.is_domestic,
-      pr.confidence_score,
-      pr.source_url,
-      pr.primary_source_id,
-      pr.updated_at
-    FROM models m
-    INNER JOIN providers p ON p.id = m.provider_id
-    INNER JOIN pricing pr ON pr.model_id = m.id
-    WHERE m.status = 'active'
-      AND pr.is_current = true
-      AND pr.pricing_type = 'api_token'
-      AND pr.input_per_1m_usd IS NOT NULL
-      AND m.lifecycle_tier IN ('current_frontier', 'current_mainstream')
-    ORDER BY m.slug, pr.input_per_1m_usd ASC
+      model_id,
+      model_slug,
+      model_name,
+      provider_slug,
+      provider_name_zh,
+      provider_region,
+      model_lifecycle_tier,
+      context_length,
+      pricing_id,
+      input_per_1m_usd,
+      output_per_1m_usd,
+      currency_native,
+      region,
+      channel,
+      platform,
+      selling_platform_provider,
+      is_official,
+      is_aggregator,
+      is_domestic,
+      confidence_score,
+      source_url,
+      primary_source_id,
+      updated_at
+    FROM comparable_prices
+    WHERE price_count > 1
+    ORDER BY model_slug, input_per_1m_usd ASC
     LIMIT ${limit * 8}
   `);
   return (rows.rows as unknown as PlatformPriceRow[]).map((r) => ({
