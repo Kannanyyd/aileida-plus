@@ -5,7 +5,7 @@ import type { ModelWithPricing } from "@/lib/db/queries";
 import { formatContext, relativeTime } from "@/lib/utils";
 import { ConfidenceBadge } from "./confidence-badge";
 import { Tag } from "./tag";
-import { PriceSourceBadges, PriceValue, SourceLink } from "./price-trust";
+import { PriceSourceBadges, PriceValue } from "./price-trust";
 import { getModelTier } from "@/lib/rank/score";
 
 const CAP_LABEL: Record<string, string> = {
@@ -103,8 +103,8 @@ export function ModelCard({ m, familyModels = [] }: { m: ModelWithPricing; famil
 
       <div className="flex min-w-0 items-center justify-between gap-3 border-t border-white/10 pt-2 text-[11px] text-slate-500">
         <span className="shrink-0">更新 {relativeTime(m.updated_at)}</span>
-        <span className="min-w-0 truncate">
-          <SourceLink href={m.source_url} label={m.primary_source_id || "来源"} />
+        <span className="min-w-0 truncate text-primary">
+          {m.source_url && m.source_url !== "unknown" ? (m.primary_source_id || "来源") : "来源待确认"}
         </span>
       </div>
     </Link>
