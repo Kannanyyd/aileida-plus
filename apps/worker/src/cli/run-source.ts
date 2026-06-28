@@ -1,4 +1,4 @@
-import { runLiteLLM, runOpenRouter, runLlmPrices, runGenaiPrices, runAllCn, runOfficialModels, auditLatestModels, runPriorityCnyPricing, runVendorAnnouncements } from "../pipeline.js";
+import { runLiteLLM, runOpenRouter, runLlmPrices, runGenaiPrices, runAllCn, runOfficialModels, auditLatestModels, runPriorityCnyPricing, runVendorAnnouncements, runAll } from "../pipeline.js";
 import { closeBrowser } from "../fetchers/html.js";
 
 const map: Record<string, () => Promise<void>> = {
@@ -15,14 +15,7 @@ const map: Record<string, () => Promise<void>> = {
 };
 
 const target = process.argv[2] ?? "all";
-const fn = target === "all" ? async () => {
-  await runLiteLLM();
-  await runOpenRouter();
-  await runLlmPrices();
-  await runGenaiPrices();
-  await runAllCn();
-  await runVendorAnnouncements();
-} : map[target];
+const fn = target === "all" ? runAll : map[target];
 
 if (!fn) {
   console.error(`Unknown source: ${target}. Available: ${Object.keys(map).join(", ")}`);

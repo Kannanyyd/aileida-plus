@@ -401,14 +401,18 @@ export async function runPriorityCnyPricing() {
     { id: "cn-cny-baidu-qianfan", url: "https://cloud.baidu.com/doc/qianfan-docs/s/Jm8r1826a", fn: fetchBaiduQianfanCnyPricing },
   ];
   for (const source of sources) {
-    await runSource(source.id, "official-cny-pricing", source.url, async () => {
-      const result = await source.fn();
-      return {
-        models: result.models,
-        pricing: result.pricing,
-        rawText: result.rawText,
-      };
-    });
+    try {
+      await runSource(source.id, "official-cny-pricing", source.url, async () => {
+        const result = await source.fn();
+        return {
+          models: result.models,
+          pricing: result.pricing,
+          rawText: result.rawText,
+        };
+      });
+    } catch (err: any) {
+      console.error(`[${source.id}] CNY 价格抓取失败:`, err?.message ?? err);
+    }
   }
 }
 
@@ -499,6 +503,8 @@ export async function runAll() {
   await runGenaiPrices();
   console.log("[worker] 开始抓取国内数据源...");
   await runAllCn();
+  // 国内优先 CNY 价格源此前未接入全量任务。
+  await runPriorityCnyPricing();
   await runVendorAnnouncements();
   console.log("[worker] 全量抓取完成！");
 }

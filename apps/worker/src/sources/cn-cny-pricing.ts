@@ -484,7 +484,7 @@ export async function fetchVolcengineDoubaoCnyPricing(): Promise<CnyPricingResul
   const note = [
     "VOLCENGINE_CNY_PRICING_AUDIT",
     "Official Ark pricing document fetched successfully.",
-    "Doubao pricing cells are present, but column order requires manual confirmation before formal insert.",
+    "Doubao pricing cells are present, but column order and token units require confirmation before formal insert.",
     raw.body,
   ].join("\n");
   return buildResult("cn-cny-volcengine-doubao", url, note, []);
