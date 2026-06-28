@@ -795,8 +795,8 @@ export async function listModels(filter?: {
     eq(models.status, "active"),
     eq(pricing.is_current, true),
     eq(pricing.pricing_type, "api_token"),
-    sql`pr.updated_at > now() - interval '180 days'`,
-    sql`(pr.effective_end_at IS NULL OR pr.effective_end_at > now())`,
+    sql`${pricing.updated_at} > now() - interval '180 days'`,
+    sql`(${pricing.effective_end_at} IS NULL OR ${pricing.effective_end_at} > now())`,
   ];
   if (filter?.providerSlug) {
     conditions.push(sql`(coalesce(${providers.canonical_slug}, ${providers.slug}) = ${filter.providerSlug} or ${providers.slug} = ${filter.providerSlug})`);
