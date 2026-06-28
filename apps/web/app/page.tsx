@@ -126,10 +126,7 @@ export default async function HomePage() {
     <div className="space-y-12">
       {/* ===== Hero ===== */}
       <section className="relative overflow-hidden rounded-2xl">
-        {/* 背景光效 */}
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/8 via-transparent to-purple/6" />
-        <div className="absolute -top-24 left-1/2 h-48 w-[600px] -translate-x-1/2 rounded-full bg-primary/10 blur-[80px] pulse-glow" />
-        <div className="absolute top-20 right-0 h-32 w-32 rounded-full bg-cyan/8 blur-[60px]" />
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/[0.08] via-transparent to-purple/[0.06]" />
 
         <div className="relative px-6 py-12 text-center sm:py-16">
           <div className="mb-5 inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary-soft px-3 py-1 text-xs text-primary">
@@ -150,7 +147,7 @@ export default async function HomePage() {
             <Link href="/platform-compare" className="inline-flex h-11 items-center gap-2 rounded-xl brand-glow px-6 text-sm font-semibold text-white">
               <Layers className="h-4 w-4" /> 平台比价
             </Link>
-            <Link href="/rankings/domestic" className="inline-flex h-11 items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-6 text-sm font-semibold text-white transition hover:border-primary/30 hover:bg-white/8">
+            <Link href="/rankings/domestic" className="inline-flex h-11 items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-6 text-sm font-semibold text-white transition hover:border-primary/30 hover:bg-white/[0.08]">
               <TrendingUp className="h-4 w-4" /> 国内价格榜
             </Link>
           </div>
@@ -213,7 +210,7 @@ export default async function HomePage() {
                       <p className="mt-0.5 text-[11px] text-slate-500">{item.provider_name_zh}</p>
                     </div>
                     {item.savings > 0 && (
-                      <span className="shrink-0 inline-flex items-center gap-1 rounded-lg border border-success/25 bg-success/8 px-2.5 py-1 text-[11px] font-bold text-success">
+                      <span className="shrink-0 inline-flex items-center gap-1 rounded-lg border border-success/25 bg-success/[0.08] px-2.5 py-1 text-[11px] font-bold text-success">
                         <TrendingDown className="h-3 w-3" /> {item.savings}%
                       </span>
                     )}
@@ -225,13 +222,13 @@ export default async function HomePage() {
                       <p className="text-[9px] text-slate-500 truncate">{platformLabel(cheapest)}</p>
                     </div>
                     {official && official.pricing_id !== cheapest.pricing_id ? (
-                      <div className="rounded-xl border border-white/8 bg-white/[0.02] p-3">
+                      <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-3">
                         <p className="text-[10px] text-slate-500">官方价</p>
                         <p className="mt-1 text-lg font-semibold text-slate-400 line-through">{formatPrice(official.input_per_1m_usd, isDomestic)}</p>
                         <p className="text-[9px] text-slate-500 truncate">{platformLabel(official)}</p>
                       </div>
                     ) : (
-                      <div className="rounded-xl border border-white/8 bg-white/[0.02] p-3">
+                      <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-3">
                         <p className="text-[10px] text-slate-500">平台数</p>
                         <p className="mt-1 text-lg font-semibold text-slate-300">{item.prices.length} 个</p>
                         <p className="text-[9px] text-slate-500">渠道报价</p>
@@ -282,7 +279,6 @@ export default async function HomePage() {
       {/* ===== 底部 CTA ===== */}
       <section className="fade-up fade-up-3">
         <div className="glass relative overflow-hidden p-8 text-center">
-          <div className="absolute -top-20 left-1/2 h-40 w-[400px] -translate-x-1/2 rounded-full bg-primary/8 blur-[60px]" />
           <div className="relative">
             <Zap className="mx-auto mb-3 h-6 w-6 text-primary" />
             <h2 className="text-xl font-bold text-white">不确定选哪个模型？</h2>

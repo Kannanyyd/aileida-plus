@@ -122,18 +122,17 @@ export default async function PlatformComparePage() {
   return (
     <div className="space-y-8">
       <section className="relative overflow-hidden rounded-2xl">
-        <div className="absolute inset-0 bg-gradient-to-br from-success/6 via-transparent to-cyan/6" />
-        <div className="absolute -top-20 left-1/2 h-40 w-[500px] -translate-x-1/2 rounded-full bg-success/8 blur-[70px] pulse-glow" />
+        <div className="absolute inset-0 bg-gradient-to-br from-success/[0.06] via-transparent to-cyan/[0.06]" />
         <div className="relative px-6 py-10 text-center">
           <h1 className="text-3xl font-bold text-white sm:text-4xl">平台比价</h1>
           <p className="mx-auto mt-3 max-w-lg text-sm text-slate-400">
             同一模型在不同平台价格可能差 <span className="gradient-text-success font-semibold">2-5 倍</span>。绿色高亮为最低价平台。
           </p>
           <div className="mt-5 flex flex-wrap justify-center gap-2 text-[11px]">
-            <span className="inline-flex items-center gap-1 rounded-lg border border-success/20 bg-success/8 px-2.5 py-1 text-success">
+            <span className="inline-flex items-center gap-1 rounded-lg border border-success/20 bg-success/[0.08] px-2.5 py-1 text-success">
               <Crown className="w-3 h-3" /> 最低价
             </span>
-            <span className="inline-flex items-center gap-1 rounded-lg border border-cyan/20 bg-cyan/8 px-2.5 py-1 text-cyan">
+            <span className="inline-flex items-center gap-1 rounded-lg border border-cyan/20 bg-cyan/[0.08] px-2.5 py-1 text-cyan">
               国内渠道
             </span>
             <span className="inline-flex items-center gap-1 rounded-lg border border-primary/20 bg-primary-soft px-2.5 py-1 text-primary">

@@ -22,8 +22,7 @@
 
 html, body {
   background:
-    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(91, 143, 255, 0.12), transparent),
-    radial-gradient(ellipse 60% 40% at 80% 10%, rgba(167, 139, 250, 0.08), transparent),
+    linear-gradient(180deg, rgba(16, 24, 43, 0.72), rgba(6, 9, 18, 0.98) 360px),
     var(--bg-main);
   color: #E2E8F0;
   -webkit-font-smoothing: antialiased;
@@ -159,3 +158,17 @@ html, body {
 .fade-up-1 { animation-delay: 0.05s; }
 .fade-up-2 { animation-delay: 0.1s; }
 .fade-up-3 { animation-delay: 0.15s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .shimmer,
+  .pulse-glow,
+  .fade-up {
+    animation: none;
+  }
+
+  .glass,
+  .glass-hover,
+  .brand-glow {
+    transition: none;
+  }
+}

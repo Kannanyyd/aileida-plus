@@ -59,7 +59,7 @@ export function ModelCard({ m, familyModels = [] }: { m: ModelWithPricing; famil
 
       {/* 价格区 */}
       <div className="grid min-w-0 grid-cols-2 gap-3">
-        <div className="rounded-xl border border-white/8 bg-white/[0.02] p-3">
+        <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-3">
           <p className="text-[10px] text-slate-500">输入 / 1M</p>
           <PriceValue
             usd={m.input_per_1m_usd}
@@ -69,7 +69,7 @@ export function ModelCard({ m, familyModels = [] }: { m: ModelWithPricing; famil
             preferCny={preferCny}
           />
         </div>
-        <div className="rounded-xl border border-white/8 bg-white/[0.02] p-3">
+        <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-3">
           <p className="text-[10px] text-slate-500">输出 / 1M</p>
           <PriceValue
             usd={m.output_per_1m_usd}
