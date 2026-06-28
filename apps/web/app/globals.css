@@ -3,60 +3,90 @@
 @tailwind utilities;
 
 :root {
-  --bg-main: #080B12;
-  --bg-card: #0E1420;
-  --bg-card-soft: #131C2A;
-  --bg-hover: #1A2536;
-  --primary: #4C8DFF;
-  --primary-hover: #7AA8FF;
-  --primary-soft: rgba(76, 141, 255, 0.14);
-  --success: #22C55E;
-  --danger: #EF4444;
-  --warning: #F59E0B;
+  --bg-main: #060912;
+  --bg-card: #0C1220;
+  --bg-card-soft: #10182B;
+  --bg-hover: #16203A;
+  --primary: #5B8FFF;
+  --primary-hover: #82B4FF;
+  --primary-soft: rgba(91, 143, 255, 0.14);
+  --success: #2DD4BF;
+  --danger: #F4637A;
+  --warning: #FBBF52;
   --cyan: #22D3EE;
-  --purple: #8B5CF6;
-  --gradient: linear-gradient(135deg, #4C8DFF 0%, #24D3C7 58%, #8B5CF6 100%);
+  --purple: #A78BFA;
+  --gradient: linear-gradient(135deg, #5B8FFF 0%, #22D3EE 50%, #A78BFA 100%);
+  --gradient-warm: linear-gradient(135deg, #FBBF52 0%, #F4637A 100%);
+  --gradient-success: linear-gradient(135deg, #2DD4BF 0%, #22D3EE 100%);
 }
 
 html, body {
   background:
-    linear-gradient(180deg, rgba(19, 28, 42, 0.7), rgba(8, 11, 18, 0.96) 320px),
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(91, 143, 255, 0.12), transparent),
+    radial-gradient(ellipse 60% 40% at 80% 10%, rgba(167, 139, 250, 0.08), transparent),
     var(--bg-main);
   color: #E2E8F0;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  background-attachment: fixed;
 }
 
-* {
-  box-sizing: border-box;
-}
+* { box-sizing: border-box; }
 
-::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.16); }
+::-webkit-scrollbar-thumb { background: rgba(91, 143, 255, 0.2); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(91, 143, 255, 0.4); }
 
+/* ---- Glass / Cards ---- */
 .glass {
-  background: linear-gradient(180deg, rgba(18, 27, 42, 0.9), rgba(11, 16, 26, 0.92));
-  border: 1px solid rgba(148, 163, 184, 0.14);
-  border-radius: 8px;
-  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.22);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  background: linear-gradient(180deg, rgba(16, 24, 43, 0.85), rgba(10, 15, 28, 0.92));
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  border-radius: 14px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.24);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  transition: border-color 200ms ease, box-shadow 200ms ease, transform 200ms ease;
+}
+
+/* Glass with gradient border glow on hover */
+.glass-hover {
+  position: relative;
+}
+.glass-hover::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, rgba(91, 143, 255, 0), rgba(34, 211, 238, 0), rgba(167, 139, 250, 0));
+  -webkit-mask: linear-gradient(#000, #000) content-box, linear-gradient(#000, #000);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  transition: background 250ms ease;
+  pointer-events: none;
+}
+.glass-hover:hover::before {
+  background: linear-gradient(135deg, rgba(91, 143, 255, 0.4), rgba(34, 211, 238, 0.3), rgba(167, 139, 250, 0.3));
+}
+.glass-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(91, 143, 255, 0.1);
 }
 
 .surface {
-  background: rgba(255, 255, 255, 0.035);
-  border: 1px solid rgba(148, 163, 184, 0.12);
-  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(148, 163, 184, 0.08);
+  border-radius: 10px;
 }
 
 .muted-panel {
-  background: rgba(15, 23, 42, 0.72);
-  border: 1px solid rgba(148, 163, 184, 0.1);
-  border-radius: 8px;
+  background: rgba(12, 18, 32, 0.6);
+  border: 1px solid rgba(148, 163, 184, 0.08);
+  border-radius: 14px;
 }
 
+/* ---- Typography ---- */
 .gradient-text {
   background: var(--gradient);
   -webkit-background-clip: text;
@@ -64,34 +94,68 @@ html, body {
   background-clip: text;
 }
 
+.gradient-text-warm {
+  background: var(--gradient-warm);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.gradient-text-success {
+  background: var(--gradient-success);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ---- Buttons ---- */
 .brand-gradient {
   background: var(--gradient);
 }
 
 .brand-glow {
   background: var(--gradient);
-  box-shadow: 0 10px 26px rgba(76, 141, 255, 0.22);
-  transition: transform 150ms ease, box-shadow 150ms ease, opacity 150ms ease;
+  box-shadow: 0 4px 20px rgba(91, 143, 255, 0.3);
+  transition: transform 150ms ease, box-shadow 150ms ease;
 }
-
 .brand-glow:hover {
   transform: translateY(-1px);
-  box-shadow: 0 14px 32px rgba(76, 141, 255, 0.28);
+  box-shadow: 0 8px 28px rgba(91, 143, 255, 0.4);
 }
 
+/* ---- Divider ---- */
 .divider {
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent);
   height: 1px;
   width: 100%;
 }
 
-.shimmer {
-  background: linear-gradient(90deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.12) 50%, rgba(255,255,255,0.04) 100%);
-  background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
-}
-
+/* ---- Animations ---- */
 @keyframes shimmer {
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
 }
+.shimmer {
+  background: linear-gradient(90deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.03) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.7; }
+}
+.pulse-glow {
+  animation: pulse-glow 3s ease-in-out infinite;
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.fade-up {
+  animation: fade-up 0.5s ease-out forwards;
+}
+.fade-up-1 { animation-delay: 0.05s; }
+.fade-up-2 { animation-delay: 0.1s; }
+.fade-up-3 { animation-delay: 0.15s; }

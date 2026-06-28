@@ -120,23 +120,26 @@ export default async function PlatformComparePage() {
   const groups = groupByModel(rawRows);
 
   return (
-    <div className="space-y-6">
-      <section className="glass px-6 py-8 text-center">
-        <h1 className="text-2xl font-bold text-white">平台比价</h1>
-        <p className="mx-auto mt-2 max-w-xl text-sm text-slate-400">
-          同一模型在不同平台价格可能差 <span className="text-success font-semibold">2-5 倍</span>。
-          绿色高亮为最低价平台。
-        </p>
-        <div className="mt-4 flex flex-wrap justify-center gap-2 text-[11px]">
-          <span className="inline-flex items-center gap-1 rounded-md border border-success/30 bg-success/10 px-2 py-1 text-success">
-            <Crown className="w-3 h-3" /> 最低价
-          </span>
-          <span className="inline-flex items-center gap-1 rounded-md border border-cyan/30 bg-cyan/10 px-2 py-1 text-cyan">
-            国内渠道
-          </span>
-          <span className="inline-flex items-center gap-1 rounded-md border border-primary/30 bg-primary-soft px-2 py-1 text-primary">
-            官方渠道
-          </span>
+    <div className="space-y-8">
+      <section className="relative overflow-hidden rounded-2xl">
+        <div className="absolute inset-0 bg-gradient-to-br from-success/6 via-transparent to-cyan/6" />
+        <div className="absolute -top-20 left-1/2 h-40 w-[500px] -translate-x-1/2 rounded-full bg-success/8 blur-[70px] pulse-glow" />
+        <div className="relative px-6 py-10 text-center">
+          <h1 className="text-3xl font-bold text-white sm:text-4xl">平台比价</h1>
+          <p className="mx-auto mt-3 max-w-lg text-sm text-slate-400">
+            同一模型在不同平台价格可能差 <span className="gradient-text-success font-semibold">2-5 倍</span>。绿色高亮为最低价平台。
+          </p>
+          <div className="mt-5 flex flex-wrap justify-center gap-2 text-[11px]">
+            <span className="inline-flex items-center gap-1 rounded-lg border border-success/20 bg-success/8 px-2.5 py-1 text-success">
+              <Crown className="w-3 h-3" /> 最低价
+            </span>
+            <span className="inline-flex items-center gap-1 rounded-lg border border-cyan/20 bg-cyan/8 px-2.5 py-1 text-cyan">
+              国内渠道
+            </span>
+            <span className="inline-flex items-center gap-1 rounded-lg border border-primary/20 bg-primary-soft px-2.5 py-1 text-primary">
+              官方渠道
+            </span>
+          </div>
         </div>
       </section>
 
@@ -154,7 +157,7 @@ export default async function PlatformComparePage() {
             const hasMultiplePlatforms = platformCount > 1;
 
             return (
-              <div key={group.model_id} className="glass p-4 sm:p-5">
+              <div key={group.model_id} className="glass glass-hover p-5">
                 <div className="flex items-start justify-between gap-3 mb-4">
                   <div className="min-w-0">
                     <Link href={`/models/${encodeURIComponent(group.model_slug)}`} className="text-base font-semibold text-white hover:text-primary transition">

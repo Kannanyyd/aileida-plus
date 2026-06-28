@@ -11,20 +11,20 @@ const config: Config = {
     extend: {
       colors: {
         bg: {
-          main: "#070B18",
-          card: "#0D1324",
-          "card-soft": "#111A2E",
-          hover: "#17213A",
+          main: "#060912",
+          card: "#0C1220",
+          "card-soft": "#10182B",
+          hover: "#16203A",
         },
         primary: {
-          DEFAULT: "#4F7CFF",
-          hover: "#6D92FF",
+          DEFAULT: "#5B8FFF",
+          hover: "#82B4FF",
         },
-        success: "#22C55E",
-        danger: "#EF4444",
-        warning: "#F59E0B",
+        success: "#2DD4BF",
+        danger: "#F4637A",
+        warning: "#FBBF52",
         cyan: "#22D3EE",
-        purple: "#A855F7",
+        purple: "#A78BFA",
         border: "rgba(255,255,255,0.08)",
       },
       fontFamily: {
@@ -43,12 +43,12 @@ const config: Config = {
       },
       backgroundImage: {
         "brand-gradient":
-          "linear-gradient(135deg, #4F7CFF 0%, #22D3EE 55%, #A855F7 100%)",
+          "linear-gradient(135deg, #5B8FFF 0%, #22D3EE 50%, #A78BFA 100%)",
         "dark-radial":
-          "radial-gradient(ellipse at top, rgba(79,124,255,0.12), transparent 60%), radial-gradient(ellipse at bottom, rgba(168,85,247,0.08), transparent 50%)",
+          "radial-gradient(ellipse at top, rgba(91,143,255,0.10), transparent 60%), radial-gradient(ellipse at bottom right, rgba(167,139,250,0.06), transparent 50%)",
       },
       boxShadow: {
-        glow: "0 0 24px rgba(79, 124, 255, 0.35)",
+        glow: "0 0 24px rgba(91, 124, 255, 0.35)",
         card: "0 20px 60px rgba(0, 0, 0, 0.28)",
       },
     },

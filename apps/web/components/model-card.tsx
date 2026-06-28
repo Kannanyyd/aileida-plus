@@ -21,8 +21,8 @@ const CAP_LABEL: Record<string, string> = {
 };
 
 const TIER_LABEL: Record<string, { label: string; variant: "success" | "primary" | "warning" | "danger" | "cyan" | "default" }> = {
-  current_frontier: { label: "最新前沿", variant: "success" },
-  current_mainstream: { label: "当前主力", variant: "primary" },
+  current_frontier: { label: "最新", variant: "success" },
+  current_mainstream: { label: "主力", variant: "primary" },
   previous_generation: { label: "上一代", variant: "warning" },
   legacy: { label: "旧模型", variant: "danger" },
   deprecated: { label: "已弃用", variant: "danger" },
@@ -39,26 +39,28 @@ export function ModelCard({ m, familyModels = [] }: { m: ModelWithPricing; famil
   return (
     <Link
       href={`/models/${encodeURIComponent(m.model_slug)}`}
-      className="glass group flex min-w-0 flex-col gap-4 overflow-hidden p-4 transition hover:-translate-y-0.5 hover:border-primary/40 hover:bg-bg-card-soft/80"
+      className="glass glass-hover group flex min-w-0 flex-col gap-3 overflow-hidden p-5"
     >
+      {/* 头部：模型名 + 标签 */}
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
-          <h3 className="font-semibold text-base text-white truncate group-hover:text-primary transition">
+          <h3 className="truncate text-base font-semibold text-white group-hover:text-primary transition">
             {m.model_name}
           </h3>
-          <p className="text-xs text-slate-400 mt-0.5 truncate">
-            {m.provider_name_zh} · {m.model_owner_provider || "模型所有者待确认"}
+          <p className="mt-0.5 truncate text-xs text-slate-500">
+            {m.provider_name_zh}
           </p>
         </div>
-        <div className="shrink-0 flex flex-col items-end gap-1">
+        <div className="flex shrink-0 flex-col items-end gap-1">
           <ConfidenceBadge variant={variant as never} />
           {tier !== "unknown" && <Tag variant={tierInfo.variant}>{tierInfo.label}</Tag>}
         </div>
       </div>
 
-      <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2">
-        <div className="surface min-w-0 p-3">
-          <p className="text-[11px] text-slate-500 mb-0.5">输入 / 1M tokens</p>
+      {/* 价格区 */}
+      <div className="grid min-w-0 grid-cols-2 gap-3">
+        <div className="rounded-xl border border-white/8 bg-white/[0.02] p-3">
+          <p className="text-[10px] text-slate-500">输入 / 1M</p>
           <PriceValue
             usd={m.input_per_1m_usd}
             currencyNative={m.currency_native}
@@ -67,8 +69,8 @@ export function ModelCard({ m, familyModels = [] }: { m: ModelWithPricing; famil
             preferCny={preferCny}
           />
         </div>
-        <div className="surface min-w-0 p-3">
-          <p className="text-[11px] text-slate-500 mb-0.5">输出 / 1M tokens</p>
+        <div className="rounded-xl border border-white/8 bg-white/[0.02] p-3">
+          <p className="text-[10px] text-slate-500">输出 / 1M</p>
           <PriceValue
             usd={m.output_per_1m_usd}
             currencyNative={m.currency_native}
@@ -79,6 +81,7 @@ export function ModelCard({ m, familyModels = [] }: { m: ModelWithPricing; famil
         </div>
       </div>
 
+      {/* 来源标签 */}
       <PriceSourceBadges
         channel={m.channel}
         isOfficial={m.is_official}
@@ -90,9 +93,10 @@ export function ModelCard({ m, familyModels = [] }: { m: ModelWithPricing; famil
         flags={m.data_quality_flags}
       />
 
-      <div className="flex items-center gap-2 flex-wrap text-[11px]">
+      {/* 能力标签 */}
+      <div className="flex items-center gap-1.5 flex-wrap text-[11px]">
         <span className="text-slate-500">
-          上下文：<span className="font-mono text-slate-300">{formatContext(m.context_length)}</span>
+          <span className="font-mono text-slate-400">{formatContext(m.context_length)}</span>
         </span>
         {m.capabilities?.slice(0, 3).map((capability) => (
           <Tag key={capability} variant="primary">
@@ -101,9 +105,10 @@ export function ModelCard({ m, familyModels = [] }: { m: ModelWithPricing; famil
         ))}
       </div>
 
-      <div className="flex min-w-0 items-center justify-between gap-3 border-t border-white/10 pt-2 text-[11px] text-slate-500">
-        <span className="shrink-0">更新 {relativeTime(m.updated_at)}</span>
-        <span className="min-w-0 truncate text-primary">
+      {/* 底部 */}
+      <div className="flex min-w-0 items-center justify-between gap-3 border-t border-white/5 pt-2.5 text-[10px] text-slate-500">
+        <span className="shrink-0">{relativeTime(m.updated_at)}</span>
+        <span className="min-w-0 truncate text-primary/70">
           {m.source_url && m.source_url !== "unknown" ? (m.primary_source_id || "来源") : "来源待确认"}
         </span>
       </div>

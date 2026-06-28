@@ -6,6 +6,7 @@ import {
   Radar,
   TrendingDown,
   TrendingUp,
+  Zap,
 } from "lucide-react";
 import { HeroSearch } from "@/components/hero-search";
 import { ModelCard } from "@/components/model-card";
@@ -28,8 +29,8 @@ export const metadata: Metadata = {
   alternates: { canonical: "/" },
 };
 
-/** 热门模型关键词——只展示用户关心的模型 */
-const POPULAR_MODEL_KEYWORDS = [
+/** 热门模型关键词 */
+const POPULAR_KEYWORDS = [
   "gpt-4o", "gpt-5", "o1", "o3",
   "claude-sonnet", "claude-opus", "claude-3-5",
   "gemini-2", "gemini-1.5",
@@ -40,14 +41,12 @@ const POPULAR_MODEL_KEYWORDS = [
 function isPopularModel(row: PlatformPriceRow): boolean {
   const slug = (row.model_slug ?? "").toLowerCase();
   const name = (row.model_name ?? "").toLowerCase();
-  return POPULAR_MODEL_KEYWORDS.some((kw) => slug.includes(kw) || name.includes(kw));
+  return POPULAR_KEYWORDS.some((kw) => slug.includes(kw) || name.includes(kw));
 }
 
 function formatPrice(usd: number | null, isDomestic: boolean): string {
   if (usd == null) return "-";
-  if (isDomestic) {
-    return `¥${(usd * config.fx.usdCny).toFixed(2)}`;
-  }
+  if (isDomestic) return `¥${(usd * config.fx.usdCny).toFixed(2)}`;
   return `$${usd.toFixed(2)}`;
 }
 
@@ -96,7 +95,7 @@ export default async function HomePage() {
     maxPerFamily: 1,
   }).items;
 
-  // 平台比价——只展示热门模型，按省钱比例排序
+  // 平台比价——只展示热门模型
   const platformGroups = new Map<string, { model_name: string; model_slug: string; provider_name_zh: string; prices: PlatformPriceRow[]; cheapest: PlatformPriceRow; official: PlatformPriceRow | null }>();
   for (const row of platformRows) {
     if (!row.input_per_1m_usd) continue;
@@ -110,7 +109,7 @@ export default async function HomePage() {
     if (row.is_official && !g.official) g.official = row;
   }
   const topPlatformSavings = Array.from(platformGroups.values())
-    .filter((g) => g.prices.length >= 2) // 至少2个平台才有意义
+    .filter((g) => g.prices.length >= 2)
     .map((g) => {
       const savings = g.official && g.official.input_per_1m_usd && g.cheapest.input_per_1m_usd
         ? Math.round((1 - g.cheapest.input_per_1m_usd / g.official.input_per_1m_usd) * 100)
@@ -118,46 +117,56 @@ export default async function HomePage() {
       return { ...g, savings };
     })
     .sort((a, b) => b.savings - a.savings)
-    .slice(0, 6);
+    .slice(0, 3);
 
-  // 国内/海外厂商分类
   const domesticProviders = providers.filter((p) => p.region === "cn").slice(0, 6);
   const overseasProviders = providers.filter((p) => p.region !== "cn").slice(0, 6);
 
   return (
-    <div className="space-y-10">
-      {/* Hero - 简洁直接 */}
-      <section className="glass mx-auto max-w-4xl px-6 py-10 text-center sm:py-14">
-        <div className="mb-4 inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary-soft px-3 py-1 text-xs text-primary">
-          <Radar className="h-3 w-3" /> 国内 / 海外 API 价格对比
-        </div>
-        <h1 className="text-3xl font-bold leading-tight tracking-tight text-white md:text-4xl">
-          哪个平台买 API 最便宜？
-        </h1>
-        <p className="mx-auto mt-4 max-w-xl text-sm leading-7 text-slate-400">
-          对比 DeepSeek、通义千问、Kimi、Claude、GPT 等模型在官方 API、云平台、聚合平台上的价格差异，一眼找到最划算的渠道。
-        </p>
-        <div className="mt-6 flex justify-center">
-          <HeroSearch />
-        </div>
-        <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
-          <Link href="/platform-compare" className="inline-flex h-10 items-center gap-1.5 rounded-md brand-gradient px-5 text-sm font-semibold text-white transition hover:shadow-glow">
-            <Layers className="h-3.5 w-3.5" /> 平台比价
-          </Link>
-          <Link href="/rankings/domestic" className="inline-flex h-10 items-center gap-1.5 rounded-md border border-white/10 bg-white/5 px-5 text-sm font-semibold text-white transition hover:bg-white/10">
-            <TrendingUp className="h-3.5 w-3.5" /> 国内价格榜
-          </Link>
+    <div className="space-y-12">
+      {/* ===== Hero ===== */}
+      <section className="relative overflow-hidden rounded-2xl">
+        {/* 背景光效 */}
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/8 via-transparent to-purple/6" />
+        <div className="absolute -top-24 left-1/2 h-48 w-[600px] -translate-x-1/2 rounded-full bg-primary/10 blur-[80px] pulse-glow" />
+        <div className="absolute top-20 right-0 h-32 w-32 rounded-full bg-cyan/8 blur-[60px]" />
+
+        <div className="relative px-6 py-12 text-center sm:py-16">
+          <div className="mb-5 inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary-soft px-3 py-1 text-xs text-primary">
+            <Radar className="h-3 w-3" /> 实时追踪 167+ 平台 API 价格
+          </div>
+          <h1 className="text-4xl font-bold leading-tight tracking-tight text-white sm:text-5xl">
+            哪个平台买 API
+            <br />
+            <span className="gradient-text">最便宜？</span>
+          </h1>
+          <p className="mx-auto mt-5 max-w-lg text-sm leading-7 text-slate-400">
+            对比 DeepSeek、通义千问、Kimi、Claude、GPT 等模型在官方、云平台、聚合平台上的价格，一眼找到最划算的渠道。
+          </p>
+          <div className="mt-8 flex justify-center">
+            <HeroSearch />
+          </div>
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+            <Link href="/platform-compare" className="inline-flex h-11 items-center gap-2 rounded-xl brand-glow px-6 text-sm font-semibold text-white">
+              <Layers className="h-4 w-4" /> 平台比价
+            </Link>
+            <Link href="/rankings/domestic" className="inline-flex h-11 items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-6 text-sm font-semibold text-white transition hover:border-primary/30 hover:bg-white/8">
+              <TrendingUp className="h-4 w-4" /> 国内价格榜
+            </Link>
+          </div>
         </div>
       </section>
 
-      {/* 板块1：国内 API 性价比榜 */}
-      <section>
-        <div className="mb-5 flex items-end justify-between">
+      {/* ===== 板块1：国内 API 性价比榜 ===== */}
+      <section className="fade-up">
+        <div className="mb-6 flex items-end justify-between">
           <div>
-            <h2 className="flex items-center gap-2 text-xl font-bold text-white">
-              <span className="text-cyan">国内</span> API 性价比榜
-            </h2>
-            <p className="mt-1 text-xs text-slate-500">国内可直接购买的平台，人民币价格排序</p>
+            <div className="mb-2 flex items-center gap-2">
+              <span className="inline-block h-5 w-1 rounded-full bg-gradient-to-b from-cyan to-primary" />
+              <span className="text-xs font-medium text-cyan">国内可直接购买</span>
+            </div>
+            <h2 className="text-2xl font-bold text-white">国内 API 性价比榜</h2>
+            <p className="mt-1 text-xs text-slate-500">人民币价格排序，覆盖硅基流动、阿里百炼、火山方舟等国内平台</p>
           </div>
           <Link href="/rankings/domestic" className="flex items-center gap-1 text-xs text-primary hover:text-primary-hover">
             完整榜单 <ArrowRight className="h-3 w-3" />
@@ -171,15 +180,17 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* 板块2：平台比价省钱 */}
+      {/* ===== 板块2：平台比价省钱 ===== */}
       {topPlatformSavings.length > 0 && (
-        <section>
-          <div className="mb-5 flex items-end justify-between">
+        <section className="fade-up fade-up-1">
+          <div className="mb-6 flex items-end justify-between">
             <div>
-              <h2 className="flex items-center gap-2 text-xl font-bold text-white">
-                <TrendingDown className="h-5 w-5 text-success" /> 平台比价省钱
-              </h2>
-              <p className="mt-1 text-xs text-slate-500">同一模型不同平台价格差异，绿色为最低价</p>
+              <div className="mb-2 flex items-center gap-2">
+                <span className="inline-block h-5 w-1 rounded-full bg-gradient-to-b from-success to-cyan" />
+                <span className="text-xs font-medium text-success">同模型不同平台差价</span>
+              </div>
+              <h2 className="text-2xl font-bold text-white">平台比价省钱</h2>
+              <p className="mt-1 text-xs text-slate-500">同一模型在不同平台价格可能差 2-5 倍，绿色为最低价</p>
             </div>
             <Link href="/platform-compare" className="flex items-center gap-1 text-xs text-primary hover:text-primary-hover">
               全部比价 <ArrowRight className="h-3 w-3" />
@@ -194,35 +205,35 @@ export default async function HomePage() {
                 <Link
                   key={item.model_slug}
                   href={`/models/${encodeURIComponent(item.model_slug)}`}
-                  className="glass p-4 transition hover:border-success/40"
+                  className="glass glass-hover group p-5"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-white">{item.model_name}</p>
-                      <p className="mt-0.5 text-[10px] text-slate-500">{item.provider_name_zh}</p>
+                      <p className="truncate text-base font-semibold text-white group-hover:text-primary transition">{item.model_name}</p>
+                      <p className="mt-0.5 text-[11px] text-slate-500">{item.provider_name_zh}</p>
                     </div>
                     {item.savings > 0 && (
-                      <span className="shrink-0 inline-flex items-center gap-1 rounded-md border border-success/30 bg-success/10 px-2 py-0.5 text-[10px] font-semibold text-success">
-                        <TrendingDown className="h-2.5 w-2.5" /> {item.savings}%
+                      <span className="shrink-0 inline-flex items-center gap-1 rounded-lg border border-success/25 bg-success/8 px-2.5 py-1 text-[11px] font-bold text-success">
+                        <TrendingDown className="h-3 w-3" /> {item.savings}%
                       </span>
                     )}
                   </div>
-                  <div className="mt-3 grid grid-cols-2 gap-2">
-                    <div className="rounded-md border border-success/30 bg-success/5 p-2">
-                      <p className="text-[9px] text-slate-500">最低价</p>
-                      <p className="text-sm font-bold text-success">{formatPrice(cheapest.input_per_1m_usd, isDomestic)}</p>
+                  <div className="mt-4 grid grid-cols-2 gap-3">
+                    <div className="rounded-xl border border-success/20 bg-success/5 p-3">
+                      <p className="text-[10px] text-slate-500">最低价</p>
+                      <p className="mt-1 text-lg font-bold gradient-text-success">{formatPrice(cheapest.input_per_1m_usd, isDomestic)}</p>
                       <p className="text-[9px] text-slate-500 truncate">{platformLabel(cheapest)}</p>
                     </div>
                     {official && official.pricing_id !== cheapest.pricing_id ? (
-                      <div className="rounded-md border border-white/10 bg-white/[0.02] p-2">
-                        <p className="text-[9px] text-slate-500">官方价</p>
-                        <p className="text-sm font-semibold text-slate-400 line-through">{formatPrice(official.input_per_1m_usd, isDomestic)}</p>
+                      <div className="rounded-xl border border-white/8 bg-white/[0.02] p-3">
+                        <p className="text-[10px] text-slate-500">官方价</p>
+                        <p className="mt-1 text-lg font-semibold text-slate-400 line-through">{formatPrice(official.input_per_1m_usd, isDomestic)}</p>
                         <p className="text-[9px] text-slate-500 truncate">{platformLabel(official)}</p>
                       </div>
                     ) : (
-                      <div className="rounded-md border border-white/10 bg-white/[0.02] p-2">
-                        <p className="text-[9px] text-slate-500">平台数</p>
-                        <p className="text-sm font-semibold text-slate-300">{item.prices.length} 个</p>
+                      <div className="rounded-xl border border-white/8 bg-white/[0.02] p-3">
+                        <p className="text-[10px] text-slate-500">平台数</p>
+                        <p className="mt-1 text-lg font-semibold text-slate-300">{item.prices.length} 个</p>
                         <p className="text-[9px] text-slate-500">渠道报价</p>
                       </div>
                     )}
@@ -234,34 +245,53 @@ export default async function HomePage() {
         </section>
       )}
 
-      {/* 板块3：国内/海外平台 */}
-      <section>
+      {/* ===== 板块3：国内/海外平台 ===== */}
+      <section className="fade-up fade-up-2">
         <div className="grid gap-6 lg:grid-cols-2">
           <div>
-            <h2 className="mb-4 flex items-center gap-2 text-lg font-bold text-white">
-              <span className="text-cyan">国内</span>平台
-            </h2>
+            <div className="mb-4 flex items-center gap-2">
+              <span className="inline-block h-5 w-1 rounded-full bg-gradient-to-b from-cyan to-primary" />
+              <h2 className="text-lg font-bold text-white">国内平台</h2>
+            </div>
             <div className="grid grid-cols-2 gap-3">
               {domesticProviders.map((provider) => (
-                <Link key={provider.slug} href={`/providers/${provider.slug}`} className="glass p-3 transition hover:border-cyan/40">
-                  <p className="truncate text-sm font-medium text-white">{provider.name_zh}</p>
-                  <p className="mt-0.5 text-[10px] text-slate-500">{provider.model_count} 个模型</p>
+                <Link key={provider.slug} href={`/providers/${provider.slug}`} className="glass glass-hover group p-4">
+                  <p className="truncate text-sm font-medium text-white group-hover:text-cyan transition">{provider.name_zh}</p>
+                  <p className="mt-1 text-[10px] text-slate-500">{provider.model_count} 个模型</p>
                 </Link>
               ))}
             </div>
           </div>
           <div>
-            <h2 className="mb-4 flex items-center gap-2 text-lg font-bold text-white">
-              <span className="text-primary">海外</span>平台
-            </h2>
+            <div className="mb-4 flex items-center gap-2">
+              <span className="inline-block h-5 w-1 rounded-full bg-gradient-to-b from-primary to-purple" />
+              <h2 className="text-lg font-bold text-white">海外平台</h2>
+            </div>
             <div className="grid grid-cols-2 gap-3">
               {overseasProviders.map((provider) => (
-                <Link key={provider.slug} href={`/providers/${provider.slug}`} className="glass p-3 transition hover:border-primary/40">
-                  <p className="truncate text-sm font-medium text-white">{provider.name_zh}</p>
-                  <p className="mt-0.5 text-[10px] text-slate-500">{provider.model_count} 个模型</p>
+                <Link key={provider.slug} href={`/providers/${provider.slug}`} className="glass glass-hover group p-4">
+                  <p className="truncate text-sm font-medium text-white group-hover:text-primary transition">{provider.name_zh}</p>
+                  <p className="mt-1 text-[10px] text-slate-500">{provider.model_count} 个模型</p>
                 </Link>
               ))}
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ===== 底部 CTA ===== */}
+      <section className="fade-up fade-up-3">
+        <div className="glass relative overflow-hidden p-8 text-center">
+          <div className="absolute -top-20 left-1/2 h-40 w-[400px] -translate-x-1/2 rounded-full bg-primary/8 blur-[60px]" />
+          <div className="relative">
+            <Zap className="mx-auto mb-3 h-6 w-6 text-primary" />
+            <h2 className="text-xl font-bold text-white">不确定选哪个模型？</h2>
+            <p className="mx-auto mt-2 max-w-md text-sm text-slate-400">
+              输入你的场景和预算，获取带理由的选型建议和替代方案。
+            </p>
+            <Link href="/recommend" className="mt-5 inline-flex h-11 items-center gap-2 rounded-xl border border-primary/30 bg-primary-soft px-6 text-sm font-semibold text-primary transition hover:bg-primary/10">
+              开始推荐 <ArrowRight className="h-4 w-4" />
+            </Link>
           </div>
         </div>
       </section>
