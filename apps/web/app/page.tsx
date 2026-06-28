@@ -117,7 +117,7 @@ export default async function HomePage() {
     listLatestModelCandidates(120),
     listOfficialCurrentCatalog(80),
     dataFreshnessOverview(),
-    listPlatformComparison(12),
+    listPlatformComparison(40),
   ]);
 
   const officialModels = officialCatalog
