@@ -795,6 +795,8 @@ export async function listModels(filter?: {
     eq(models.status, "active"),
     eq(pricing.is_current, true),
     eq(pricing.pricing_type, "api_token"),
+    sql`pr.updated_at > now() - interval '180 days'`,
+    sql`(pr.effective_end_at IS NULL OR pr.effective_end_at > now())`,
   ];
   if (filter?.providerSlug) {
     conditions.push(sql`(coalesce(${providers.canonical_slug}, ${providers.slug}) = ${filter.providerSlug} or ${providers.slug} = ${filter.providerSlug})`);
@@ -862,6 +864,8 @@ export async function getModelBySlug(slug: string): Promise<ModelWithPricing | n
       eq(models.slug, slug),
       eq(pricing.is_current, true),
       eq(pricing.pricing_type, "api_token"),
+      sql`pricing.updated_at > now() - interval '180 days'`,
+      sql`(pricing.effective_end_at IS NULL OR pricing.effective_end_at > now())`,
     ))
     .limit(1);
   if (rows.length === 0) return null;
@@ -922,6 +926,8 @@ export async function getModelPricingList(modelId: string): Promise<PricingRow[]
       and(
         eq(pricing.model_id, modelId),
         eq(pricing.is_current, true),
+        sql`pricing.updated_at > now() - interval '180 days'`,
+        sql`(pricing.effective_end_at IS NULL OR pricing.effective_end_at > now())`,
       ),
     )
     .orderBy(pricing.is_official, pricing.input_per_1m_usd);
@@ -998,6 +1004,11 @@ export async function listPlatformComparison(limit = 30): Promise<PlatformPriceR
         AND pr.is_current = true
         AND pr.pricing_type = 'api_token'
         AND pr.input_per_1m_usd IS NOT NULL
+        AND pr.updated_at > now() - interval '90 days'
+        AND (pr.effective_end_at IS NULL OR pr.effective_end_at > now())
+        AND pr.need_manual_review = false
+        AND pr.confidence_score >= 0.5
+        AND m.lifecycle_tier IN ('current_frontier', 'current_mainstream')
         AND (
           m.slug ~* '(gpt-4o|gpt-5|o1|o3|claude-sonnet|claude-opus|claude-3-5|gemini-2|gemini-1\.5|deepseek|qwen|glm-4|kimi|moonshot|doubao|ernie|llama-4|mistral-large|minimax)'
           OR m.name ~* '(GPT-4o|GPT-5|Claude|Gemini|DeepSeek|Qwen|GLM-4|Kimi|Moonshot|豆包|Doubao|ERNIE|Llama 4|Mistral Large|MiniMax)'
@@ -1121,6 +1132,7 @@ export async function getRecentPriceChanges(limit = 10) {
     .from(priceChangeLog)
     .innerJoin(models, eq(models.id, priceChangeLog.model_id))
     .innerJoin(providers, eq(providers.id, models.provider_id))
+    .where(gte(priceChangeLog.detected_at, sql`now() - interval '30 days'`))
     .orderBy(desc(priceChangeLog.detected_at))
     .limit(limit);
   return rows.map((r) => ({
@@ -1151,7 +1163,13 @@ export async function listActivePromotions(limit = 20) {
     })
     .from(promotions)
     .innerJoin(providers, eq(providers.id, promotions.provider_id))
-    .where(eq(promotions.is_active, true))
+    .where(
+      and(
+        eq(promotions.is_active, true),
+        sql`(promotions.ends_at IS NULL OR promotions.ends_at > now())`,
+        sql`(promotions.starts_at IS NULL OR promotions.starts_at <= now())`,
+      ),
+    )
     .orderBy(desc(promotions.created_at))
     .limit(limit);
   return rows.map((r) => ({
