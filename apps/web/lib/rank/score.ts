@@ -244,7 +244,7 @@ function filterModels(models: ModelWithPricing[], opts: RankOptions, familyModel
   }
   if (opts.hideSuperseded ?? true) result = result.filter((m) => !m.has_newer_family_model);
   if (opts.hideStale ?? true) {
-    const maxAge = opts.maxSourceAgeHours ?? 36;
+    const maxAge = opts.maxSourceAgeHours ?? 168;
     result = result.filter((m) => {
       const observedAge = m.source_age_hours ?? m.pricing_age_hours;
       if (observedAge == null) return true;
@@ -257,7 +257,7 @@ function filterModels(models: ModelWithPricing[], opts: RankOptions, familyModel
       if (flags.has("suspicious_name") || flags.has("needs_manual_review") || flags.has("missing_price_source_url")) return false;
       if (flags.has("aggregator_only") && !m.model_is_recommended_by_official && !m.model_is_default_in_official_docs) return false;
       if ((m.status === "preview" || m.status === "beta" || /preview|beta|experimental/i.test(m.model_name)) && !m.model_is_recommended_by_official && !m.model_is_default_in_official_docs) return false;
-      if (m.source_freshness_status !== "fresh") return false;
+      if (m.source_freshness_status === "stale") return false;
       if (!["current", "recent"].includes(m.model_recency_status)) return false;
       if (m.has_newer_family_model || m.superseded_by_model_id) return false;
       if (opts.requireOfficialCurrent && !(m.official_current_catalog_match && (m.is_official_current || m.is_official_recommended))) return false;

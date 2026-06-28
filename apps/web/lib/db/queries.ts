@@ -212,15 +212,15 @@ function freshnessStatus(sourceAge: number | null, pricingAge: number | null): M
   const observed = [sourceAge, pricingAge].filter((x): x is number => x != null);
   if (observed.length === 0) return "unknown";
   const age = Math.min(...observed);
-  if (age <= 12) return "fresh";
-  if (age <= 24) return "warning";
+  if (age <= 24) return "fresh";
+  if (age <= 72) return "warning";
   return "stale";
 }
 
 function sourceFreshnessStatus(sourceAge: number | null): ModelWithPricing["source_freshness_status"] {
   if (sourceAge == null) return "unknown";
-  if (sourceAge <= 12) return "fresh";
-  if (sourceAge <= 24) return "warning";
+  if (sourceAge <= 24) return "fresh";
+  if (sourceAge <= 72) return "warning";
   return "stale";
 }
 

@@ -32,7 +32,7 @@ export async function GET(
   const hideSuperseded = boolParam(url, "hide_superseded", true);
   const homepageStrict = boolParam(url, "homepage_strict", false);
   const requireOfficialCurrent = boolParam(url, "require_official_current", false);
-  const maxSourceAgeHours = Math.min(Math.max(parseInt(url.searchParams.get("max_source_age_hours") ?? "24"), 1), 720);
+  const maxSourceAgeHours = Math.min(Math.max(parseInt(url.searchParams.get("max_source_age_hours") ?? "168"), 1), 720);
   const filterRegion = url.searchParams.get("region");
   const filterChannel = url.searchParams.get("channel");
   const filterProvider = url.searchParams.get("provider");
