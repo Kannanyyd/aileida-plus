@@ -5,9 +5,11 @@ import {
   ArrowRight,
   Clock3,
   Database,
+  Layers,
   Radar,
   Search,
   Sparkles,
+  TrendingDown,
   TrendingUp,
 } from "lucide-react";
 import { HeroSearch } from "@/components/hero-search";
@@ -22,9 +24,12 @@ import {
   listOfficialCurrentCatalog,
   listLatestModelCandidates,
   listModels,
+  listPlatformComparison,
   listProviders,
+  type PlatformPriceRow,
 } from "@/lib/db/queries";
 import { rank, RANKING_PRESETS } from "@/lib/rank/score";
+import { extractModelFamily, detectLifecycleTier } from "@pricing/core";
 
 export const revalidate = 60;
 
@@ -52,17 +57,21 @@ function freshnessTone(age: number | null) {
   return "border-danger/40 text-danger";
 }
 
-function familyKey(value: { model_family?: string | null; family?: string | null; model_slug?: string; model_name?: string }) {
-  return (value.model_family ?? value.family ?? value.model_slug ?? value.model_name ?? "")
-    .toLowerCase()
-    .replace(/-(latest|preview|beta|instruct|thinking|reasoning|non-reasoning|fast|turbo|mini|nano|chat|online)$/g, "")
-    .replace(/-\d{4,8}$/g, "");
+function familyKey(value: { model_family?: string | null; family?: string | null; model_slug?: string; model_name?: string; provider_slug?: string }) {
+  const family = value.model_family ?? value.family ?? extractModelFamily(value.model_slug ?? value.model_name ?? "");
+  const prov = value.provider_slug ?? "";
+  return `${prov}/${family}`;
 }
 
-function isObsoleteHomepageModel(value: { model_slug?: string | null; model_family?: string | null; official_name?: string | null; official_status?: string | null }) {
-  const text = `${value.model_slug ?? ""} ${value.model_family ?? ""} ${value.official_name ?? ""}`.toLowerCase();
-  if (value.official_status === "previous" || value.official_status === "deprecated") return true;
-  return /\b(deepseek-r1|deepseek-reasoner|gpt-4o|gpt-4-turbo|gpt-4\b|claude-3(?:-|$)|gemini-2\.5|gemini-1\.5|llama-3(?:-|$)|qwen2(?:\.5)?|doubao-1\.5)\b/i.test(text);
+function isObsoleteHomepageModel(value: { provider_slug?: string; model_slug?: string | null; model_name?: string | null; model_family?: string | null; official_name?: string | null; official_status?: string | null; release_date?: Date | string | null }) {
+  const tier = detectLifecycleTier({
+    providerSlug: value.provider_slug ?? "",
+    modelSlug: value.model_slug ?? value.official_name ?? "",
+    modelName: value.model_name ?? value.official_name ?? undefined,
+    status: value.official_status === "deprecated" ? "deprecated" : undefined,
+    releaseDate: value.release_date ?? undefined,
+  });
+  return tier === "legacy" || tier === "deprecated";
 }
 
 function selectLatestHomepageCandidates<T extends {
@@ -87,7 +96,7 @@ function selectLatestHomepageCandidates<T extends {
     const flags = new Set(item.data_quality_flags ?? []);
     if (flags.has("suspicious_name")) continue;
     const provider = item.selling_platform_provider || item.source_provider || item.provider_slug;
-    const family = `${provider}/${familyKey(item)}`;
+    const family = familyKey({ ...item, provider_slug: provider });
     if ((providerCount.get(provider) ?? 0) >= 2) continue;
     if ((familyCount.get(family) ?? 0) >= 1) continue;
     providerCount.set(provider, (providerCount.get(provider) ?? 0) + 1);
@@ -99,7 +108,7 @@ function selectLatestHomepageCandidates<T extends {
 }
 
 export default async function HomePage() {
-  const [overview, models, domesticModels, changes, providers, latestCandidatesRaw, officialCatalog, freshness] = await Promise.all([
+  const [overview, models, domesticModels, changes, providers, latestCandidatesRaw, officialCatalog, freshness, platformRows] = await Promise.all([
     dashboardOverview(),
     listModels({ limit: 600 }),
     listModels({ limit: 300, region: "china_mainland" }),
@@ -108,6 +117,7 @@ export default async function HomePage() {
     listLatestModelCandidates(120),
     listOfficialCurrentCatalog(80),
     dataFreshnessOverview(),
+    listPlatformComparison(12),
   ]);
 
   const officialModels = officialCatalog
@@ -150,11 +160,11 @@ export default async function HomePage() {
           <HeroSearch />
         </div>
         <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
-          <Link href="/rankings/domestic" className="inline-flex h-10 items-center gap-1.5 rounded-md brand-gradient px-4 text-sm font-semibold text-white transition hover:shadow-glow">
-            <TrendingUp className="h-3.5 w-3.5" /> 国内人民币价格榜
+          <Link href="/platform-compare" className="inline-flex h-10 items-center gap-1.5 rounded-md brand-gradient px-4 text-sm font-semibold text-white transition hover:shadow-glow">
+            <Layers className="h-3.5 w-3.5" /> 平台比价
           </Link>
-          <Link href="/rankings/frontier-value" className="inline-flex h-10 items-center gap-1.5 rounded-md border border-white/10 bg-white/5 px-4 text-sm font-semibold text-white transition hover:bg-white/10">
-            <Database className="h-3.5 w-3.5" /> 官方当前主力榜
+          <Link href="/rankings/domestic" className="inline-flex h-10 items-center gap-1.5 rounded-md border border-white/10 bg-white/5 px-4 text-sm font-semibold text-white transition hover:bg-white/10">
+            <TrendingUp className="h-3.5 w-3.5" /> 国内价格榜
           </Link>
         </div>
 
@@ -196,6 +206,62 @@ export default async function HomePage() {
       </section>
 
       <DataOverviewCards data={overview} />
+
+      {(() => {
+        const platformGroups = new Map<string, { model_name: string; model_slug: string; provider_name_zh: string; provider_region: string | null; prices: PlatformPriceRow[]; cheapest: PlatformPriceRow; official: PlatformPriceRow | null }>();
+        for (const row of platformRows) {
+          if (!row.input_per_1m_usd) continue;
+          if (!platformGroups.has(row.model_id)) {
+            platformGroups.set(row.model_id, { model_name: row.model_name, model_slug: row.model_slug, provider_name_zh: row.provider_name_zh, provider_region: row.provider_region, prices: [], cheapest: row, official: null });
+          }
+          const g = platformGroups.get(row.model_id)!;
+          g.prices.push(row);
+          if (row.input_per_1m_usd < (g.cheapest.input_per_1m_usd ?? 999)) g.cheapest = row;
+          if (row.is_official && !g.official) g.official = row;
+        }
+        const topSavings = Array.from(platformGroups.values())
+          .filter((g) => g.official && g.cheapest.input_per_1m_usd && g.official.input_per_1m_usd && g.cheapest.input_per_1m_usd < g.official.input_per_1m_usd)
+          .map((g) => ({ ...g, savings: Math.round((1 - g.cheapest.input_per_1m_usd! / g.official!.input_per_1m_usd!) * 100) }))
+          .sort((a, b) => b.savings - a.savings)
+          .slice(0, 4);
+
+        if (topSavings.length === 0) return null;
+
+        return (
+          <section data-home-section="platform-savings">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="flex items-center gap-2 text-lg font-semibold text-white">
+                <TrendingDown className="h-4 w-4 text-success" /> 平台省钱速览
+              </h2>
+              <Link href="/platform-compare" className="flex items-center gap-1 text-xs text-primary hover:text-primary-hover">
+                全部比价 <ArrowRight className="h-3 w-3" />
+              </Link>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {topSavings.map((item) => (
+                <Link key={item.model_slug} href={`/models/${encodeURIComponent(item.model_slug)}`} className="glass p-4 transition hover:border-success/40">
+                  <p className="truncate text-sm font-semibold text-white">{item.model_name}</p>
+                  <p className="mt-0.5 text-[10px] text-slate-500">{item.provider_name_zh}</p>
+                  <div className="mt-3 flex items-end justify-between gap-2">
+                    <div>
+                      <p className="text-[10px] text-slate-500">最低价</p>
+                      <p className="text-sm font-bold text-success">${item.cheapest.input_per_1m_usd?.toFixed(2)}</p>
+                      <p className="text-[9px] text-slate-500">{item.cheapest.platform || item.cheapest.channel}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[10px] text-slate-500">官方价</p>
+                      <p className="text-sm text-slate-400 line-through">${item.official?.input_per_1m_usd?.toFixed(2)}</p>
+                    </div>
+                  </div>
+                  <div className="mt-2 inline-flex items-center gap-1 rounded-md border border-success/30 bg-success/10 px-2 py-0.5 text-[10px] text-success">
+                    <TrendingDown className="h-2.5 w-2.5" /> 省 {item.savings}%
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </section>
+        );
+      })()}
 
       <section>
         <div className="mb-4 flex items-center justify-between">
@@ -298,14 +364,20 @@ export default async function HomePage() {
 
       <section data-home-section="ranking-links">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-white">排行榜入口</h2>
-          <Link href="/rankings" className="text-xs text-primary hover:text-primary-hover">全部榜单</Link>
+          <h2 className="text-lg font-semibold text-white">快速入口</h2>
         </div>
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
-          {Object.keys(RANKING_PRESETS).slice(0, 12).map((key) => (
-            <Link key={key} href={`/rankings/${key}`} className="glass p-4 text-center transition hover:border-primary/40">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
+          <Link href="/platform-compare" className="glass p-4 transition hover:border-success/40">
+            <div className="flex items-center gap-2">
+              <Layers className="h-4 w-4 text-success" />
+              <p className="text-sm font-semibold text-white">平台比价</p>
+            </div>
+            <p className="mt-1 text-[10px] text-slate-500">同一模型哪个平台最便宜</p>
+          </Link>
+          {Object.keys(RANKING_PRESETS).slice(0, 6).map((key) => (
+            <Link key={key} href={`/rankings/${key}`} className="glass p-4 transition hover:border-primary/40">
               <p className="text-sm font-semibold text-white">{key}</p>
-              <p className="mt-1 text-[10px] text-slate-500">查看 Top 20 / 50 / 100</p>
+              <p className="mt-1 text-[10px] text-slate-500">Top 20 / 50 / 100</p>
             </Link>
           ))}
         </div>

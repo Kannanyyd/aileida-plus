@@ -19,6 +19,7 @@ import {
   providerAliasInfo,
   PROVIDER_ALIAS_RULES,
 } from "../data-quality/canonical";
+import { config } from "../env";
 
 export interface ModelWithPricing {
   model_id: string;
@@ -45,6 +46,8 @@ export interface ModelWithPricing {
   provider_needs_alias_review: boolean;
   input_per_1m_usd: number | null;
   output_per_1m_usd: number | null;
+  input_per_1m_cny: number | null;
+  output_per_1m_cny: number | null;
   input_cached_read_per_1m_usd: number | null;
   batch_discount: number | null;
   currency_native: string;
@@ -482,6 +485,8 @@ function normalizeModelRow(r: typeof baseSelect extends infer _T ? any : never):
     official_source_url: r.official_source_url ?? null,
     input_per_1m_usd: toNumber(r.input_per_1m_usd),
     output_per_1m_usd: toNumber(r.output_per_1m_usd),
+    input_per_1m_cny: toNumber(r.input_per_1m_usd) != null ? Math.round(Number(r.input_per_1m_usd) * config.fx.usdCny * 10000) / 10000 : null,
+    output_per_1m_cny: toNumber(r.output_per_1m_usd) != null ? Math.round(Number(r.output_per_1m_usd) * config.fx.usdCny * 10000) / 10000 : null,
     input_cached_read_per_1m_usd: toNumber(r.input_cached_read_per_1m_usd),
     batch_discount: toNumber(r.batch_discount),
     confidence_score: Number(r.confidence_score),
@@ -926,6 +931,83 @@ export async function getModelPricingList(modelId: string): Promise<PricingRow[]
     output_per_1m_usd: r.output_per_1m_usd != null ? Number(r.output_per_1m_usd) : null,
     input_cached_read_per_1m_usd: r.input_cached_read_per_1m_usd != null ? Number(r.input_cached_read_per_1m_usd) : null,
     confidence_score: Number(r.confidence_score),
+  }));
+}
+
+export interface PlatformPriceRow {
+  model_id: string;
+  model_slug: string;
+  model_name: string;
+  provider_slug: string;
+  provider_name_zh: string;
+  provider_region: string | null;
+  model_lifecycle_tier: string | null;
+  context_length: number | null;
+  pricing_id: string;
+  input_per_1m_usd: number | null;
+  output_per_1m_usd: number | null;
+  currency_native: string;
+  region: string;
+  channel: string;
+  platform: string | null;
+  selling_platform_provider: string | null;
+  is_official: boolean;
+  is_aggregator: boolean;
+  is_domestic: boolean;
+  confidence_score: number;
+  source_url: string;
+  primary_source_id: string;
+  updated_at: Date;
+}
+
+/**
+ * 平台比价：返回热门模型在各平台的价格明细，用于横向对比哪个平台最便宜
+ */
+export async function listPlatformComparison(limit = 30): Promise<PlatformPriceRow[]> {
+  const rows = await db.execute(sql<PlatformPriceRow>`
+    SELECT
+      m.id AS model_id,
+      m.slug AS model_slug,
+      m.name AS model_name,
+      p.slug AS provider_slug,
+      p.name_zh AS provider_name_zh,
+      p.region AS provider_region,
+      m.lifecycle_tier AS model_lifecycle_tier,
+      m.context_length,
+      pr.id AS pricing_id,
+      pr.input_per_1m_usd,
+      pr.output_per_1m_usd,
+      pr.currency_native,
+      pr.region,
+      pr.channel,
+      pr.platform,
+      pr.selling_platform_provider,
+      pr.is_official,
+      pr.is_aggregator,
+      pr.is_domestic,
+      pr.confidence_score,
+      pr.source_url,
+      pr.primary_source_id,
+      pr.updated_at
+    FROM models m
+    INNER JOIN providers p ON p.id = m.provider_id
+    INNER JOIN pricing pr ON pr.model_id = m.id
+    WHERE m.status = 'active'
+      AND pr.is_current = true
+      AND pr.pricing_type = 'api_token'
+      AND pr.input_per_1m_usd IS NOT NULL
+      AND m.lifecycle_tier IN ('current_frontier', 'current_mainstream')
+    ORDER BY m.slug, pr.input_per_1m_usd ASC
+    LIMIT ${limit * 8}
+  `);
+  return (rows.rows as unknown as PlatformPriceRow[]).map((r) => ({
+    ...r,
+    input_per_1m_usd: r.input_per_1m_usd != null ? Number(r.input_per_1m_usd) : null,
+    output_per_1m_usd: r.output_per_1m_usd != null ? Number(r.output_per_1m_usd) : null,
+    confidence_score: Number(r.confidence_score),
+    is_official: Boolean(r.is_official),
+    is_aggregator: Boolean(r.is_aggregator),
+    is_domestic: Boolean(r.is_domestic),
   }));
 }
 

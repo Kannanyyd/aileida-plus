@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { Radar, Calculator, Trophy, Database, Sparkles, Newspaper } from "lucide-react";
+import { Radar, Calculator, Trophy, Database, Sparkles, Newspaper, Layers } from "lucide-react";
 
 const items = [
   { href: "/models", label: "模型库", icon: Database },
+  { href: "/platform-compare", label: "平台比价", icon: Layers },
   { href: "/recommend", label: "推荐", icon: Sparkles },
   { href: "/calculator", label: "计算器", icon: Calculator },
   { href: "/rankings", label: "排行榜", icon: Trophy },

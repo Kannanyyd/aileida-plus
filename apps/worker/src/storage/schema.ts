@@ -2,7 +2,7 @@
  * Drizzle ORM schema 镜像 —— 在 worker 中也使用同一份定义
  * 实际生产中两套进程通过 DATABASE_URL 共享数据
  */
-import { pgTable, uuid, text, integer, boolean, timestamp, jsonb, numeric, date, text as textType, index, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, integer, boolean, timestamp, jsonb, numeric, date, index, uniqueIndex } from "drizzle-orm/pg-core";
 
 export const providers = pgTable(
   "providers",

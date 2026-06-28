@@ -6,6 +6,7 @@ import { formatContext, relativeTime } from "@/lib/utils";
 import { ConfidenceBadge } from "./confidence-badge";
 import { Tag } from "./tag";
 import { PriceSourceBadges, PriceValue, SourceLink } from "./price-trust";
+import { getModelTier } from "@/lib/rank/score";
 
 const CAP_LABEL: Record<string, string> = {
   text: "文本",
@@ -19,10 +20,21 @@ const CAP_LABEL: Record<string, string> = {
   reasoning: "推理",
 };
 
-export function ModelCard({ m }: { m: ModelWithPricing }) {
+const TIER_LABEL: Record<string, { label: string; variant: "success" | "primary" | "warning" | "danger" | "cyan" | "default" }> = {
+  current_frontier: { label: "最新前沿", variant: "success" },
+  current_mainstream: { label: "当前主力", variant: "primary" },
+  previous_generation: { label: "上一代", variant: "warning" },
+  legacy: { label: "旧模型", variant: "danger" },
+  deprecated: { label: "已弃用", variant: "danger" },
+  unknown: { label: "待确认", variant: "default" },
+};
+
+export function ModelCard({ m, familyModels = [] }: { m: ModelWithPricing; familyModels?: Parameters<typeof getModelTier>[1] }) {
   const preferCny = m.currency_native === "CNY" || m.is_domestic || m.pricing_region === "china_mainland" || m.provider_region === "cn";
   const estimatedCurrency = m.currency_native !== "CNY" && preferCny;
   const variant = m.need_manual_review ? "review" : m.confidence_score >= 0.85 ? "official" : m.confidence_score >= 0.7 ? "multi-source" : "third-party";
+  const tier = getModelTier(m, familyModels);
+  const tierInfo = TIER_LABEL[tier] ?? TIER_LABEL.unknown;
 
   return (
     <Link
@@ -38,8 +50,9 @@ export function ModelCard({ m }: { m: ModelWithPricing }) {
             {m.provider_name_zh} · {m.model_owner_provider || "模型所有者待确认"}
           </p>
         </div>
-        <div className="shrink-0">
+        <div className="shrink-0 flex flex-col items-end gap-1">
           <ConfidenceBadge variant={variant as never} />
+          {tier !== "unknown" && <Tag variant={tierInfo.variant}>{tierInfo.label}</Tag>}
         </div>
       </div>
 
@@ -49,7 +62,7 @@ export function ModelCard({ m }: { m: ModelWithPricing }) {
           <PriceValue
             usd={m.input_per_1m_usd}
             currencyNative={m.currency_native}
-            nativeCny={m.currency_native === "CNY" && m.input_per_1m_usd != null ? m.input_per_1m_usd * 7.18 : null}
+            nativeCny={m.input_per_1m_cny}
             estimatedCurrency={estimatedCurrency}
             preferCny={preferCny}
           />
@@ -59,7 +72,7 @@ export function ModelCard({ m }: { m: ModelWithPricing }) {
           <PriceValue
             usd={m.output_per_1m_usd}
             currencyNative={m.currency_native}
-            nativeCny={m.currency_native === "CNY" && m.output_per_1m_usd != null ? m.output_per_1m_usd * 7.18 : null}
+            nativeCny={m.output_per_1m_cny}
             estimatedCurrency={estimatedCurrency}
             preferCny={preferCny}
           />

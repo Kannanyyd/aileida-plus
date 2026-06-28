@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { eq } from "drizzle-orm";
-import { Database, ExternalLink, ShieldCheck } from "lucide-react";
+import { Database, ExternalLink, ShieldCheck, TrendingDown, Crown } from "lucide-react";
 import { db } from "@/lib/db/client";
 import { modelStrengths } from "@/lib/db/schema";
 import { getModelBySlug, getModelPricingList, listModels } from "@/lib/db/queries";
@@ -129,6 +129,59 @@ export default async function ModelDetailPage({ params }: { params: Promise<{ sl
       </section>
 
       {strengths.length > 0 && <ModelStrengthsSection strengths={strengths} modelName={model.model_name} />}
+
+      {pricingList.length > 0 && (() => {
+        const tokenPriced = pricingList.filter((p) => p.input_per_1m_usd != null);
+        if (tokenPriced.length === 0) return null;
+        const sorted = [...tokenPriced].sort((a, b) => (a.input_per_1m_usd! - b.input_per_1m_usd!));
+        const cheapest = sorted[0];
+        const official = sorted.find((p) => p.is_official);
+        const savings = official && official.input_per_1m_usd! > cheapest.input_per_1m_usd!
+          ? Math.round((1 - cheapest.input_per_1m_usd! / official.input_per_1m_usd!) * 100)
+          : 0;
+        const platformName = cheapest.platform || cheapest.selling_platform_provider || cheapest.channel;
+        const cheapestIsDomestic = cheapest.is_domestic || cheapest.region === "china_mainland";
+        return (
+          <section className="glass p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <Crown className="w-4 h-4 text-success" />
+              <h2 className="text-sm font-semibold text-white">最低价平台</h2>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="rounded-lg border border-success/40 bg-success/5 p-4">
+                <p className="text-[10px] text-slate-500">最便宜的平台</p>
+                <p className="mt-1 text-sm font-bold text-success">{platformName}</p>
+                <p className="mt-2 text-2xl font-bold text-white">${cheapest.input_per_1m_usd?.toFixed(2)}</p>
+                <p className="text-[10px] text-slate-500">输入 / 1M tokens</p>
+                {cheapestIsDomestic && <p className="mt-1 text-[10px] text-cyan">国内渠道</p>}
+              </div>
+              {official && official.id !== cheapest.id && (
+                <div className="rounded-lg border border-primary/20 bg-primary-soft/20 p-4">
+                  <p className="text-[10px] text-slate-500">官方 API 价格</p>
+                  <p className="mt-1 text-sm font-semibold text-primary">{official.platform || "官方"}</p>
+                  <p className="mt-2 text-2xl font-semibold text-slate-300">${official.input_per_1m_usd?.toFixed(2)}</p>
+                  <p className="text-[10px] text-slate-500">输入 / 1M tokens</p>
+                </div>
+              )}
+              {savings > 0 && (
+                <div className="rounded-lg border border-success/30 bg-success/10 p-4 flex flex-col justify-center">
+                  <div className="inline-flex items-center gap-1.5 text-success">
+                    <TrendingDown className="w-5 h-5" />
+                    <span className="text-2xl font-bold">{savings}%</span>
+                  </div>
+                  <p className="mt-1 text-[11px] text-slate-400">比官方价便宜</p>
+                  <p className="mt-0.5 text-[10px] text-slate-500">{platformName} 是最低价渠道</p>
+                </div>
+              )}
+            </div>
+            <div className="mt-3 flex items-center gap-2">
+              <Link href="/platform-compare" className="text-[11px] text-primary hover:underline">
+                查看所有模型的平台比价 →
+              </Link>
+            </div>
+          </section>
+        );
+      })()}
 
       <section className="glass p-5">
         <div className="flex items-center justify-between gap-3 mb-3">

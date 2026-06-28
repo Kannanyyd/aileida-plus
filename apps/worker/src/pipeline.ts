@@ -47,7 +47,6 @@ const PROVIDER_META: Record<string, { name_zh: string; region: "cn" | "global"; 
   moonshot: { name_zh: "月之暗面 Kimi", region: "cn", homepage: "https://www.moonshot.cn" },
   zhipu: { name_zh: "智谱 AI", region: "cn", homepage: "https://www.zhipuai.cn" },
   baichuan: { name_zh: "百川智能", region: "cn", homepage: "https://www.baichuan-ai.com" },
-  MiniMax: { name_zh: "MiniMax", region: "cn", homepage: "https://api.MiniMax.chat" },
   minimax: { name_zh: "MiniMax", region: "cn", homepage: "https://platform.minimaxi.com" },
   yi: { name_zh: "零一万物", region: "cn", homepage: "https://www.lingyiwanwu.com" },
   perplexity: { name_zh: "Perplexity", region: "global", homepage: "https://www.perplexity.ai" },
@@ -66,14 +65,29 @@ const PROVIDER_META: Record<string, { name_zh: string; region: "cn" | "global"; 
   nvidia: { name_zh: "NVIDIA NIM", region: "global", homepage: "https://build.nvidia.com" },
 };
 
+const PROVIDER_ALIAS_MAP: Record<string, string> = {
+  "MiniMax": "minimax",
+  "MINIMAX": "minimax",
+  "OpenAI": "openai",
+  "Anthropic": "anthropic",
+  "Google": "google",
+  "DeepSeek": "deepseek",
+};
+
+function normalizeProviderSlug(slug: string): string {
+  const lower = slug.toLowerCase();
+  return PROVIDER_ALIAS_MAP[slug] ?? PROVIDER_ALIAS_MAP[lower] ?? lower;
+}
+
 async function ensureProvider(slug: string): Promise<string> {
-  const meta = PROVIDER_META[slug] ?? { name_zh: slug, region: "global" as const };
-  const found = await db.select().from(providers).where(eq(providers.slug, slug)).limit(1);
+  const normalizedSlug = normalizeProviderSlug(slug);
+  const meta = PROVIDER_META[normalizedSlug] ?? { name_zh: normalizedSlug, region: "global" as const };
+  const found = await db.select().from(providers).where(eq(providers.slug, normalizedSlug)).limit(1);
   if (found.length > 0) return found[0].id;
   const p = await upsertProvider({
-    slug,
+    slug: normalizedSlug,
     name_zh: meta.name_zh,
-    name_en: slug,
+    name_en: normalizedSlug,
     region: meta.region,
     homepage: meta.homepage,
   });
@@ -87,13 +101,16 @@ async function ingestModelsAndPricing(
 ) {
   const byProvider = new Map<string, { models: NormalizedModel[]; pricing: NormalizedPricing[] }>();
   for (const m of modelsList) {
-    if (!byProvider.has(m.provider_slug)) byProvider.set(m.provider_slug, { models: [], pricing: [] });
-    byProvider.get(m.provider_slug)!.models.push(m);
+    const pslug = normalizeProviderSlug(m.provider_slug);
+    if (!byProvider.has(pslug)) byProvider.set(pslug, { models: [], pricing: [] });
+    byProvider.get(pslug)!.models.push({ ...m, provider_slug: pslug });
   }
   for (const p of pricingList) {
-    const providerSlug = p.model_external_id.split("/")[0];
+    const rawProviderSlug = p.model_external_id.split("/")[0];
+    const providerSlug = normalizeProviderSlug(rawProviderSlug);
+    const normalizedExtId = p.model_external_id.replace(`${rawProviderSlug}/`, `${providerSlug}/`);
     if (!byProvider.has(providerSlug)) byProvider.set(providerSlug, { models: [], pricing: [] });
-    byProvider.get(providerSlug)!.pricing.push(p);
+    byProvider.get(providerSlug)!.pricing.push({ ...p, model_external_id: normalizedExtId });
   }
 
   let totalModels = 0;
