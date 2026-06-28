@@ -998,6 +998,10 @@ export async function listPlatformComparison(limit = 30): Promise<PlatformPriceR
         AND pr.is_current = true
         AND pr.pricing_type = 'api_token'
         AND pr.input_per_1m_usd IS NOT NULL
+        AND (
+          m.slug ~* '(gpt-4o|gpt-5|o1|o3|claude-sonnet|claude-opus|claude-3-5|gemini-2|gemini-1\.5|deepseek|qwen|glm-4|kimi|moonshot|doubao|ernie|llama-4|mistral-large|minimax)'
+          OR m.name ~* '(GPT-4o|GPT-5|Claude|Gemini|DeepSeek|Qwen|GLM-4|Kimi|Moonshot|豆包|Doubao|ERNIE|Llama 4|Mistral Large|MiniMax)'
+        )
     ),
     eligible_models AS (
       SELECT model_id, min(model_slug) AS model_slug

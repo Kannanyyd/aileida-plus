@@ -121,28 +121,21 @@ export default async function PlatformComparePage() {
 
   return (
     <div className="space-y-6">
-      <section className="glass p-5 sm:p-7">
-        <div className="flex items-center gap-2 mb-3">
-          <Layers className="w-5 h-5 text-primary" />
-          <h1 className="text-2xl font-bold text-white">平台比价</h1>
-        </div>
-        <p className="text-sm text-slate-400 max-w-2xl">
-          同一个模型，不同平台价格可能差 <span className="text-success font-semibold">2-5 倍</span>。
-          下方列出当前主流模型在各平台的 API 价格对比，<span className="text-success">绿色高亮</span>为最便宜的平台。
-          国内用户优先看人民币价格（¥），海外用户看美元价格（$）。
+      <section className="glass px-6 py-8 text-center">
+        <h1 className="text-2xl font-bold text-white">平台比价</h1>
+        <p className="mx-auto mt-2 max-w-xl text-sm text-slate-400">
+          同一模型在不同平台价格可能差 <span className="text-success font-semibold">2-5 倍</span>。
+          绿色高亮为最低价平台。
         </p>
-        <div className="mt-4 flex flex-wrap gap-3 text-[11px]">
+        <div className="mt-4 flex flex-wrap justify-center gap-2 text-[11px]">
           <span className="inline-flex items-center gap-1 rounded-md border border-success/30 bg-success/10 px-2 py-1 text-success">
-            <Crown className="w-3 h-3" /> 最便宜
+            <Crown className="w-3 h-3" /> 最低价
           </span>
           <span className="inline-flex items-center gap-1 rounded-md border border-cyan/30 bg-cyan/10 px-2 py-1 text-cyan">
             国内渠道
           </span>
           <span className="inline-flex items-center gap-1 rounded-md border border-primary/30 bg-primary-soft px-2 py-1 text-primary">
             官方渠道
-          </span>
-          <span className="inline-flex items-center gap-1 rounded-md border border-white/10 bg-white/5 px-2 py-1 text-slate-400">
-            聚合/第三方
           </span>
         </div>
       </section>
